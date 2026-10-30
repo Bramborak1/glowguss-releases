@@ -178,15 +178,21 @@ window.__SEED = {}; window.SVETLA_DB_KEY = "svetla-v2";
     else if (n && n.d3 && (n.d3.v || 0) > ((D[k].d3 || {}).v || 0)) D[k].d3 = JSON.parse(JSON.stringify(n.d3));   // better 3D layout from a newer version
     if (n && (n.rev || 0) > (D[k].rev || 0)) { D[k].modely = JSON.parse(JSON.stringify(n.modely)); D[k].rev = n.rev; }   // fixed fixture settings from a newer version
   });   // new saunas/shows from a newer file
+  // server backup (klient.js): every change is marked with its time, the client uploads it later
+  var META = KEY + "-zmeny", M = {}; try { M = JSON.parse(localStorage.getItem(META) || "{}"); } catch (e) { M = {}; }
+  function zmena(p, smazano) { M[p] = { t: new Date().toISOString(), x: !!smazano, ok: false }; try { localStorage.setItem(META, JSON.stringify(M)); } catch (e) {} if (window.__dbZmena) window.__dbZmena(); }
+  window.__svetlaDB = { D: function () { return D; }, M: function () { return M; },
+    prevzit: function (p, data, t, smazano) { if (smazano) delete D[p]; else D[p] = cp(data); M[p] = { t: t, x: !!smazano, ok: true }; persist(); try { localStorage.setItem(META, JSON.stringify(M)); } catch (e) {} },
+    odeslano: function (p, t) { if (M[p] && M[p].t === t) { M[p].ok = true; try { localStorage.setItem(META, JSON.stringify(M)); } catch (e) {} } } };
   function persist() { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) { console.warn("Uložení do prohlížeče selhalo", e); } }
   function cp(o) { return o === undefined ? undefined : JSON.parse(JSON.stringify(o)); }
   function snap(p) { return { id: p.split("/").pop(), exists: p in D, data: function () { return cp(D[p]); }, metadata: { hasPendingWrites: false } }; }
   function doc(p) {
     return { id: p.split("/").pop(),
       get: async function () { return snap(p); },
-      set: async function (d) { D[p] = cp(d); persist(); },
-      update: async function (d) { D[p] = Object.assign(D[p] || {}, cp(d)); persist(); },
-      delete: async function () { delete D[p]; persist(); },
+      set: async function (d) { D[p] = cp(d); persist(); zmena(p); },
+      update: async function (d) { D[p] = Object.assign(D[p] || {}, cp(d)); persist(); zmena(p); },
+      delete: async function () { delete D[p]; persist(); zmena(p, true); },
       onSnapshot: function (f) { setTimeout(function () { f(snap(p)); }, 0); return function () {}; } };
   }
   var db = { doc: doc, collection: function (c) { return { get: async function () { return { docs: Object.keys(D).filter(function (k) { var s = k.split("/"); return s[0] === c && s.length === 2; }).map(snap) }; }, doc: function (i) { return doc(c + "/" + i); } }; } };
@@ -328,7 +334,42 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     var s = load(); if (s && j.plati_do) { s.plati_do = j.plati_do; store(s); }
     return j;
   }
-  var api = { ascii: ascii, sec: sec, stavV: stavV, prihlasit: prihlasitGoogle, dokoncit: dokoncitPrihlaseni, odhlasit: odhlasit, zavolej: zavolej, session: load, zapnuto: function () { return !!cfg().url; } };
+  // backup of shows, saunas and music analyses to the user's own rows in public.data_uzivatele (row level security: only own rows)
+  var SYNC = /^(show|sauny|rozbor|beaty)\/[^\/]+$/, syncBezi = null, syncCasovac = null;
+  async function rest(path, opt) {
+    var t = await token(), o = opt || {};
+    var r = await fetch(cfg().url + "/rest/v1/" + path, { method: o.method || "GET", headers: Object.assign({ apikey: cfg().anon, Authorization: "Bearer " + t, "Content-Type": "application/json" }, o.headers || {}), body: o.body });
+    if (!r.ok) throw err("server", "Záloha na server selhala (" + r.status + ").");
+    return r.status === 204 ? null : r.json().catch(function () { return null; });
+  }
+  async function synchronizuj() {
+    var B = root.__svetlaDB; if (!B || !load()) return { stazeno: 0, odeslano: 0 };
+    if (syncBezi) return syncBezi;
+    syncBezi = (async function () {
+      var rows = await rest("data_uzivatele?select=cesta,data,upraveno,smazano"), D = B.D(), M = B.M(), stazeno = 0, odeslano = 0, server = {};
+      (rows || []).forEach(function (r) {
+        server[r.cesta] = r; var m = M[r.cesta];
+        if (!SYNC.test(r.cesta)) return;
+        if (!m || (m.ok && m.t !== r.upraveno && new Date(r.upraveno) > new Date(m.t)) || (!m.ok && new Date(r.upraveno) > new Date(m.t))) { B.prevzit(r.cesta, r.data, r.upraveno, r.smazano); stazeno++; }
+      });
+      var nahoru = Object.keys(D).filter(function (p) { return SYNC.test(p) && (!M[p] || !M[p].ok || !server[p]); })
+        .concat(Object.keys(M).filter(function (p) { return SYNC.test(p) && M[p].x && !M[p].ok; }));
+      var radky = nahoru.filter(function (p, i) { return nahoru.indexOf(p) === i; }).map(function (p) {
+        var t = (M[p] && M[p].t) || new Date().toISOString(), x = !(p in D);
+        return { cesta: p, data: x ? {} : D[p], upraveno: t, smazano: x };
+      });
+      for (var i = 0; i < radky.length; i += 20) {
+        var kus = radky.slice(i, i + 20);
+        await rest("data_uzivatele?on_conflict=user_id,cesta", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(kus) });
+        kus.forEach(function (r) { B.odeslano(r.cesta, r.upraveno); }); odeslano += kus.length;
+      }
+      return { stazeno: stazeno, odeslano: odeslano };
+    })();
+    try { return await syncBezi; } finally { syncBezi = null; }
+  }
+  // after each change: upload a few seconds later
+  root.__dbZmena = function () { clearTimeout(syncCasovac); syncCasovac = setTimeout(function () { synchronizuj().catch(function () {}); }, 4000); };
+  var api = { synchronizuj: synchronizuj, ascii: ascii, sec: sec, stavV: stavV, prihlasit: prihlasitGoogle, dokoncit: dokoncitPrihlaseni, odhlasit: odhlasit, zavolej: zavolej, session: load, zapnuto: function () { return !!cfg().url; } };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.SvetlaKlient = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
 
@@ -1463,7 +1504,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
             st.textContent = "Hledám beaty a části" + (d.pisne.length > 1 ? " (skladba " + (k + 1) + " z " + d.pisne.length + ")" : "") + "…";
             await new Promise(function (r) { setTimeout(r, 30); });
             var kus = d.mono.subarray(Math.floor(z * sr), Math.floor(ps.konec * sr)), ext = null;
-            if (!btStav) st.textContent = "Připravuji Beat This (poprvé stahuji model, asi 80 MB)…";
+            if (!btStav && window.GLOWGUSS_BEATTHIS) st.textContent = "Připravuji Beat This (poprvé stahuji model, asi 80 MB)…";
             if (await beatThis()) {
               try { ext = await window.SvetlaBeatThis.analyzuj(kus, function (q) { st.textContent = "Hledám beaty (Beat This)" + (d.pisne.length > 1 ? ", skladba " + (k + 1) + " z " + d.pisne.length : "") + ": " + Math.round(q * 100) + " %"; }); }
               catch (e) { ext = null; }
@@ -1507,6 +1548,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   var btStav = null;
   function beatThis() {
     if (btStav) return btStav;
+    // off for now: on Karma it matched madmom worse than the built-in tracker (73 % vs 97 %) and ran ~0.6x real time
+    if (!window.GLOWGUSS_BEATTHIS) return (btStav = Promise.resolve(false));
     var D = window.svetlaDesk;
     if (window.SvetlaBeatThis && window.GLOWGUSS_WEB && (!D || !D.beatModel)) return (btStav = webModel().then(function (m) { return m ? window.SvetlaBeatThis.nacti(m.model, m.wasm).then(function () { return true; }) : false; }).catch(function () { return false; }));
     if (!window.SvetlaBeatThis || !D || !D.beatModel) return (btStav = Promise.resolve(false));
@@ -1524,6 +1567,16 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var m = await get(M); if (m.byteLength < 20e6) return null;
     return { model: m, wasm: await get(W) };
   }
+  // remembered QuickDMX folders (IndexedDB keeps the folder handle, the browser asks again for permission after a restart)
+  function slozkaJde() { return !!window.showDirectoryPicker && !(window.svetlaDesk && window.svetlaDesk.googleKod); }
+  function idb(fn) { return new Promise(function (res, rej) { var o = indexedDB.open("glowguss", 1); o.onupgradeneeded = function () { o.result.createObjectStore("slozky"); }; o.onerror = function () { rej(o.error); };
+    o.onsuccess = function () { var t = o.result.transaction("slozky", "readwrite"), st = t.objectStore("slozky"), r = fn(st); t.oncomplete = function () { res(r && r.result); }; t.onerror = function () { rej(t.error); }; }; }); }
+  async function slozkaSauny(id) {
+    var h = null; try { h = await idb(function (st) { return st.get("sauna-" + id); }); } catch (e) { return null; }
+    if (!h) return null;
+    try { var q = await h.queryPermission({ mode: "readwrite" }); if (q !== "granted") q = await h.requestPermission({ mode: "readwrite" }); return q === "granted" ? h : null; } catch (e) { return null; }
+  }
+  async function ulozSlozku(id, h) { try { await idb(function (st) { return st.put(h, "sauna-" + id); }); } catch (e) {} }
   function saveShow(show, fields) { Object.assign(G.shows[show.id], clone(fields)); planCache.key = ""; return save("show/" + show.id, fields); }
 
   // ----- tab: emotions and drops (editor) -----
@@ -2118,7 +2171,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         : '<div class="row" style="margin-top:14px;align-items:flex-end">' + field + '<button class="btn primary" id="p-go">Vyrobit a zkontrolovat</button></div>' +
       '<p class="note" style="margin-top:8px">Nové jméno = stará verze v QuickDMX zůstane, můžeš přepínat a porovnat.</p>') + '<div id="p-out" style="margin-top:14px;display:flex;flex-direction:column;gap:12px"></div></section></div>' +
       '<aside class="col-side"><section class="card"><h2>Jak to dostat do sauny</h2><ol class="note" style="padding-left:18px;margin:10px 0 0;display:flex;flex-direction:column;gap:6px">' +
-      '<li>Stáhni zip.</li><li>Rozbal ho do složky projektu sauny (u VF „AQP VF“) tak, aby se složky <b>scenes</b> a <b>Live</b> sloučily s existujícími. Nic se nepřepíše, verze má vlastní složku.</li>' +
+      (slozkaJde() ? '<li><b>Nejjednodušší:</b> „Uložit rovnou do QuickDMX“ a jednou vyber složku projektu sauny. Další body pak odpadají.</li>' : '') + '<li>Stáhni zip.</li><li>Rozbal ho do složky projektu sauny (u VF „AQP VF“) tak, aby se složky <b>scenes</b> a <b>Live</b> sloučily s existujícími. Nic se nepřepíše, verze má vlastní složku.</li>' +
       '<li>' + (G.soubor[show.id] ? 'Hudba je v zipu jako ' + esc(show.hudbaCesta || "") + '.' : 'Hudba (' + esc(show.hudbaCesta || "") + ') v zipu bude, když ji v kroku 1 načteš. Jinak ji do složky Music zkopíruj sám.') + '</li><li>V QuickDMX otevři Live → Timeline a vyber časovou osu s novým jménem verze.</li></ol></section></aside></div>';
     var dl = window.claude ? window.claude.use("downloads") : Promise.resolve(null);
     $("p-go").addEventListener("click", function () {
@@ -2134,7 +2187,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         last = { v: v, r: r, ok: chk.nalezu === 0 };
         var h = [(simple ? '<details class="more"><summary>Podrobnosti výroby</summary>' : '') + '<div class="stats"><div><b>' + nsc + '</b><span class="sub">scén</span></div><div><b>' + r.rep.udalosti + '</b><span class="sub">událostí na ose</span></div><div><b>' + Object.keys(hits).length + '</b><span class="sub">jemných úderů</span></div><div><b>' + Object.keys(drops).length + '</b><span class="sub">dropů naplno</span></div><div><b>' + ms + ' ms</b><span class="sub">výroba</span></div></div>' + (simple ? '</details>' : '')];
         if (chk.nalezu === 0) odesliUceni(show);
-        if (chk.nalezu === 0) h.push('<div class="okbox">' + (simple ? 'Hotovo a zkontrolováno: žádná bílá, kamna jen dýchají, nikdy tma. Můžeš stáhnout.' : 'Kontrola prošla: 0 nálezů (bílá, kamna, UV ve tmě, kolize řad). Balíček je připravený.') + '</div><div class="row"><button class="btn primary" id="p-dl">Stáhnout ' + esc(v) + '_svetla.zip</button><span class="sub" id="p-dls"></span></div>');
+        if (chk.nalezu === 0) h.push('<div class="okbox">' + (simple ? 'Hotovo a zkontrolováno: žádná bílá, kamna jen dýchají, nikdy tma. Můžeš stáhnout.' : 'Kontrola prošla: 0 nálezů (bílá, kamna, UV ve tmě, kolize řad). Balíček je připravený.') + '</div><div class="row" style="flex-wrap:wrap">' + (slozkaJde() ? '<button class="btn primary" id="p-qd">Uložit rovnou do QuickDMX</button><button class="btn" id="p-dl">Stáhnout zip</button>' : '<button class="btn primary" id="p-dl">Stáhnout ' + esc(v) + '_svetla.zip</button>') + '<span class="sub" id="p-dls"></span></div>');
         else {
           var names = { BILA: "bílá nebo skoro bílá", PRECHOD: "přechod přes bílou", STRED: "kamna/střed blikají", "UV-TMA": "jen UV ve tmě", KOLIZE: "dvě řady na stejných světlech", CHYBI: "chybí scéna" };
           h.push('<div class="badbox"><b>Kontrola našla ' + chk.nalezu + ' problémů, zip se nevyrobí.</b><ul style="margin:8px 0 0;padding-left:18px">' + Object.keys(chk.vysledky).filter(function (k) { return chk.vysledky[k].length; }).map(function (k) { return '<li>' + esc(names[k] || k) + ': ' + chk.vysledky[k].length + ' × (např. ' + esc(chk.vysledky[k][0]) + ')</li>'; }).join("") + '</ul><p style="margin:8px 0 0">Napiš mi do projektu, podívám se, co to způsobilo.</p></div>');
@@ -2144,9 +2197,36 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
           D.map(function (d, i) { var c = (show.barvyDropu || {})[String(d.pisen)] || "PINK"; return '<tr><td>' + (i + 1) + '</td><td class="n">' + esc(d.milan || "–") + '</td><td class="n">' + fmt(d.beat_s, true) + (drops[d.beat_s] ? "" : ' <span class="badge">nepoužit</span>') + '</td><td>' + d.pisen + '</td><td><span class="dot" style="background:' + hex(G.recept.paleta[c] || [0, 0, 0]) + ';vertical-align:-1px"></span> ' + esc(c) + '</td></tr>'; }).join("") + '</tbody></table></div></div>' + (simple ? '</details>' : ''));
         out.innerHTML = h.join("");
         if ($("p-dl")) $("p-dl").addEventListener("click", download);
+        if ($("p-qd")) $("p-qd").addEventListener("click", function () { doSlozky(false); });
         }
       }, 30);
     });
+    // web in Chrome/Edge: write the light files straight into the sauna's QuickDMX project folder (chosen once, remembered per sauna)
+    async function doSlozky(znovu) {
+      if (!last || !last.ok || !last.r.files) return; var s = $("p-dls");
+      try {
+        var dir = znovu ? null : await slozkaSauny(show.sauna);
+        if (!dir) {
+          s.textContent = "Vyber složku projektu sauny v QuickDMX (Dokumenty → TheLightingController → LightShows → tvoje sauna).";
+          dir = await window.showDirectoryPicker({ id: "glowguss-" + String(show.sauna).replace(/[^a-z0-9]/gi, "").slice(0, 20), mode: "readwrite", startIn: "documents" });
+          var ma = false; for await (var k of dir.keys()) { if (k === "scenes" || k === "Live") { ma = true; break; } }
+          if (!ma && !(await potvrd("Ve složce „" + dir.name + "“ není scenes ani Live, nevypadá jako projekt QuickDMX. Uložit světla přesto sem?", "Uložit sem"))) { s.textContent = ""; return; }
+          await ulozSlozku(show.sauna, dir);
+        }
+        var files = Object.assign({}, last.r.files), n = 0, mf = G.soubor[show.id];
+        if (mf && window.SvetlaAnalyza) { s.textContent = "Převádím hudbu na WAV pro QuickDMX…"; try { files[show.hudbaCesta] = mf._hotovo ? mf : await window.SvetlaAnalyza.wav((await window.SvetlaAnalyza.nactiSoubor(mf)).puvodni); } catch (e) { mf = null; } }
+        var cesty = Object.keys(files).sort();
+        for (var i = 0; i < cesty.length; i++) {
+          var cast = cesty[i].split("/"), d = dir;
+          for (var j = 0; j < cast.length - 1; j++) d = await d.getDirectoryHandle(cast[j], { create: true });
+          var w = await (await d.getFileHandle(cast[cast.length - 1], { create: true })).createWritable(); await w.write(files[cesty[i]]); await w.close(); n++;
+          if (i % 10 === 0) s.textContent = "Ukládám " + (i + 1) + " / " + cesty.length + "…";
+        }
+        s.innerHTML = 'Uloženo do „' + esc(dir.name) + '“ (' + n + ' souborů' + (mf ? ', i s hudbou' : '') + '). V QuickDMX otevři časovou osu ' + esc(last.v) + '. <button type="button" class="btn small" id="p-qd2">Jiná složka</button>';
+        $("p-qd2").addEventListener("click", function () { doSlozky(true); });
+        saveShow(show, { verze: nextVersion(last.v), posledniBalicek: { verze: last.v, kdy: new Date().toISOString() } });
+      } catch (e) { s.textContent = e && e.name === "AbortError" ? "" : "Uložení do složky se nepovedlo: " + errText(e) + ". Použij Stáhnout zip."; }
+    }
     async function download() {
       if (!last || !last.ok || !last.r.files) return; var s = $("p-dls"), d = await dl;
       if (!d) { s.textContent = "Stahování tady není dostupné (otevři stránku na claude.ai)."; return; }
@@ -2290,10 +2370,23 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   }
 
   // ---------- load ----------
+  // web: offer "install as an app" (own window and desktop icon) when the browser allows it
+  if (window.GLOWGUSS_WEB) window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault(); var st = $("status"); if (!st || $("inst")) return;
+    var b = document.createElement("button"); b.id = "inst"; b.type = "button"; b.className = "btn small primary"; b.style.marginRight = "10px"; b.textContent = "Nainstalovat jako aplikaci";
+    b.addEventListener("click", function () { e.prompt(); e.userChoice.then(function () { b.remove(); }); });
+    st.parentNode.insertBefore(b, st);
+  });
   async function nacti() {
     var db = null; try { db = window.claude ? await window.claude.use("db") : null; } catch (e) { db = null; }
     if (!db) { view.innerHTML = '<div class="card empty">Stránka teď nemá přístup k uloženým datům. Otevři ji na claude.ai přihlášený.</div>'; setStatus("Bez dat"); return; }
     G.db = db;
+    var chybaPrihlaseni = null;
+    if (REMOTE) {
+      if (K.dokoncit) { try { await K.dokoncit(); } catch (e) { chybaPrihlaseni = e; } }
+      // shows saved on the server (other computer, cleared browser) come back before the page reads them
+      if (K.session() && K.synchronizuj) { setStatus("Načítám zálohu ze serveru…"); try { await Promise.race([K.synchronizuj(), new Promise(function (r) { setTimeout(r, 15000); })]); } catch (e) {} }
+    }
     try {
       var r = await Promise.all([db.doc("recept/emoce").get(), db.collection("show").get(), db.collection("sauny").get(), db.collection("rozbor").get(), db.collection("beaty").get()]);
       G.recept = r[0].exists ? r[0].data() : null;
@@ -2303,7 +2396,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       r[4].docs.forEach(function (d) { G.beaty[d.id] = d.data(); });
     } catch (e) { view.innerHTML = '<div class="card empty">Data se nepodařilo načíst (' + esc(errText(e)) + '). Zkus stránku obnovit.</div>'; return; }
     if (REMOTE) {
-      if (K.dokoncit) { try { await K.dokoncit(); } catch (e) { loginPage(e.message); setStatus("Nepřihlášeno"); return; } }
+      if (chybaPrihlaseni) { loginPage(chybaPrihlaseni.message); setStatus("Nepřihlášeno"); return; }
       if (!K.session()) { loginPage(); setStatus("Nepřihlášeno"); return; }
       zkontrolujAktualizaci();
       var nr = await nactiRecept();
