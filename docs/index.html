@@ -1062,7 +1062,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var T = show.konec || show.delka || 600;
     $("pl-file").addEventListener("change", function () {
       var f = this.files && this.files[0]; if (!f) return;
-      var t = now(); P.playing = false; P.audio.src = URL.createObjectURL(f); P.has = true; P.name = f.name;
+      var t = now(); P.playing = false; P.audio.src = URL.createObjectURL(f); P.has = true; P.name = f.name; P.id = show.id; G.soubor[show.id] = f; ulozHudbu(show.id, f, f.name);
       P.audio.addEventListener("loadedmetadata", function once() { P.audio.removeEventListener("loadedmetadata", once); P.audio.currentTime = t; }, { once: true });
       if (onLoaded) onLoaded();
     });
@@ -1386,6 +1386,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var base = G.shows[id];
     if (!base) { view.innerHTML = '<div class="card empty">Show „' + esc(id) + '“ neexistuje. <a href="#/">Zpět na přehled</a></div>'; return; }
     var show = clone(base);
+    if (!G.soubor[id] || P.id !== id) obnovHudbu(id).then(function (nova) { if (nova && (location.hash || "").indexOf("#/show/" + id + "/") === 0) route(); });
     var ready = !!G.rozbor[id] && show.casti.length && show.pisne.length;
     var tabs = [["emoce", "Emoce a dropy"], ["ai", "AI návrh"], ["3d", "3D náhled"], ["balicek", "Balíček"]].filter(function (t) { return !(window.SVETLA_OFFLINE && t[0] === "ai"); });
     var adv = tabs.some(function (t) { return t[0] === tab; });
@@ -1483,7 +1484,21 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var A = window.SvetlaAnalyza, d = await A.spoj(polozky), blob = await A.wav(d.stereo);
     blob._hotovo = true; return { d: d, blob: blob };
   }
-  function nastavHudbu(show, blob, name) { G.soubor[show.id] = blob; P.playing = false; P.audio.src = URL.createObjectURL(blob); P.has = true; P.name = name; }
+  function nastavHudbu(show, blob, name, zDisku) {
+    G.soubor[show.id] = blob; P.playing = false; P.audio.src = URL.createObjectURL(blob); P.has = true; P.name = name; P.id = show.id;
+    if (!zDisku) ulozHudbu(show.id, blob, name);
+  }
+  // the music stays in this browser with the show (never uploaded), so closing the page does not lose it
+  function hudbaIdb(fn) { fn.store = "hudba"; return idb(fn); }
+  function ulozHudbu(id, blob, name) { hudbaIdb(function (st) { return st.put({ blob: blob, name: name, hotovo: !!blob._hotovo }, id); }).catch(function () {}); }
+  function obnovHudbu(id) {
+    if (G.soubor[id]) { if (P.id !== id) nastavHudbu({ id: id }, G.soubor[id], P.name, true); return Promise.resolve(false); }
+    return hudbaIdb(function (st) { return st.get(id); }).then(function (h) {
+      if (!h || !h.blob) return false;
+      if (h.hotovo) h.blob._hotovo = true;   // already the WAV for QuickDMX
+      nastavHudbu({ id: id }, h.blob, h.name || "hudba", true); return true;
+    }).catch(function () { return false; });
+  }
   function analyzeStep(body, show) {
     var A = window.SvetlaAnalyza, list = [];
     function draw() {
@@ -1592,8 +1607,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   }
   // remembered QuickDMX folders (IndexedDB keeps the folder handle, the browser asks again for permission after a restart)
   function slozkaJde() { return !!window.showDirectoryPicker && !(window.svetlaDesk && window.svetlaDesk.googleKod); }
-  function idb(fn) { return new Promise(function (res, rej) { var o = indexedDB.open("glowguss", 1); o.onupgradeneeded = function () { o.result.createObjectStore("slozky"); }; o.onerror = function () { rej(o.error); };
-    o.onsuccess = function () { var t = o.result.transaction("slozky", "readwrite"), st = t.objectStore("slozky"), r = fn(st); t.oncomplete = function () { res(r && r.result); }; t.onerror = function () { rej(t.error); }; }; }); }
+  function idb(fn) { return new Promise(function (res, rej) { var o = indexedDB.open("glowguss", 2); o.onupgradeneeded = function () { ["slozky", "hudba"].forEach(function (n) { if (!o.result.objectStoreNames.contains(n)) o.result.createObjectStore(n); }); }; o.onerror = function () { rej(o.error); };
+    o.onsuccess = function () { var sn = fn.store || "slozky", t = o.result.transaction(sn, "readwrite"), st = t.objectStore(sn), r = fn(st); t.oncomplete = function () { res(r && r.result); }; t.onerror = function () { rej(t.error); }; }; }); }
   async function slozkaSauny(id) {
     var h = null; try { h = await idb(function (st) { return st.get("sauna-" + id); }); } catch (e) { return null; }
     if (!h) return null;
