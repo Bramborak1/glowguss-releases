@@ -1029,6 +1029,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
 
   // ---------- player: real audio, or a silent clock so the 3D preview works without listening ----------
   var P = { audio: new Audio(), has: false, name: "", playing: false, base: 0, t0: 0, rate: 1, hooks: [] };
+  try { var hl = localStorage.getItem("glowguss-hlasitost"); if (hl != null && isFinite(+hl)) P.audio.volume = Math.max(0, Math.min(1, +hl)); } catch (e) {}
   function now() { if (P.has) return P.audio.currentTime || 0; return P.playing ? P.base + (performance.now() - P.t0) / 1000 * P.rate : P.base; }
   function isPlaying() { return P.has ? !P.audio.paused : P.playing; }
   function play() { if (P.has) { P.audio.playbackRate = P.rate; P.audio.play(); } else { P.t0 = performance.now(); P.playing = true; } loop(); paintPlayer(); }
@@ -1055,6 +1056,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       '<span class="time" id="pl-time">0:00.0</span>' +
       '<label class="sub" style="display:flex;align-items:center;gap:6px">Rychlost <select id="pl-rate" style="width:auto;min-height:36px;padding:4px 8px">' +
       [0.5, 1, 2, 4].map(function (r) { return '<option value="' + r + '"' + (r === P.rate ? " selected" : "") + '>' + r + '×</option>'; }).join("") + '</select></label>' +
+      '<label class="sub" style="display:flex;align-items:center;gap:6px">Hlasitost <input type="range" id="pl-vol" min="0" max="1" step="0.05" value="' + P.audio.volume + '" style="width:110px" aria-label="Hlasitost poslechu"></label>' +
       '</div><p class="note" style="margin-top:10px">' + (P.has ? "Hudba hraje jen v tvém zařízení, nikam se nenahrává." :
         (silentOk ? "Bez hudby jede náhled podle hodin, nemusíš nic poslouchat. Pro ťukání dropů načti celou stopu show (" + esc(show.hudbaCesta || show.hudba || "") + ")." : "Načti celou stopu show (" + esc(show.hudbaCesta || show.hudba || "") + "). Hraje jen v tvém zařízení.")) + '</p></section>';
   }
@@ -1070,6 +1072,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     $("pl-back").addEventListener("click", function () { seek(now() - 5); });
     $("pl-fwd").addEventListener("click", function () { seek(Math.min(T, now() + 5)); });
     $("pl-rate").addEventListener("change", function () { setRate(+this.value); });
+    $("pl-vol").addEventListener("input", function () { P.audio.volume = +this.value; try { localStorage.setItem("glowguss-hlasitost", this.value); } catch (e) {} });   // listening only, never the exported music
     P.hooks.push(function (t) { var e = $("pl-time"); if (e) e.textContent = fmt(t, true) + " / " + mmss(T); if (!P.has && t >= T + 70 && P.playing) { pause(); } });
     paintPlayer(); fire();
   }
