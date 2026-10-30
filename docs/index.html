@@ -295,8 +295,31 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     catch (e) { if (e.kod === "sit") throw e; throw err("auth", "Přihlášení se nepovedlo, zkus to znovu."); }
     var s = fromAuth(j, ""); store(s); return s;
   }
+  // crypto.subtle exists only on https; a plain JS SHA-256 keeps login working on http too
+  function sha256(b) {
+    if (root.crypto && crypto.subtle) return crypto.subtle.digest("SHA-256", b);
+    var K = [], H = [], i, j, p = 2, n = 0;
+    function fr(x) { return (x - Math.floor(x)) * 4294967296 | 0; }
+    while (n < 64) { for (j = 2; j * j <= p && p % j; j++); if (j * j > p) { if (n < 8) H[n] = fr(Math.pow(p, 1 / 2)); K[n++] = fr(Math.pow(p, 1 / 3)); } p++; }
+    var l = b.length, m = new Uint8Array(((l + 9 + 63) >> 6) << 6); m.set(b); m[l] = 0x80;
+    var dv = new DataView(m.buffer); dv.setUint32(m.length - 4, l * 8); dv.setUint32(m.length - 8, Math.floor(l / 536870912));
+    function r(x, c) { return (x >>> c) | (x << (32 - c)); }
+    for (i = 0; i < m.length; i += 64) {
+      var w = [], a = H.slice();
+      for (j = 0; j < 64; j++) {
+        if (j < 16) w[j] = dv.getUint32(i + j * 4);
+        else w[j] = (w[j - 16] + (r(w[j - 15], 7) ^ r(w[j - 15], 18) ^ (w[j - 15] >>> 3)) + w[j - 7] + (r(w[j - 2], 17) ^ r(w[j - 2], 19) ^ (w[j - 2] >>> 10))) | 0;
+        var t1 = (a[7] + (r(a[4], 6) ^ r(a[4], 11) ^ r(a[4], 25)) + ((a[4] & a[5]) ^ (~a[4] & a[6])) + K[j] + w[j]) | 0;
+        var t2 = ((r(a[0], 2) ^ r(a[0], 13) ^ r(a[0], 22)) + ((a[0] & a[1]) ^ (a[0] & a[2]) ^ (a[1] & a[2]))) | 0;
+        a = [(t1 + t2) | 0, a[0], a[1], a[2], (a[3] + t1) | 0, a[4], a[5], a[6]];
+      }
+      for (j = 0; j < 8; j++) H[j] = (H[j] + a[j]) | 0;
+    }
+    var o = new DataView(new ArrayBuffer(32)); H.forEach(function (h, k) { o.setUint32(k * 4, h); });
+    return Promise.resolve(o.buffer);
+  }
   async function prihlasitGoogle() {
-    var ver = b64url(crypto.getRandomValues(new Uint8Array(48))), ch = b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ver)));
+    var ver = b64url(crypto.getRandomValues(new Uint8Array(48))), ch = b64url(await sha256(new TextEncoder().encode(ver)));
     if (!root.svetlaDesk || !root.svetlaDesk.googleKod) {
       if (!/^https?:$/.test(location.protocol)) throw err("auth", "Přihlášení přes Google jde jen v programu nebo na webu Glowguss.");
       try { sessionStorage.setItem("glowguss-pkce", ver); } catch (e) {}
