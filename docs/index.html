@@ -1137,7 +1137,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   var planCache = { key: "", res: null };
   function serverData(inp) { return { show: inp.show, sauna: inp.sauna, rozbor: inp.rozbor }; }
   function getPlan(show) {   // -> Promise of {plan, rep, sauna}; on the server in the paid program
-    var key = JSON.stringify([show.casti, show.dropy, show.barvyDropu, show.sauna, (G.sauny[show.sauna] || {}).upraveno, show.delka]);
+    var key = JSON.stringify([show.casti, show.dropy, show.barvyDropu, show.maxJas, show.sauna, (G.sauny[show.sauna] || {}).upraveno, show.delka]);
     if (planCache.key === key && planCache.res) return planCache.res;
     var p;
     try {
@@ -1608,7 +1608,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var pct = function (t) { return (t / T * 100).toFixed(3); };
     var simple = !!mode, showParts = mode !== "dropy", showDrops = mode !== "nalada";
     body.innerHTML = '<div class="grid"><div class="col-main">' +
-      '<section class="card">' + (simple ? '' : '<div class="row between"><h2>Celá show</h2><span class="note">Klikni na část a uprav ji vpravo. Klik do hudby přetočí.</span></div>') + '<div class="tl' + (simple ? ' big' : '') + '" id="tl"></div></section>' +
+      '<section class="card">' + (simple ? '' : '<div class="row between"><h2>Celá show</h2><span class="note">Klikni na část a uprav ji vpravo. Klik do hudby přetočí.</span></div>') + '<div class="tl' + (simple ? ' big' : '') + '" id="tl"></div>' + (showParts ? '<div class="field" style="margin-top:14px"><span class="lbl" id="jasL">Nejvyšší jas celé show</span><div class="sila" id="jas" role="group" aria-labelledby="jasL"></div><p class="note" style="margin-top:4px">Pro relaxační ceremoniál dej 40 % nebo méně: světla pak nikde nepřesáhnou tuhle hranici a nepulzují do rytmu.</p></div>' : '') + '</section>' +
       (mode === "nalada" ? '' : playerHTML(show, false)) +
       '</div><aside class="col-side">' + (showParts ? '<section class="card" id="partCard"></section>' : '') +
       (showDrops ? '<section class="card"><div class="row between"><h2>Dropy</h2>' : '<div hidden><div><h2></h2>') + '<span class="sub" id="dropCount"></span></div><div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">' +
@@ -1618,6 +1618,13 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       (simple ? '<p class="note">Šipkami posuneš drop o beat, ▶ ho přehraje, × smaže. Z vrátí poslední ťuk.</p>' : '<p class="note">Ťuk se přichytí na nejbližší skutečný beat. Naplno (100 %) svítí jen typ Drop. Nástup a Zklidnění si zatím jen zapisuješ.</p>') +
       '<div class="dlist" id="dlist" aria-label="Seznam dropů"></div></div>' + (showDrops ? '</section>' : '</div>') + '</aside></div>';
     function saveCasti() { saveShow(show, { casti: show.casti }); }
+    function renderJas() {
+      if (!$("jas")) return;
+      var v = Math.round((+show.maxJas || 1) * 100);
+      $("jas").innerHTML = [100, 70, 40, 20].map(function (n) { return '<button type="button" data-j="' + n + '" aria-pressed="' + (v === n) + '" style="white-space:nowrap;width:auto;padding:0 10px">' + n + '&nbsp;%</button>'; }).join("");
+      on($("jas"), "button", "click", function (e, b) { show.maxJas = +b.dataset.j / 100; saveShow(show, { maxJas: show.maxJas }); renderJas(); });
+    }
+    renderJas();
     function saveDropy() { show.dropy.sort(function (a, b) { return a.beat_s - b.beat_s; }); saveShow(show, { dropy: show.dropy }); }
     function renderTimeline() {
       var h = ['<span></span><div class="ruler" aria-hidden="true">'];
