@@ -2390,7 +2390,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       h.push('</section><section class="card"><h2>Test pořadí světel</h2><p class="note" style="margin-top:8px">Zip pro QuickDMX, kde světlo skupinu po skupině třikrát oběhne dokola v pořadí, jaké používá generátor. První světlo svítí zeleně, poslední červeně, ostatní modře, kamna celou dobu klidně svítí. V sauně hned uvidíš, kde kruh začíná a kterým směrem jde. Když to nesedí, pořadí stěn přehodíš šipkami výš.</p>' +
         '<div class="row" style="margin-top:12px"><button class="btn" id="sa-test" type="button">Stáhnout test pořadí</button><span class="sub" id="sa-tst"></span></div></section><section class="card"><h2>Správa</h2><div class="field" style="margin-top:10px"><label class="lbl" for="sa-nazev">Název</label><input type="text" id="sa-nazev" value="' + esc(s.nazev) + '"></div><div class="row" style="margin-top:12px">' +
         (s.navrh ? '<button class="btn primary" id="sa-ok">Skupiny sedí</button>' : '') +
-        '<button class="btn" id="sa-arch">' + (s.archiv ? 'Vrátit z archivu' : 'Archivovat') + '</button></div>' +
+        '<button class="btn" id="sa-arch">' + (s.archiv ? 'Vrátit z archivu' : 'Archivovat') + '</button><button class="btn" id="sa-del"' + (used.length ? ' disabled' : '') + '>Smazat saunu</button></div>' +
+        (used.length ? '<p class="note" style="margin-top:8px">Smazat jde jen sauna bez show. Show převedeš na jinou saunu na hlavní stránce u show (Upravit show → Sauna).</p>' : '') +
         '<p class="note" style="margin-top:8px">' + (used.length && !s.archiv ? 'Archivovaná sauna zmizí z nabídky pro nové show. Existující show na ní dál fungují.' : 'Archiv jde kdykoli vrátit.') + '</p></section></aside></div>');
       view.innerHTML = h.join("");
       if (s.d3 && s.d3.svetla && Object.keys(s.d3.svetla).length) { S3 = scene3d($("stage"), s, { view: "roh", labels: true }); if (S3) S3.byGroup(); }
@@ -2400,6 +2401,12 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       $("sa-nazev").addEventListener("change", function () { s.nazev = this.value.trim() || s.nazev; persist(); });
       if ($("sa-ok")) $("sa-ok").addEventListener("click", function () { s.navrh = false; persist(); });
       $("sa-arch").addEventListener("click", function () { s.archiv = !s.archiv; persist(); });
+      $("sa-del").addEventListener("click", async function () {
+        if (used.length || !(await potvrd("Opravdu smazat saunu „" + s.nazev + "“? Projekt v QuickDMX zůstane, zmizí jen tady.", "Smazat"))) return;
+        await G.db.doc("sauny/" + id).delete(); delete G.sauny[id]; planCache.key = "";
+        try { await idb(function (st) { return st.delete("sauna-" + id); }); } catch (e) {}
+        setStatus("Sauna smazána", true); location.hash = "#/sauny";
+      });
       $("sa-test").addEventListener("click", async function () {
         var b = this, st = $("sa-tst"); b.disabled = true; st.textContent = "Vyrábím test…";
         try {
