@@ -701,10 +701,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   // ---------- parts: novelty on bar-wise timbre, boundaries every 8+ bars on downbeats ----------
-  function parts(sp, beats, bt, loud) {
+  function parts(sp, beats, bt, loud, ref) {
     var nb = sp.nb, bars = [];
     for (var i = 0; i < beats.length; i++) if (bt[i] === 0) bars.push(i);
-    if (bars.length < 12) return [{ a: 0, z: beats.length, sila: 3 }];
+    if (bars.length < 12) { var e0 = 0; for (var q0 = 0; q0 < loud.length; q0++) e0 += loud[q0]; return [{ a: 0, z: beats.length, sila: silaDb(e0 / Math.max(1, loud.length), ref) }]; }
     var L = [];   // per bar: mean log band energy (coarse 24 bands) + loudness
     bars.forEach(function (bi, k) {
       var a = beats[bi], z = k + 1 < bars.length ? beats[bars[k + 1]] : sp.nf, v = new Float64Array(25);
@@ -725,14 +725,54 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     var thr = pct(nov.filter(function (v) { return v > 0; }), 60), cuts = [];
     cand.forEach(function (c) { if (c.v >= thr && c.k >= 8 && c.k <= bars.length - 8 && cuts.every(function (u) { return Math.abs(u - c.k) >= 8; })) cuts.push(c.k); });
     cuts.sort(function (x, y) { return x - y; });
+    // no part longer than 32 bars: split it at its strongest change
+    for (var dl = true; dl;) {
+      dl = false; var ed = [0].concat(cuts).concat([bars.length]);
+      for (var e = 0; e + 1 < ed.length; e++) if (ed[e + 1] - ed[e] > 32) {
+        var bk = -1, bv = -1; for (var k2 = ed[e] + 8; k2 <= ed[e + 1] - 8; k2++) { var v2 = nov[k2] * (k2 % 4 === 0 ? 1.15 : 1); if (v2 > bv) { bv = v2; bk = k2; } }
+        if (bk > 0) { cuts.push(bk); cuts.sort(function (x, y) { return x - y; }); dl = true; break; }
+      }
+    }
     var edges = [0].concat(cuts.map(function (k) { return bars[k]; })).concat([beats.length]), res = [];
     for (i = 0; i + 1 < edges.length; i++) {
       var s = 0; for (var j2 = edges[i]; j2 < edges[i + 1]; j2++) s += loud[j2];
       res.push({ a: edges[i], z: edges[i + 1], e: s / (edges[i + 1] - edges[i]) });
     }
-    var es = res.map(function (r) { return r.e; }), lo = Math.min.apply(0, es), hi = Math.max.apply(0, es);
-    res.forEach(function (r) { r.sila = 1 + Math.round(4 * (r.e - lo) / (hi - lo + 1e-9)); });
+    res.forEach(function (r) { r.sila = silaDb(r.e, ref); });
     return res;
+  }
+  // strength from how many dB a part is below the loudest music in the file (not stretched min..max: a quiet piece stays quiet)
+  function silaDb(e, ref) { var d = ref - e; return d < 2.5 ? 5 : d < 5.5 ? 4 : d < 9 ? 3 : d < 14 ? 2 : 1; }
+  // music vs. no music per beat: real music has bass AND highs; wind, speech and silence lack one of them
+  function hudbaTady(F) {
+    var rb = pct(F.bass, 90), ro = pct(F.oth, 90);
+    return F.bass.map(function (b, i) { return b > rb - 25 && F.oth[i] > ro - 30 ? 1 : 0; });
+  }
+  // a stretch without music split into voice/sound (speech, effects) and quiet (wind, silence), by loudness per bar
+  function tichaUseky(loud, bt, u, ref) {
+    var bars = []; for (var i = u.a; i < u.z; i++) if (bt[i] === 0 || i === u.a) bars.push(i);
+    var lv = bars.map(function (a, k) { var z = k + 1 < bars.length ? bars[k + 1] : u.z, v = loud.slice(a, z).sort(function (x, y) { return x - y; }); return v[v.length >> 1] > ref - 22 ? 1 : 0; });
+    var res = [];
+    lv.forEach(function (m, k) { var r = res[res.length - 1]; if (r && r.m === m) r.n++; else res.push({ m: m, k: k, n: 1 }); });
+    for (var q = res.length - 1; q >= 0; q--) if (res[q].n < (res[q].m ? 2 : 4) && res.length > 1) { var t = q ? q - 1 : q + 1; res[t].n += res[q].n; if (t > q) res[t].k = res[q].k; res.splice(q, 1); }
+    for (q = res.length - 1; q > 0; q--) if (res[q].m === res[q - 1].m) { res[q - 1].n += res[q].n; res.splice(q, 1); }
+    return res.map(function (r) { return { a: bars[r.k], z: r.k + r.n < bars.length ? bars[r.k + r.n] : u.z, sila: r.m ? 2 : 1, bezHudby: r.m ? "hlas" : "ticho" }; });
+  }
+  // runs of music / no music on bar level; short runs (< 3 bars) join their neighbours
+  function useky(hud, bt) {
+    var bars = []; for (var i = 0; i < bt.length; i++) if (bt[i] === 0 || !i) bars.push(i);
+    var bm = bars.map(function (a, k) { var z = k + 1 < bars.length ? bars[k + 1] : bt.length, s = 0; for (var j = a; j < z; j++) s += hud[j]; return s * 2 >= z - a ? 1 : 0; });
+    var runs = [];
+    bm.forEach(function (m, k) { if (runs.length && runs[runs.length - 1].m === m) runs[runs.length - 1].n++; else runs.push({ m: m, k: k, n: 1 }); });
+    for (var ch = true; ch && runs.length > 1;) {
+      ch = false;
+      for (var r = 0; r < runs.length; r++) if (runs[r].n < 3) {
+        var into = r ? r - 1 : r + 1; runs[into].n += runs[r].n; if (into > r) runs[into].k = runs[r].k; runs.splice(r, 1);
+        for (var q = runs.length - 1; q > 0; q--) if (runs[q].m === runs[q - 1].m) { runs[q - 1].n += runs[q].n; runs.splice(q, 1); }
+        ch = true; break;
+      }
+    }
+    return runs.map(function (u) { return { m: u.m, a: bars[u.k], z: u.k + u.n < bars.length ? bars[u.k + u.n] : bt.length }; });
   }
 
   // ext = beats and downbeats in seconds from Beat This! (when the model is available); otherwise our own tracker
@@ -762,14 +802,19 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     var F = features(sp, fr); onProgress && onProgress(0.9);
     var md = median(F.drums), mb = median(F.bass);
     var loud = F.drums.map(function (d, i) { return Math.max(d, F.bass[i], F.voc[i], F.oth[i]); });
-    var cs = parts(sp, fr, bt, norm(loud));
+    // split at stretches without music (wind, speech, silence); parts are searched inside each music stretch only
+    var hud = hudbaTady(F), ref = pct(loud.filter(function (_, i) { return hud[i]; }), 90) || pct(loud, 90), cs = [];
+    useky(hud, bt).forEach(function (u) {
+      if (!u.m) { tichaUseky(loud, bt, u, ref).forEach(function (c) { cs.push(c); }); return; }
+      parts(sp, fr.slice(u.a, u.z), bt.slice(u.a, u.z), loud.slice(u.a, u.z), ref).forEach(function (c) { cs.push({ a: c.a + u.a, z: c.z + u.a, sila: c.sila }); });
+    });
     var b = fr.map(function (f) { return r2(f / FPS); });
     onProgress && onProgress(1);
     return {
       b: b, bt: bt, tempo: Math.round(60 * FPS / P * 10) / 10,
       drums: F.drums.map(function (d, i) { return d > md - 10 || F.bass[i] > mb - 10 ? 1 : 0; }),
       voc: norm(F.voc), oth: norm(F.oth), bass: norm(F.bass),
-      casti: cs.map(function (c) { return { od: c.a ? b[c.a] : 0, do: c.z < b.length ? b[c.z] : null, sila: c.sila }; })
+      casti: cs.map(function (c) { var o = { od: c.a ? b[c.a] : 0, do: c.z < b.length ? b[c.z] : null, sila: c.sila }; if (c.bezHudby) o.bezHudby = c.bezHudby; return o; })
     };
   }
 
@@ -1014,13 +1059,16 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
 
   // ---------- saving ----------
   var timers = {};
+  var cekajici = {};
   function save(path, fields, quiet) {
     if (!G.db) { setStatus("Bez připojení k datům, změny se neuloží"); return Promise.resolve(); }
     if (!quiet) setStatus("Ukládám…");
     return new Promise(function (res) {
       clearTimeout(timers[path]);
+      var cek = cekajici[path] = Object.assign(cekajici[path] || {}, fields);   // quick saves of different fields add up, none is lost
       timers[path] = setTimeout(function () {
-        var d = Object.assign({ upraveno: new Date().toISOString() }, fields);
+        delete cekajici[path];
+        var d = Object.assign({ upraveno: new Date().toISOString() }, cek);
         G.db.doc(path).update(d).then(function () { setStatus("Uloženo " + new Date().toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" }), true); res(true); })
           .catch(function (e) { setStatus("Uložení se nepovedlo: " + errText(e)); res(false); });
       }, 450);
@@ -1391,7 +1439,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var show = clone(base);
     if (!G.soubor[id] || P.id !== id) obnovHudbu(id).then(function (nova) { if (nova && (location.hash || "").indexOf("#/show/" + id + "/") === 0) route(); });
     var ready = !!G.rozbor[id] && show.casti.length && show.pisne.length;
-    var tabs = [["emoce", "Emoce a dropy"], ["ai", "AI návrh"], ["3d", "3D náhled"], ["balicek", "Balíček"]].filter(function (t) { return !(window.SVETLA_OFFLINE && t[0] === "ai"); });
+    var tabs = [["emoce", "Emoce a dropy"], ["ai", "AI návrh"], ["3d", "3D náhled"], ["balicek", "Balíček"]];
     var adv = tabs.some(function (t) { return t[0] === tab; });
     if (!adv) return wizard(id, show, Math.max(1, Math.min(5, +String(tab).replace("krok", "") || 1)));
     var h = ['<div class="row between"><div><h1 class="page">' + esc(show.nazev) + '</h1><div class="sub">' + esc((G.sauny[show.sauna] || {}).nazev || show.sauna) + ' · ' + show.pisne.length + ' písně · ' + mmss(show.delka || 0) + '</div></div>' +
@@ -1434,7 +1482,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var ready = !!G.rozbor[id] && show.casti.length && show.pisne.length, K = KROKY[k - 1];
     var h = ['<div class="row between"><div><h1 class="page">' + esc(show.nazev) + '</h1><div class="sub">' + esc((G.sauny[show.sauna] || {}).nazev || show.sauna) + ' · ' + mmss(show.delka || 0) + '</div></div><a class="btn small" href="#/show/' + esc(id) + '/emoce">Pokročilý režim</a></div>'];
     h.push('<ol class="steps" aria-label="Kroky">' + KROKY.map(function (x, i) { return '<li><a href="#/show/' + esc(id) + '/krok' + (i + 1) + '"' + (i + 1 === k ? ' aria-current="step"' : '') + (i + 1 < k ? ' class="done"' : '') + '><span class="num">' + (i + 1 < k ? "✓" : i + 1) + '</span><span class="nm">' + x.n + '</span></a></li>'; }).join("") + '</ol>');
-    h.push('<div class="stephead"><h2>' + esc(K.t) + '</h2><p>' + esc(K.d) + '</p></div>');
+    h.push('<div class="stephead"><h2>' + esc(K.t) + '</h2><p>' + esc(K.d) + '</p>' + (k === 2 && ready ? '<p style="margin-top:8px"><a class="btn small" href="#/show/' + esc(id) + '/ai">Máš scénář nebo příběh? Ať nálady navrhne AI</a></p>' : '') + '</div>');
     if (!ready) {
       if (k !== 1) { h.push('<div class="card empty">Nejdřív v kroku 1 vyber skladbu. Program v ní najde beaty a části.<div class="row" style="justify-content:center;margin-top:14px"><a class="btn primary" href="#/show/' + esc(id) + '/krok1">Krok 1: Hudba</a></div></div>'); view.innerHTML = h.join(""); return; }
       h.push('<div id="tabBody"></div>'); view.innerHTML = h.join(""); analyzeStep($("tabBody"), show); return;
@@ -1561,7 +1609,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
               var em = NALADA_PODLE_SILY[c.sila] || "Vzestup";
               if (k === 0 && i === 0 && c.sila <= 2) em = "Klid";
               if (k === d.pisne.length - 1 && i === n - 1 && n > 2 && c.sila <= 3) em = "Rozloučení";
-              casti.push({ id: "p" + k + "_" + i, od: tPresne(i ? off(c.od) : z), "do": tPresne(c["do"] == null ? ps.konec : off(c["do"])), pisen: k + 1, emoce: em, sila: c.sila, dropy: [], pozn: "", slysim: "", svetlo: "" });
+              casti.push({ id: "p" + k + "_" + i, od: tPresne(i ? off(c.od) : z), "do": tPresne(c["do"] == null ? ps.konec : off(c["do"])), pisen: k + 1, emoce: em, sila: c.sila, dropy: [], pozn: "", slysim: c.bezHudby === "hlas" ? "bez hudby: řeč nebo zvuky" : c.bezHudby ? "bez hudby: ticho, vítr" : "", svetlo: "" });
             });
           }
           var delka = Math.round(d.delka * 100) / 100;
@@ -1851,21 +1899,52 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     return { bpm: bpm, bici: Math.round(mean(ps.drums) * 100), zpev: Math.round(mean(ps.voc) * 100), nastroje: Math.round(mean(ps.oth) * 100), basa: Math.round(mean(ps.bass) * 100),
       dropy: show.dropy.filter(function (q) { return q.typ === "drop" && q.beat_s >= x.a && q.beat_s < x.b; }).length };
   }
+  function kopiruj(text) {   // clipboard also on plain http (navigator.clipboard needs https)
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text).then(function () { return true; }, function () { return kopirujStare(text); });
+    return Promise.resolve(kopirujStare(text));
+  }
+  function kopirujStare(text) {
+    var t = document.createElement("textarea"); t.value = text; t.setAttribute("readonly", ""); t.style.position = "fixed"; t.style.opacity = "0"; document.body.appendChild(t); t.select();
+    var ok = false; try { ok = document.execCommand("copy"); } catch (e) { ok = false; } t.remove(); return ok;
+  }
+  // the answer pasted back from Claude: may sit in ```json fences or have text around it
+  function ctiOdpoved(txt) {
+    var s = String(txt || ""), a = s.indexOf("{"), z = s.lastIndexOf("}");
+    if (a < 0 || z <= a) throw new Error("V odpovědi nevidím návrhy. Zkopíruj z Claude celou odpověď (tlačítko Kopírovat pod ní).");
+    var r; try { r = JSON.parse(s.slice(a, z + 1)); } catch (e) { throw new Error("Odpověď je useknutá nebo poškozená. Zkopíruj z Claude celou odpověď ještě jednou."); }
+    if (!r || !Array.isArray(r.navrhy)) throw new Error("Odpověď nemá seznam návrhů. Zkus v Claude napsat „odpověz jen tím JSON“.");
+    return r;
+  }
   function aiTab(body, show) {
-    var st = { navrhy: null, busy: false, ctl: null };
-    body.innerHTML = '<div class="grid"><div class="col-main"><section class="card"><h2>AI návrh emocí</h2>' +
-      '<p class="note" style="margin-top:8px">Claude dostane každou část show: čas, co v ní slyšíš, změřenou hudbu (tempo, kolik hrají bicí, zpěv, basa) a tvoje dropy. Navrhne jinou emoci nebo sílu jen tam, kde si myslí, že by to sedělo líp, a řekne proč. Každý návrh přijmeš nebo necháš. Pravidla světel (žádná bílá, kamna jen dýchají, nikdy tma, údery na skutečné beaty) hlídá generátor vždycky, AI je obejít nemůže.</p>' +
-      '<div class="field" style="margin-top:14px"><label class="lbl" for="ai-prani">Co chceš (nepovinné)</label><textarea id="ai-prani" placeholder="např. konec první písně má být víc dojemný, ve druhé písni víc síly"></textarea></div>' +
-      '<div class="row" style="margin-top:12px"><button class="btn primary" id="ai-go">Navrhnout emoce</button><button class="btn" id="ai-stop" hidden>Zastavit</button><span class="sub" id="ai-state"></span></div></section>' +
+    var st = { navrhy: null, busy: false, ctl: null }, ulozT = null;
+    body.innerHTML = '<div class="grid"><div class="col-main"><section class="card"><h2>AI návrh nálad</h2>' +
+      '<p class="note" style="margin-top:8px">Vlož příběh show: scénář, časy, kdo kdy mluví, co se má stát. AI ho spojí s rozborem hudby (kde hrají bicí, kde je řeč nebo ticho) a ke každé části navrhne náladu a sílu, s krátkým důvodem. Každý návrh přijmeš nebo necháš. Pravidla světel (žádná bílá, kamna jen dýchají, nikdy tma, údery na skutečné beaty) hlídá generátor vždycky, AI je obejít nemůže.</p>' +
+      '<div class="field" style="margin-top:14px"><div class="row between"><label class="lbl" for="ai-prani">Příběh, scénář, přání (nepovinné)</label><label class="btn small" style="cursor:pointer">Načíst text ze souboru<input type="file" id="ai-soubor" accept=".txt,.md,.csv,text/*" hidden></label></div>' +
+      '<textarea id="ai-prani" rows="8" placeholder="např. 0:00 mlha, Aladin bloudí. 1:30 první kolo, radost. 5:10 džin mluví, tajemně. Konec má být dojemný."></textarea></div>' +
+      '<div id="ai-primo" hidden><div class="row" style="margin-top:12px"><button class="btn primary" id="ai-go">Navrhnout nálady</button><button class="btn" id="ai-stop" hidden>Zastavit</button></div></div>' +
+      '<div id="ai-zdarma"><h3 style="margin-top:16px">Zdarma přes tvého Claude</h3><ol class="note" style="margin:8px 0 0 18px;display:flex;flex-direction:column;gap:10px">' +
+        '<li><button class="btn primary small" id="ai-kop">Zkopírovat zadání</button> a vlož ho do Claude (stačí i verze zdarma): <a href="https://claude.ai/new" target="_blank" rel="noopener">otevřít Claude</a></li>' +
+        '<li>Až Claude odpoví, zkopíruj celou jeho odpověď a vlož ji sem:<textarea id="ai-odp" rows="4" style="margin-top:6px" placeholder="sem vlož odpověď od Claude"></textarea></li>' +
+        '<li><button class="btn small" id="ai-pouzit">Ukázat návrhy</button></li></ol>' +
+        '<textarea id="ai-zadani" rows="6" readonly hidden style="margin-top:10px"></textarea></div>' +
+      '<p class="sub" id="ai-state" style="margin-top:10px"></p></section>' +
       '<div id="ai-out" style="display:flex;flex-direction:column;gap:12px"></div></div>' +
-      '<aside class="col-side"><section class="card"><h2>Emoce v receptu</h2><div id="ai-cat" style="display:flex;flex-direction:column;gap:10px;margin-top:12px"></div></section></aside></div>';
+      '<aside class="col-side"><section class="card"><h2>Nálady v receptu</h2><div id="ai-cat" style="display:flex;flex-direction:column;gap:10px;margin-top:12px"></div></section></aside></div>';
     $("ai-cat").innerHTML = Object.keys(G.recept.emoce).map(function (e) { return '<div><div class="row" style="gap:8px"><span class="dot" style="background:' + emColor(show, e, 1) + '"></span><b>' + esc(e) + '</b></div><p class="note">' + esc(emDesc(e)) + '</p></div>'; }).join("");
+    $("ai-prani").value = show.scenar || "";
+    $("ai-prani").addEventListener("input", function () { var v = this.value; clearTimeout(ulozT); ulozT = setTimeout(function () { saveShow(show, { scenar: v }); }, 600); });
+    $("ai-soubor").addEventListener("change", function () {
+      var f = this.files && this.files[0]; if (!f) return;
+      f.text().then(function (t) { var el = $("ai-prani"); el.value = (el.value.trim() ? el.value.trim() + "\n\n" : "") + t.trim(); saveShow(show, { scenar: el.value }); $("ai-state").textContent = "Text načten ze souboru " + f.name + "."; });
+      this.value = "";
+    });
     var samplePromise = window.claude ? window.claude.use("sample") : Promise.resolve(null);
-    samplePromise.then(function (s) { if (!s) { $("ai-go").disabled = true; $("ai-state").textContent = "V programu AI návrh zatím není."; } });
+    samplePromise.then(function (s) { if (s) { $("ai-primo").hidden = false; $("ai-zdarma").hidden = true; } });
+    function stav(t, spatne) { var el = $("ai-state"); el.textContent = t; el.style.color = spatne ? "var(--bad, #e66)" : ""; }
     function render() {
       var out = $("ai-out"); if (!st.navrhy) { out.innerHTML = ""; return; }
       var pt = partsT(show);
-      if (!st.navrhy.length) { out.innerHTML = '<div class="okbox">Claude by nic neměnil. Emoce sedí k hudbě.</div>'; return; }
+      if (!st.navrhy.length) { out.innerHTML = '<div class="okbox">AI by nic neměnila. Nálady sedí k hudbě i příběhu.</div>'; return; }
       var open = st.navrhy.filter(function (n) { return !n.hotovo; }).length;
       out.innerHTML = '<div class="row between"><h2>' + st.navrhy.length + (st.navrhy.length === 1 ? ' návrh' : st.navrhy.length < 5 ? ' návrhy' : ' návrhů') + '</h2>' + (open ? '<button class="btn" id="ai-all">Přijmout všechny zbývající (' + open + ')</button>' : '') + '</div>' +
         st.navrhy.map(function (n, k) {
@@ -1883,30 +1962,42 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       if (a === "ano" && x) { x.p.emoce = n.emoce; if (n.sila) x.p.sila = n.sila; if (!batch) saveShow(show, { casti: show.casti }); }
       if (!batch) render();
     }
+    function zadani() {
+      var emos = Object.keys(G.recept.emoce).filter(function (e) { return e !== "UV"; }), pt = partsT(show), scen = $("ai-prani").value.trim();
+      var data = pt.map(function (x) { var s = partStats(show, x); return { cast: x.i, od: mmss(x.a), do: mmss(x.b), pisen: x.p.pisen, emoce: x.p.emoce, sila: +x.p.sila || 0, slysim: x.p.slysim || "", svetlo: x.p.svetlo || "", tempo_bpm: s.bpm, bici_pct: s.bici, zpev_pct: s.zpev, nastroje_pct: s.nastroje, basa_pct: s.basa, dropu: s.dropy }; });
+      return "Jsi světelný designér saunových ceremonií (saunový ceremoniál = aufguss se světlem a hudbou). Show: " + show.nazev + ". Skladby: " + show.pisne.map(function (p) { return p.cislo + ". " + p.nazev; }).join(", ") + ".\n" +
+        "Každá část show má jednu náladu z tohoto seznamu (nic jiného nepoužívej):\n" + emos.map(function (e) { return "- " + e + ": " + emDesc(e); }).join("\n") +
+        "\n\nČásti show s rozborem hudby (od/do = čas v celé show; bici_pct = jak velkou část beatů hrají bicí, zpev/nastroje/basa = průměrná hlasitost 0–100, dropu = kolik dropů tam autor ťukl; slysim „bez hudby“ = řeč, zvuky nebo ticho bez rytmu):\n" + JSON.stringify(data) +
+        "\n\nPříběh a přání autora:\n" + (scen || "žádné, řiď se hudbou") +
+        "\n\n" + (scen ? "Řiď se hlavně příběhem: časy v něm odpovídají časům od/do. Navrhni náladu a sílu (1–5) pro každou část, kde podle příběhu nebo hudby nesedí. " : "Navrhni změnu nálady nebo síly (1–5) jen tam, kde by jiná nálada líp seděla k hudbě. Nesnaž se měnit všechno; méně je víc. ") +
+        "Části bez hudby (řeč, zvuky, ticho) mají klidnou náladu bez úderů, která sedí k ději. Nálady s údery dávej jen tam, kde hrají bicí. Pestrost: nedávej stejnou náladu mnoha částem za sebou, pokud to příběh nechce. Respektuj autorovy popisy „slysim“ a „svetlo“. Důvod napiš česky, jednou krátkou větou." +
+        "\nOdpověz jen JSON, bez dalšího textu: {\"navrhy\":[{\"cast\":číslo,\"emoce\":\"…\",\"sila\":číslo,\"proc\":\"…\"}]}";
+    }
+    function prijmi(r) {
+      var emos = Object.keys(G.recept.emoce).filter(function (e) { return e !== "UV"; }), pt = partsT(show), list = (r && r.navrhy) || [];
+      st.navrhy = list.filter(function (n) { var x = pt[n.cast]; return x && emos.indexOf(n.emoce) >= 0 && (n.emoce !== x.p.emoce || (n.sila && n.sila !== +x.p.sila)); })
+        .map(function (n) { return { cast: n.cast, emoce: n.emoce, sila: Math.max(1, Math.min(5, Math.round(+n.sila || +pt[n.cast].p.sila || 3))), proc: String(n.proc || "") }; });
+      render();
+      if (st.navrhy.length) $("ai-out").scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    $("ai-kop").addEventListener("click", async function () {
+      var z = zadani(), ok = await kopiruj(z);
+      if (ok) { $("ai-zadani").hidden = true; stav("Zadání je zkopírované. Vlož ho do Claude (Ctrl+V) a odešli."); }
+      else { var el = $("ai-zadani"); el.value = z; el.hidden = false; el.select(); stav("Kopírování se nepovedlo, zadání je níže označené: zkopíruj ho Ctrl+C.", true); }
+    });
+    $("ai-pouzit").addEventListener("click", function () {
+      try { prijmi(ctiOdpoved($("ai-odp").value)); stav(st.navrhy.length ? "" : "AI by nic neměnila."); }
+      catch (e) { stav(e.message, true); }
+    });
     $("ai-go").addEventListener("click", async function () {
       var sample = await samplePromise; if (!sample || st.busy) return;
-      var emos = Object.keys(G.recept.emoce), pt = partsT(show);
-      var data = pt.map(function (x) { var s = partStats(show, x); return { cast: x.i, od: mmss(x.a), do: mmss(x.b), pisen: x.p.pisen, emoce: x.p.emoce, sila: +x.p.sila || 0, slysim: x.p.slysim || "", svetlo: x.p.svetlo || "", tempo_bpm: s.bpm, bici_pct: s.bici, zpev_pct: s.zpev, nastroje_pct: s.nastroje, basa_pct: s.basa, dropu: s.dropy }; });
-      var prompt = "Jsi světelný designér saunových ceremonií (saunový ceremoniál = aufguss se světlem a hudbou). Show: " + show.nazev + ". Písně: " + show.pisne.map(function (p) { return p.cislo + ". " + p.nazev; }).join(", ") + ".\n" +
-        "Každá část show má jednu emoci z tohoto seznamu (nic jiného nepoužívej):\n" + emos.map(function (e) { return "- " + e + ": " + emDesc(e); }).join("\n") +
-        "\n\nČásti (bici_pct = jak velkou část beatů hrají bicí, zpev/nastroje/basa = průměrná hlasitost stopy 0–100, dropu = kolik dropů tam autor ťukl):\n" + JSON.stringify(data) +
-        "\n\nPřání autora: " + ($("ai-prani").value.trim() || "žádné") +
-        "\n\nNavrhni změnu emoce nebo síly (1–5) jen tam, kde by jiná emoce líp seděla k hudbě a příběhu. Respektuj autorovy popisy „slysim“ a „svetlo“. Emoce s údery dávej jen tam, kde hrají bicí. Nesnaž se měnit všechno; méně je víc. Důvod napiš česky, jednou krátkou větou, konkrétně podle hudby." +
-        "\nOdpověz jen JSON: {\"navrhy\":[{\"cast\":číslo,\"emoce\":\"…\",\"sila\":číslo,\"proc\":\"…\"}]}";
-      st.busy = true; st.ctl = new AbortController(); $("ai-go").disabled = true; $("ai-stop").hidden = false; $("ai-state").textContent = "Claude přemýšlí (obvykle do minuty)…";
-      try {
-        var r = await sample.json(prompt, { signal: st.ctl.signal, modelTier: "default" });
-        var list = (r && r.navrhy) || [];
-        st.navrhy = list.filter(function (n) { var x = pt[n.cast]; return x && emos.indexOf(n.emoce) >= 0 && (n.emoce !== x.p.emoce || (n.sila && n.sila !== +x.p.sila)); })
-          .map(function (n) { return { cast: n.cast, emoce: n.emoce, sila: Math.max(1, Math.min(5, Math.round(+n.sila || +pt[n.cast].p.sila || 3))), proc: String(n.proc || "") }; });
-        $("ai-state").textContent = ""; render();
-      } catch (e) {
-        $("ai-state").textContent = e && e.code === "cancelled" ? "Zastaveno." : e && e.code === "not_granted" ? "AI nebyla povolena." : e && e.code === "rate_limited" ? "Moc dotazů najednou, zkus to za chvíli." : "Návrh se nepovedl: " + errText(e);
-      }
+      st.busy = true; st.ctl = new AbortController(); $("ai-go").disabled = true; $("ai-stop").hidden = false; stav("Claude přemýšlí (obvykle do minuty)…");
+      try { prijmi(await sample.json(zadani(), { signal: st.ctl.signal, modelTier: "default" })); stav(""); }
+      catch (e) { stav(e && e.code === "cancelled" ? "Zastaveno." : e && e.code === "not_granted" ? "AI nebyla povolena." : e && e.code === "rate_limited" ? "Moc dotazů najednou, zkus to za chvíli." : "Návrh se nepovedl: " + errText(e), true); }
       st.busy = false; $("ai-go").disabled = false; $("ai-stop").hidden = true;
     });
     $("ai-stop").addEventListener("click", function () { if (st.ctl) st.ctl.abort(); });
-    return { refresh: render, dispose: function () { if (st.ctl) st.ctl.abort(); } };
+    return { refresh: render, dispose: function () { clearTimeout(ulozT); if (st.ctl) st.ctl.abort(); } };
   }
 
   // ----- 3D scene (shared by the show preview and the sauna page) -----
