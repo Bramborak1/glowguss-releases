@@ -1919,12 +1919,12 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var st = { navrhy: null, busy: false, ctl: null }, ulozT = null;
     body.innerHTML = '<div class="grid"><div class="col-main"><section class="card"><h2>AI návrh nálad</h2>' +
       '<p class="note" style="margin-top:8px">Vlož příběh show: scénář, časy, kdo kdy mluví, co se má stát. AI ho spojí s rozborem hudby (kde hrají bicí, kde je řeč nebo ticho) a ke každé části navrhne náladu a sílu, s krátkým důvodem. Každý návrh přijmeš nebo necháš. Pravidla světel (žádná bílá, kamna jen dýchají, nikdy tma, údery na skutečné beaty) hlídá generátor vždycky, AI je obejít nemůže.</p>' +
-      '<div class="field" style="margin-top:14px"><div class="row between"><label class="lbl" for="ai-prani">Příběh, scénář, přání (nepovinné)</label><label class="btn small" style="cursor:pointer">Načíst text ze souboru<input type="file" id="ai-soubor" accept=".txt,.md,.csv,text/*" hidden></label></div>' +
+      '<div class="field" style="margin-top:14px"><div class="row between"><label class="lbl" for="ai-prani">Sem scénář: příběh, časy, přání</label><label class="btn small" style="cursor:pointer">Načíst text ze souboru<input type="file" id="ai-soubor" accept=".txt,.md,.csv,text/*" hidden></label></div>' +
       '<textarea id="ai-prani" rows="8" placeholder="např. 0:00 mlha, Aladin bloudí. 1:30 první kolo, radost. 5:10 džin mluví, tajemně. Konec má být dojemný."></textarea></div>' +
       '<div id="ai-primo" hidden><div class="row" style="margin-top:12px"><button class="btn primary" id="ai-go">Navrhnout nálady</button><button class="btn" id="ai-stop" hidden>Zastavit</button></div></div>' +
       '<div id="ai-zdarma"><h3 style="margin-top:16px">Zdarma přes tvého Claude</h3><ol class="note" style="margin:8px 0 0 18px;display:flex;flex-direction:column;gap:10px">' +
         '<li><button class="btn primary small" id="ai-kop">Zkopírovat zadání</button> a vlož ho do Claude (stačí i verze zdarma): <a href="https://claude.ai/new" target="_blank" rel="noopener">otevřít Claude</a></li>' +
-        '<li>Až Claude odpoví, zkopíruj celou jeho odpověď a vlož ji sem:<textarea id="ai-odp" rows="4" style="margin-top:6px" placeholder="sem vlož odpověď od Claude"></textarea></li>' +
+        '<li>Až Claude odpoví, zkopíruj celou jeho odpověď a vlož ji sem:<textarea id="ai-odp" rows="4" style="margin-top:6px" placeholder="sem až ODPOVĚĎ od Claude (začíná {&quot;navrhy&quot;…), ne scénář"></textarea></li>' +
         '<li><button class="btn small" id="ai-pouzit">Ukázat návrhy</button></li></ol>' +
         '<textarea id="ai-zadani" rows="6" readonly hidden style="margin-top:10px"></textarea></div>' +
       '<p class="sub" id="ai-state" style="margin-top:10px"></p></section>' +
@@ -1986,6 +1986,11 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       else { var el = $("ai-zadani"); el.value = z; el.hidden = false; el.select(); stav("Kopírování se nepovedlo, zadání je níže označené: zkopíruj ho Ctrl+C.", true); }
     });
     $("ai-pouzit").addEventListener("click", function () {
+      var v = $("ai-odp").value.trim();
+      if (v && v.indexOf("{") < 0) {   // no JSON: this is the story, not Claude's answer - move it up
+        var el = $("ai-prani"); el.value = (el.value.trim() ? el.value.trim() + "\n\n" : "") + v; saveShow(show, { scenar: el.value }); $("ai-odp").value = "";
+        stav("Tohle byl scénář, přesunul jsem ho do horního pole. Teď klikni na „Zkopírovat zadání“ a vlož ho do Claude. Sem pak patří až odpověď od Claude.", true); return;
+      }
       try { prijmi(ctiOdpoved($("ai-odp").value)); stav(st.navrhy.length ? "" : "AI by nic neměnila."); }
       catch (e) { stav(e.message, true); }
     });
