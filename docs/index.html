@@ -939,6 +939,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     var Em = idx.map(function (i) { return E[i]; });
     var out = [];
     // 1) hits on the beat: every instant brightening step in the scenes, how far from the nearest beat
+    // moments (sparks, flashes on story sounds) are timed to the sounds on purpose, not to beats: leave them out
+    var DM = { zablesk: 1.2, tma: 4, zhasnuti: 3.5, jiskry: 3, nastup: 3, prisvit: 6 };
+    var vMomentu = function (t) { return (show.momenty || []).some(function (m) { var d = m.delka || DM[m.typ] || 2; return t >= m.t - 0.02 && t <= m.t + d + 0.02; }); };
     var hits = [], near = function (t) { var lo = 0, hi = B.length - 1; while (hi - lo > 1) { var m = (lo + hi) >> 1; if (B[m] < t) lo = m; else hi = m; } return Math.min(Math.abs(B[lo] - t), Math.abs(B[hi] - t)); };
     Object.keys(res.plan).forEach(function (seg) {
       res.plan[seg].udalosti.forEach(function (ev) {
@@ -946,7 +949,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         ev.steps.forEach(function (st) {
           if (!st[1] && prev) {
             var up = 0; Object.keys(st[2]).forEach(function (id) { var a = st[2][id] || [], b = prev[2][id] || []; up = Math.max(up, Math.max.apply(0, a.slice(0, 3).concat([0])) - Math.max.apply(0, b.slice(0, 3).concat([0]))); });
-            if (up > 25 && t < T) hits.push(t);
+            if (up > 25 && t < T && !vMomentu(t)) hits.push(t);
           }
           t += st[0] / 1000; prev = st;
         });
