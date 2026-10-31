@@ -1018,6 +1018,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   function sec(x) { if (typeof x === "number") return x; var a = String(x).split(":"); return a.length > 1 ? (+a[0]) * 60 + (+a[1]) : +a[0]; }
   function fmt(s, dec) { s = Math.max(0, s || 0); var m = Math.floor(s / 60), r = s - m * 60; var rs = dec ? r.toFixed(1) : String(Math.floor(r)); if (r < 10) rs = "0" + rs; return m + ":" + rs; }
+  function mmss1(s) { var m = Math.floor(s / 60), r = Math.round((s - m * 60) * 10) / 10; if (r >= 60) { m++; r = 0; } return m + ":" + (r < 10 ? "0" : "") + r.toFixed(1); }
   function mmss(s) { var m = Math.floor(s / 60), r = Math.round(s - m * 60); if (r === 60) { m++; r = 0; } return m + ":" + (r < 10 ? "0" : "") + r; }
   function hex(rgb) { return "#" + rgb.map(function (v) { v = Math.max(0, Math.min(255, Math.round(v))); return (v < 16 ? "0" : "") + v.toString(16); }).join(""); }
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -1700,7 +1701,13 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       h.push('<div class="head" style="left:0"></div></div>' + (showDrops ? '' : '<div hidden>') + '<span class="lbl l">Dropy</span><div class="lane' + (mode === "dropy" ? ' tall' : '') + '">');
       show.dropy.forEach(function (d) { h.push('<div class="dmark' + (d.typ === "nastup" ? " other" : d.typ === "zklidneni" ? " calm" : "") + '" style="left:' + pct(d.beat_s) + '%"></div>'); });
       (show.navrzeneDropy || []).forEach(function (q) { if (!show.dropy.some(function (d) { return Math.abs(d.beat_s - q.beat_s) < 0.01; })) h.push('<div class="dmark" style="left:' + pct(q.beat_s) + '%;background:transparent;border:2px dashed #FF8A3D" title="Návrh z učení"></div>'); });
-      h.push('<div class="head" style="left:0"></div></div>' + (showDrops ? '' : '</div>') + (showParts ? '' : '<div hidden>') + '<span class="lbl l">' + (simple ? 'Nálada' : 'Emoce') + '</span><div class="parts">');
+      h.push('<div class="head" style="left:0"></div></div>' + (showDrops ? '' : '</div>'));
+      if ((show.momenty || []).length) {
+        h.push('<span class="lbl l">Momenty</span><div class="lane">');
+        show.momenty.forEach(function (m) { h.push('<div class="dmark" style="left:' + pct(m.t) + '%;background:' + (m.barva && G.recept.paleta[m.barva] ? hex(G.recept.paleta[m.barva]) : "#9AA0AE") + ';border-radius:50%;width:10px;height:10px;top:8px" title="' + esc(mmss(m.t) + " " + (MOMENT_JMENA[m.typ] || m.typ)) + '"></div>'); });
+        h.push('</div>');
+      }
+      h.push((showParts ? '' : '<div hidden>') + '<span class="lbl l">' + (simple ? 'Nálada' : 'Emoce') + '</span><div class="parts">');
       var pt = partsT(show);
       pt.forEach(function (x) { h.push('<button type="button" class="part' + (x.i === st.sel ? " sel" : "") + '" data-i="' + x.i + '" style="left:' + pct(x.a) + '%;width:calc(' + pct(x.b - x.a) + '% - 2px);background:' + partColor(show, x.p) + '" aria-label="' + esc(x.p.od + " " + x.p.emoce) + '">' + esc(x.p.emoce) + '</button>'); });
       h.push('</div>' + (showParts ? '' : '</div>'));
@@ -1899,6 +1906,9 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     return { bpm: bpm, bici: Math.round(mean(ps.drums) * 100), zpev: Math.round(mean(ps.voc) * 100), nastroje: Math.round(mean(ps.oth) * 100), basa: Math.round(mean(ps.bass) * 100),
       dropy: show.dropy.filter(function (q) { return q.typ === "drop" && q.beat_s >= x.a && q.beat_s < x.b; }).length };
   }
+  var MOMENT_JMENA = { zablesk: "Záblesk", tma: "Tma (kamna dál svítí)", zhasnuti: "Zhasnutí se škytnutím", jiskry: "Jiskry", nastup: "Nástup světla", prisvit: "Přísvit jednou barvou" };
+  var MOMENT_POPIS = { zablesk: "krátký záblesk v barvě (náraz, kouzlo)", tma: "skoro tma, kamna dál dýchají (vypnutí)", zhasnuti: "světlo klesá, dvakrát škytne a skoro zhasne (něco nevyjde)", jiskry: "rychlé jiskry na pár světlech (zkrat, kouzlo)", nastup: "z tmy plynule nahoru (restart, příchod)", prisvit: "všechno jednou tlumenou barvou (postava, kouzlo)" };
+  var BARVY_MOMENTU = ["CYAN", "MAGENTA", "VIOLET", "BLUE", "TEAL", "GREEN", "GOLD", "ORANGE", "RED", "PINK", "DBLUE", "INDIGO"];
   function kopiruj(text) {   // clipboard also on plain http (navigator.clipboard needs https)
     if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text).then(function () { return true; }, function () { return kopirujStare(text); });
     return Promise.resolve(kopirujStare(text));
@@ -1928,7 +1938,9 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         '<li><button class="btn small" id="ai-pouzit">Ukázat návrhy</button></li></ol>' +
         '<textarea id="ai-zadani" rows="6" readonly hidden style="margin-top:10px"></textarea></div>' +
       '<p class="sub" id="ai-state" style="margin-top:10px"></p></section>' +
-      '<div id="ai-out" style="display:flex;flex-direction:column;gap:12px"></div></div>' +
+      '<div id="ai-out" style="display:flex;flex-direction:column;gap:12px"></div>' +
+      '<section class="card"><div class="row between"><h2>Momenty příběhu</h2><button class="btn small" id="mo-add">+ Přidat moment</button></div>' +
+      '<p class="note" style="margin-top:6px">Krátký efekt na přesný čas, přes náladu části: náraz, zhasnutí, jiskry, tma a restart, přísvit postavy. Kamna nikdy neblikají, jen pomalu ztlumí.</p><div id="mo-list" style="display:flex;flex-direction:column;gap:8px;margin-top:10px"></div></section></div>' +
       '<aside class="col-side"><section class="card"><h2>Nálady v receptu</h2><div id="ai-cat" style="display:flex;flex-direction:column;gap:10px;margin-top:12px"></div></section></aside></div>';
     $("ai-cat").innerHTML = Object.keys(G.recept.emoce).map(function (e) { return '<div><div class="row" style="gap:8px"><span class="dot" style="background:' + emColor(show, e, 1) + '"></span><b>' + esc(e) + '</b></div><p class="note">' + esc(emDesc(e)) + '</p></div>'; }).join("");
     $("ai-prani").value = show.scenar || "";
@@ -1938,6 +1950,23 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       f.text().then(function (t) { var el = $("ai-prani"); el.value = (el.value.trim() ? el.value.trim() + "\n\n" : "") + t.trim(); saveShow(show, { scenar: el.value }); $("ai-state").textContent = "Text načten ze souboru " + f.name + "."; });
       this.value = "";
     });
+    function ulozMomenty() { show.momenty.sort(function (a, b) { return a.t - b.t; }); saveShow(show, { momenty: show.momenty }); }
+    function renderMomenty() {
+      show.momenty = show.momenty || [];
+      var bar = Object.keys(G.recept.barvyJmena || {}).filter(function (b) { return b !== "OFF"; });
+      $("mo-list").innerHTML = show.momenty.length ? show.momenty.map(function (m, i) {
+        return '<div class="row" style="gap:8px;flex-wrap:wrap"><input type="text" class="mo-t" data-i="' + i + '" value="' + esc(mmss1(m.t)) + '" style="width:80px" aria-label="Čas">' +
+          '<select class="mo-typ" data-i="' + i + '">' + Object.keys(MOMENT_JMENA).map(function (k) { return '<option value="' + k + '"' + (k === m.typ ? " selected" : "") + '>' + MOMENT_JMENA[k] + '</option>'; }).join("") + '</select>' +
+          '<select class="mo-bar" data-i="' + i + '"><option value="">barva: sama</option>' + bar.map(function (b) { return '<option value="' + b + '"' + (b === m.barva ? " selected" : "") + '>' + esc(G.recept.barvyJmena[b]) + '</option>'; }).join("") + '</select>' +
+          '<button type="button" class="mini mo-x" data-i="' + i + '" aria-label="Smazat">✕</button>' + (m.proc ? '<span class="note">' + esc(m.proc) + '</span>' : '') + '</div>';
+      }).join("") : '<p class="note">Zatím žádné. Navrhne je AI podle scénáře, nebo přidej ručně.</p>';
+    }
+    renderMomenty();
+    $("mo-add").addEventListener("click", function () { show.momenty = show.momenty || []; show.momenty.push({ t: P.audio && !P.audio.paused ? P.audio.currentTime : 0, typ: "zablesk" }); ulozMomenty(); renderMomenty(); });
+    on($("mo-list"), ".mo-t", "change", function (e, el) { var t = secOf(el.value); if (t == null) { el.value = mmss1(show.momenty[+el.dataset.i].t); return; } show.momenty[+el.dataset.i].t = t; ulozMomenty(); renderMomenty(); });
+    on($("mo-list"), ".mo-typ", "change", function (e, el) { show.momenty[+el.dataset.i].typ = el.value; ulozMomenty(); });
+    on($("mo-list"), ".mo-bar", "change", function (e, el) { var m = show.momenty[+el.dataset.i]; if (el.value) m.barva = el.value; else delete m.barva; ulozMomenty(); });
+    on($("mo-list"), ".mo-x", "click", function (e, b) { show.momenty.splice(+b.dataset.i, 1); ulozMomenty(); renderMomenty(); });
     var samplePromise = window.claude ? window.claude.use("sample") : Promise.resolve(null);
     samplePromise.then(function (s) { if (s) { $("ai-primo").hidden = false; $("ai-zdarma").hidden = true; } });
     function stav(t, spatne) { var el = $("ai-state"); el.textContent = t; el.style.color = spatne ? "var(--bad, #e66)" : ""; }
@@ -1948,35 +1977,63 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       var open = st.navrhy.filter(function (n) { return !n.hotovo; }).length;
       out.innerHTML = '<div class="row between"><h2>' + st.navrhy.length + (st.navrhy.length === 1 ? ' návrh' : st.navrhy.length < 5 ? ' návrhy' : ' návrhů') + '</h2>' + (open ? '<button class="btn" id="ai-all">Přijmout všechny zbývající (' + open + ')</button>' : '') + '</div>' +
         st.navrhy.map(function (n, k) {
+          if (n.moment) {
+            return '<div class="prop' + (n.hotovo ? " done" : "") + '"><div class="row between"><span class="sub" style="font-family:var(--f-num)">' + mmss1(n.moment.t) + ' · moment</span>' + (n.hotovo ? '<span class="badge' + (n.hotovo === "ano" ? " ok" : "") + '">' + (n.hotovo === "ano" ? "přidáno" : "necháno") + '</span>' : '') + '</div>' +
+              '<div class="row" style="gap:8px"><span class="dot" style="background:' + (n.moment.barva ? hex(G.recept.paleta[n.moment.barva]) : "#9AA0AE") + '"></span><b>' + esc(MOMENT_JMENA[n.moment.typ]) + '</b>' + (n.moment.barva ? '<span class="note">' + esc(G.recept.barvyJmena[n.moment.barva] || "") + '</span>' : '') + '</div><p class="note">' + esc(n.proc) + '</p>' +
+              (n.hotovo ? '' : '<div class="row"><button class="btn small primary" data-k="' + k + '" data-a="ano">Přidat</button><button class="btn small" data-k="' + k + '" data-a="ne">Nechat</button></div>') + '</div>';
+          }
           var x = pt[n.cast]; if (!x) return "";
-          var chg = (n.emoce !== x.p.emoce ? esc(x.p.emoce) + ' → <b>' + esc(n.emoce) + '</b>' : esc(x.p.emoce)) + (n.sila && n.sila !== +x.p.sila ? ' · síla ' + x.p.sila + ' → <b>' + n.sila + '</b>' : '');
+          var bj = function (b) { return '<span class="dot" style="background:' + hex(G.recept.paleta[b]) + '"></span>' + esc(G.recept.barvyJmena[b] || b); };
+          var chg = (n.emoce !== x.p.emoce ? esc(x.p.emoce) + ' → <b>' + esc(n.emoce) + '</b>' : esc(x.p.emoce)) + (n.sila && n.sila !== +x.p.sila ? ' · síla ' + x.p.sila + ' → <b>' + n.sila + '</b>' : '') +
+            (n.steny ? ' · stěny ' + bj(n.steny) : '') + (n.stred ? ' · střed ' + bj(n.stred) : '');
           return '<div class="prop' + (n.hotovo ? " done" : "") + '"><div class="row between"><span class="sub" style="font-family:var(--f-num)">' + mmss(x.a) + '–' + mmss(x.b) + ' · píseň ' + x.p.pisen + '</span>' + (n.hotovo ? '<span class="badge' + (n.hotovo === "ano" ? " ok" : "") + '">' + (n.hotovo === "ano" ? "přijato" : "necháno") + '</span>' : '') + '</div>' +
             '<div class="row" style="gap:8px"><span class="dot" style="background:' + emColor(show, n.emoce, x.p.pisen) + '"></span><span>' + chg + '</span></div><p class="note">' + esc(n.proc) + '</p>' +
             (n.hotovo ? '' : '<div class="row"><button class="btn small primary" data-k="' + k + '" data-a="ano">Přijmout</button><button class="btn small" data-k="' + k + '" data-a="ne">Nechat</button></div>') + '</div>';
         }).join("");
       on(out, "button[data-k]", "click", function (e, b) { decide(+b.dataset.k, b.dataset.a); });
-      if ($("ai-all")) $("ai-all").addEventListener("click", function () { st.navrhy.forEach(function (n, k) { if (!n.hotovo) decide(k, "ano", true); }); saveShow(show, { casti: show.casti }); render(); });
+      if ($("ai-all")) $("ai-all").addEventListener("click", function () { st.navrhy.forEach(function (n, k) { if (!n.hotovo) decide(k, "ano", true); }); saveShow(show, { casti: show.casti }); ulozMomenty(); renderMomenty(); render(); });
     }
     function decide(k, a, batch) {
-      var n = st.navrhy[k], x = partsT(show)[n.cast]; n.hotovo = a;
-      if (a === "ano" && x) { x.p.emoce = n.emoce; if (n.sila) x.p.sila = n.sila; if (!batch) saveShow(show, { casti: show.casti }); }
+      var n = st.navrhy[k]; n.hotovo = a;
+      if (n.moment) {
+        if (a === "ano") { show.momenty = (show.momenty || []).filter(function (m) { return Math.abs(m.t - n.moment.t) > 0.3; }); show.momenty.push(n.moment); if (!batch) { ulozMomenty(); renderMomenty(); } }
+        if (!batch) render(); return;
+      }
+      var x = partsT(show)[n.cast];
+      if (a === "ano" && x) {
+        x.p.emoce = n.emoce; if (n.sila) x.p.sila = n.sila;
+        if (n.steny || n.stred) { x.p.skupiny = x.p.skupiny || {}; if (n.steny) x.p.skupiny.STENY = n.steny; if (n.stred) { x.p.skupiny.LAVICE = n.stred; x.p.skupiny.SPOTY = n.stred; } }
+        if (!batch) saveShow(show, { casti: show.casti });
+      }
       if (!batch) render();
     }
     function zadani() {
-      var emos = Object.keys(G.recept.emoce).filter(function (e) { return e !== "UV"; }), pt = partsT(show), scen = $("ai-prani").value.trim();
+      var emos = Object.keys(G.recept.emoce).filter(function (e) { return e !== "UV"; }), pt = partsT(show), scen = $("ai-prani").value.trim(), bary = Object.keys(G.recept.barvyJmena || {}).filter(function (b) { return b !== "OFF"; });
       var data = pt.map(function (x) { var s = partStats(show, x); return { cast: x.i, od: mmss(x.a), do: mmss(x.b), pisen: x.p.pisen, emoce: x.p.emoce, sila: +x.p.sila || 0, slysim: x.p.slysim || "", svetlo: x.p.svetlo || "", tempo_bpm: s.bpm, bici_pct: s.bici, zpev_pct: s.zpev, nastroje_pct: s.nastroje, basa_pct: s.basa, dropu: s.dropy }; });
       return "Jsi světelný designér saunových ceremonií (saunový ceremoniál = aufguss se světlem a hudbou). Show: " + show.nazev + ". Skladby: " + show.pisne.map(function (p) { return p.cislo + ". " + p.nazev; }).join(", ") + ".\n" +
-        "Každá část show má jednu náladu z tohoto seznamu (nic jiného nepoužívej):\n" + emos.map(function (e) { return "- " + e + ": " + emDesc(e); }).join("\n") +
+        "Každá část show má jednu náladu z tohoto seznamu (nic jiného nepoužívej):\n" + emos.map(function (e) { return "- " + e + ": " + emDesc(e).replace(/; každá skladba dostane vlastní barevnou variantu a pohyb podle hudby$/, ""); }).join("\n") +
+        "\n\nKe každé části můžeš místo barev nálady zvolit vlastní barvu stěn (steny) a středu sauny = lavice a spoty (stred), aby scéna měla svůj charakter (např. rudé stěny proti fialovému středu). Barvy jen z: " + bary.join(", ") + ". Bílá neexistuje." +
+        "\n\nMomenty = krátké efekty na přesný čas, přes náladu části. Dávej je na důležitá místa příběhu (náraz, zvuk, něco se pokazí, kouzlo, postava se objeví, vypnutí/restart). Typy:\n" + Object.keys(MOMENT_POPIS).map(function (k) { return "- " + k + ": " + MOMENT_POPIS[k]; }).join("\n") +
         "\n\nČásti show s rozborem hudby (od/do = čas v celé show; bici_pct = jak velkou část beatů hrají bicí, zpev/nastroje/basa = průměrná hlasitost 0–100, dropu = kolik dropů tam autor ťukl; slysim „bez hudby“ = řeč, zvuky nebo ticho bez rytmu):\n" + JSON.stringify(data) +
         "\n\nPříběh a přání autora:\n" + (scen || "žádné, řiď se hudbou") +
-        "\n\n" + (scen ? "Řiď se hlavně příběhem: časy v něm odpovídají časům od/do. Navrhni náladu a sílu (1–5) pro každou část, kde podle příběhu nebo hudby nesedí. " : "Navrhni změnu nálady nebo síly (1–5) jen tam, kde by jiná nálada líp seděla k hudbě. Nesnaž se měnit všechno; méně je víc. ") +
+        (show.momenty && show.momenty.length ? "\n\nMomenty, které už autor má (neopakuj je): " + JSON.stringify(show.momenty.map(function (m) { return { cas: mmss1(m.t), typ: m.typ }; })) : "") +
+        "\n\n" + (scen ? "Řiď se hlavně příběhem: časy v něm odpovídají časům od/do. Navrhni náladu, sílu (1–5) a případně vlastní barvy pro každou část, kde podle příběhu nebo hudby nesedí, a momenty na místa z příběhu (čas přesně podle scénáře, na desetiny sekundy). " : "Navrhni změnu nálady nebo síly (1–5) jen tam, kde by jiná nálada líp seděla k hudbě. Nesnaž se měnit všechno; méně je víc. ") +
         "Části bez hudby (řeč, zvuky, ticho) mají klidnou náladu bez úderů, která sedí k ději. Nálady s údery dávej jen tam, kde hrají bicí. Pestrost: nedávej stejnou náladu mnoha částem za sebou, pokud to příběh nechce. Respektuj autorovy popisy „slysim“ a „svetlo“. Důvod napiš česky, jednou krátkou větou." +
-        "\nOdpověz jen JSON, bez dalšího textu: {\"navrhy\":[{\"cast\":číslo,\"emoce\":\"…\",\"sila\":číslo,\"proc\":\"…\"}]}";
+        "\nOdpověz jen JSON, bez dalšího textu (steny, stred a barva jsou nepovinné): {\"navrhy\":[{\"cast\":číslo,\"emoce\":\"…\",\"sila\":číslo,\"steny\":\"BARVA\",\"stred\":\"BARVA\",\"proc\":\"…\"}],\"momenty\":[{\"cas\":\"m:ss.s\",\"typ\":\"…\",\"barva\":\"BARVA\",\"proc\":\"…\"}]}";
     }
     function prijmi(r) {
       var emos = Object.keys(G.recept.emoce).filter(function (e) { return e !== "UV"; }), pt = partsT(show), list = (r && r.navrhy) || [];
-      st.navrhy = list.filter(function (n) { var x = pt[n.cast]; return x && emos.indexOf(n.emoce) >= 0 && (n.emoce !== x.p.emoce || (n.sila && n.sila !== +x.p.sila)); })
-        .map(function (n) { return { cast: n.cast, emoce: n.emoce, sila: Math.max(1, Math.min(5, Math.round(+n.sila || +pt[n.cast].p.sila || 3))), proc: String(n.proc || "") }; });
+      var bary = G.recept.barvyJmena || {}, okB = function (b) { b = String(b || "").toUpperCase(); return bary[b] && b !== "OFF" ? b : null; }, sk = function (x) { return x.p.skupiny || {}; };
+      st.navrhy = list.filter(function (n) { var x = pt[n.cast]; if (!x) return false; if (emos.indexOf(n.emoce) < 0) n.emoce = x.p.emoce;
+          return n.emoce !== x.p.emoce || (n.sila && n.sila !== +x.p.sila) || (okB(n.steny) && okB(n.steny) !== sk(x).STENY) || (okB(n.stred) && okB(n.stred) !== sk(x).LAVICE); })
+        .map(function (n) { var o = { cast: n.cast, emoce: n.emoce, sila: Math.max(1, Math.min(5, Math.round(+n.sila || +pt[n.cast].p.sila || 3))), proc: String(n.proc || "") }; if (okB(n.steny)) o.steny = okB(n.steny); if (okB(n.stred)) o.stred = okB(n.stred); return o; });
+      var T = show.delka || show.konec || 1e9;
+      ((r && r.momenty) || []).forEach(function (m) {
+        var t = typeof m.cas === "number" ? m.cas : secOf(String(m.cas || "")); if (t == null || t < 0 || t > T || !MOMENT_JMENA[m.typ]) return;
+        if ((show.momenty || []).some(function (q) { return Math.abs(q.t - t) < 0.3 && q.typ === m.typ; })) return;
+        var mo = { t: Math.round(t * 10) / 10, typ: m.typ }; if (okB(m.barva)) mo.barva = okB(m.barva);
+        st.navrhy.push({ moment: mo, proc: String(m.proc || "") });
+      });
       render();
       if (st.navrhy.length) $("ai-out").scrollIntoView({ behavior: "smooth", block: "start" });
     }
