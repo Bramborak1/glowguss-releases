@@ -2003,7 +2003,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       if (n.moment) {
         if (a === "ano") {   // the new moment replaces old ones that start at the same time or inside it
           var t0 = n.moment.t, t1 = t0 + (n.moment.delka || MOMENT_DELKA[n.moment.typ] || 2);
-          show.momenty = (show.momenty || []).filter(function (m) { return Math.abs(m.t - t0) > 0.3 && !(m.t > t0 && m.t < t1 - 0.05); }); show.momenty.push(n.moment); if (!batch) { ulozMomenty(); renderMomenty(); } }
+          show.momenty = (show.momenty || []).filter(function (m) { var m1 = m.t + (m.delka || MOMENT_DELKA[m.typ] || 2); return Math.abs(m.t - t0) > 0.3 && !(m.t < t1 - 0.05 && m1 > t0 + 0.05); }); show.momenty.push(n.moment); if (!batch) { ulozMomenty(); renderMomenty(); } }
         if (!batch) render(); return;
       }
       var x = partsT(show)[n.cast];
