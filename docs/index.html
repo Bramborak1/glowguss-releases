@@ -758,6 +758,31 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     for (q = res.length - 1; q > 0; q--) if (res[q].m === res[q - 1].m) { res[q - 1].n += res[q].n; res.splice(q, 1); }
     return res.map(function (r) { return { a: bars[r.k], z: r.k + r.n < bars.length ? bars[r.k + r.n] : u.z, sila: r.m ? 2 : 1, bezHudby: r.m ? "hlas" : "ticho" }; });
   }
+  // sound events where there is no music (speech, effects, start-up attempts, silence): exact start and end, for story moments
+  function zvukoveUdalosti(x, useky) {
+    var H = Math.round(SR * 0.1), out = [], all = [], per = [];
+    useky.forEach(function (u) {
+      var a = Math.floor(u.od * 10), z = Math.floor(u.do * 10), db = [];
+      for (var i = a; i < z; i++) { var s = 0, o = i * H; for (var k = 0; k < H && o + k < x.length; k++) s += x[o + k] * x[o + k]; var v = 10 * Math.log10(s / H + 1e-12); db.push(v); if (v > -100) all.push(v); }
+      per.push(db);
+    });
+    if (all.length < 10) return out;
+    all.sort(function (p, q) { return p - q; });
+    var floor = all[Math.floor(all.length * 0.2)], top = all[Math.floor(all.length * 0.98)];   // quiet wind vs. the loudest effects, over all stretches without music
+    if (top - floor < 10) return out;
+    var thr = Math.max(floor + 8, top - 30);
+    useky.forEach(function (u, ui) {
+      var db = per[ui]; if (db.length < 3) return;
+      var runs = [], cur = null;
+      db.forEach(function (v, i) { var on = v > thr; if (on && !cur) cur = { a: i, z: i + 1, mx: v }; else if (on) { cur.z = i + 1; cur.mx = Math.max(cur.mx, v); } else if (cur && i - cur.z >= 3) { runs.push(cur); cur = null; } });
+      if (cur) runs.push(cur);
+      runs = runs.reduce(function (acc, r) { var l = acc[acc.length - 1]; if (l && r.a - l.z <= 1) { l.z = r.z; l.mx = Math.max(l.mx, r.mx); } else acc.push(r); return acc; }, []);
+      runs.filter(function (r) { return r.z - r.a >= 2; }).forEach(function (r, j, arr) {
+        out.push({ od: Math.round((u.od + r.a / 10) * 10) / 10, do: Math.round((u.od + r.z / 10) * 10) / 10, sila: Math.round(r.mx - floor) });
+      });
+    });
+    return out.slice(0, 300);
+  }
   // runs of music / no music on bar level; short runs (< 3 bars) join their neighbours
   function useky(hud, bt) {
     var bars = []; for (var i = 0; i < bt.length; i++) if (bt[i] === 0 || !i) bars.push(i);
@@ -809,11 +834,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       parts(sp, fr.slice(u.a, u.z), bt.slice(u.a, u.z), loud.slice(u.a, u.z), ref).forEach(function (c) { cs.push({ a: c.a + u.a, z: c.z + u.a, sila: c.sila }); });
     });
     var b = fr.map(function (f) { return r2(f / FPS); });
+    var bezH = cs.filter(function (c) { return c.bezHudby; }).map(function (c) { return { od: c.a ? b[c.a] : 0, do: c.z < b.length ? b[c.z] : x.length / SR }; });
     onProgress && onProgress(1);
     return {
       b: b, bt: bt, tempo: Math.round(60 * FPS / P * 10) / 10,
       drums: F.drums.map(function (d, i) { return d > md - 10 || F.bass[i] > mb - 10 ? 1 : 0; }),
-      voc: norm(F.voc), oth: norm(F.oth), bass: norm(F.bass),
+      voc: norm(F.voc), oth: norm(F.oth), bass: norm(F.bass), zvuky: zvukoveUdalosti(x, bezH),
       casti: cs.map(function (c) { var o = { od: c.a ? b[c.a] : 0, do: c.z < b.length ? b[c.z] : null, sila: c.sila }; if (c.bezHudby) o.bezHudby = c.bezHudby; return o; })
     };
   }
@@ -1603,7 +1629,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
             }
             var r = A.analyzuj(kus, null, ext); if (ext) r.beatThis = true;
             var off = function (t) { return Math.round((t + z) * 100) / 100; };
-            rp.push({ cislo: k + 1, zacatek: z, b: r.b.map(off), bt: r.bt, drums: r.drums, voc: r.voc, oth: r.oth, bass: r.bass });
+            rp.push({ cislo: k + 1, zacatek: z, b: r.b.map(off), bt: r.bt, drums: r.drums, voc: r.voc, oth: r.oth, bass: r.bass, zvuky: (r.zvuky || []).map(function (q) { return { od: off(q.od), do: off(q["do"]) }; }) });
             tempa.push(r.tempo); nb += r.b.length; if (r.beatThis) bts++;
             var n = r.casti.length;
             r.casti.forEach(function (c, i) {
@@ -2027,6 +2053,9 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         "\nDélka momentu (delka, sekundy, nejvýš 20) = jak dlouho trvá zvuk nebo děj ve scénáři. Delší děj, kde se něco opakuje (např. kouzlo 3× naskočí a zhasne), rozepiš na víc momentů za sebou (jiskry, zhasnuti, jiskry, zhasnuti…), ať efekt trvá po celou dobu zvuku." +
         "\n\nČásti show s rozborem hudby (od/do = čas v celé show; bici_pct = jak velkou část beatů hrají bicí, zpev/nastroje/basa = průměrná hlasitost 0–100, dropu = kolik dropů tam autor ťukl; slysim „bez hudby“ = řeč, zvuky nebo ticho bez rytmu):\n" + JSON.stringify(data) +
         "\n\nPříběh a přání autora:\n" + (scen || "žádné, řiď se hudbou") +
+        (function () { var zv = []; ((G.rozbor[show.id] || {}).pisne || []).forEach(function (p) { (p.zvuky || []).forEach(function (q) { zv.push(mmss1(q.od) + "–" + mmss1(q["do"])); }); });
+          return zv.length ? "\n\nZvuky změřené v místech bez hudby (od–do, přesně na desetiny sekundy; mezi nimi je ticho nebo jen vítr): " + zv.join(", ") +
+            "\nMomenty usaď PŘESNĚ na tyto zvuky, ne na časy ze scénáře: začátek momentu = začátek zvuku, delka = délka zvuku. Když se zvuk opakuje s krátkými pauzami (pokusy, škytnutí, rány), dej moment na každý zvuk a do pauzy mezi nimi krátkou tmu. Řeč (repliky) nech bez momentů, jen s náladou části." : ""; })() +
         (show.momenty && show.momenty.length ? "\n\nMomenty, které už autor má (neopakuj je): " + JSON.stringify(show.momenty.map(function (m) { return { cas: mmss1(m.t), typ: m.typ }; })) : "") +
         "\n\n" + (scen ? "Řiď se hlavně příběhem: časy v něm odpovídají časům od/do. Pro KAŽDOU část napiš náladu, sílu (1–5), pohyb a celou barevnou scénu. Sousední části stejné scény příběhu (např. celá jedna píseň) drž ve stejné barevné myšlence a měň jen sílu a pohyb. Momenty dej na místa z příběhu (čas přesně podle scénáře, na desetiny sekundy). " : "Pro každou část napiš náladu, sílu (1–5), pohyb a celou barevnou scénu podle hudby. ") +
         "Části bez hudby (řeč, zvuky, ticho) mají klidnou náladu bez úderů, která sedí k ději. Nálady s údery dávej jen tam, kde hrají bicí. Pestrost: nedávej stejnou náladu mnoha částem za sebou, pokud to příběh nechce. Respektuj autorovy popisy „slysim“ a „svetlo“. Důvod napiš česky, jednou krátkou větou." +
