@@ -1243,6 +1243,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     if (e && e.kod === "licence") return e.message + " " + kontaktText();
     return (e && e.message) || "Chyba";
   }
+  var ALFA = '<div class="warnbox" style="margin-top:14px"><b>Uzavřený alfa test.</b> Glowguss je zatím jen pro pozvané saunéry. Chceš to vyzkoušet? Napiš Milanovi na Instagram <a href="https://www.instagram.com/milan_dvorak/" target="_blank" rel="noopener">@milan_dvorak</a> a pošli e-mail, kterým se přihlašuješ.</div>';
   function kontaktText() { var k = (window.SVETLA_SERVER || {}).kontakt; return k ? "Pro prodloužení napiš na " + k + "." : "Pro prodloužení se ozvi tomu, kdo ti účet založil."; }
   function nextVersion(v) { var m = String(v || "").match(/^(.*?)(\d+)$/); return m ? m[1] + (+m[2] + 1) : (v || "SHOW") + "2"; }
 
@@ -1362,10 +1363,10 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   function loginPage(msg) {
     var nav = document.querySelector("nav.main"); if (nav) nav.style.display = "none";
     view.innerHTML = '<section class="card" style="max-width:420px;margin:40px auto"><h1 class="page" style="font-size:26px">Přihlášení</h1>' +
-      '<p class="sub" style="margin:6px 0 0">Glowguss je pro předplatitele. Přihlas se svým účtem Google.</p>' +
+      '<p class="sub" style="margin:6px 0 0">Přihlas se svým účtem Google.</p>' + ALFA +
       '<div style="display:flex;flex-direction:column;gap:12px;margin-top:16px"><button class="btn primary big" type="button" id="lg-go">Přihlásit přes Google</button>' +
       '<p class="note" id="lg-st">' + esc(msg || "") + '</p>' +
-      '<p class="note">Otevře se prohlížeč s přihlášením Google. Po přihlášení se vrať sem. Nový účet: po prvním přihlášení ' + esc((window.SVETLA_SERVER || {}).kontakt ? "napiš na " + window.SVETLA_SERVER.kontakt : "se ozvi tomu, kdo ti prodal předplatné") + ' a pošli mu svůj e-mail.</p></div></section>';
+      '<p class="note">Otevře se přihlášení Google. Po přihlášení se vrať sem.</p></div></section>';
     $("lg-go").addEventListener("click", async function () {
       var st = $("lg-st"), b = $("lg-go"); b.disabled = true; st.className = "note"; st.textContent = "Dokonči přihlášení v prohlížeči…";
       try { await K.prihlasit(); st.textContent = "Načítám…"; await nacti(); }
@@ -2677,7 +2678,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       var nr = await nactiRecept();
       if (nr.chyba) {
         if (nr.chyba.kod === "odhlasen") { loginPage(nr.chyba.message); return; }
-        view.innerHTML = '<section class="card" style="max-width:520px;margin:40px auto"><h2>' + (nr.chyba.kod === "licence" ? "Předplatné není aktivní" : "Nejde se spojit se serverem") + '</h2><p class="sub" style="margin:8px 0 0">' + esc(serverChyba(nr.chyba)) + '</p>' + (K.session() && K.session().email ? '<p class="note" style="margin-top:8px">Přihlášen jako <b>' + esc(K.session().email) + '</b></p>' : '') +
+        view.innerHTML = '<section class="card" style="max-width:520px;margin:40px auto"><h2>' + (nr.chyba.kod === "licence" ? "Předplatné není aktivní" : "Nejde se spojit se serverem") + '</h2><p class="sub" style="margin:8px 0 0">' + esc(serverChyba(nr.chyba)) + '</p>' + (nr.chyba.kod === "licence" ? ALFA : '') + (K.session() && K.session().email ? '<p class="note" style="margin-top:8px">Přihlášen jako <b>' + esc(K.session().email) + '</b></p>' : '') +
           '<div class="row" style="margin-top:14px;gap:8px"><button class="btn" type="button" onclick="location.reload()">Zkusit znovu</button><button class="btn" type="button" id="ex-out">Odhlásit</button></div></section>';
         $("ex-out").addEventListener("click", async function () { await K.odhlasit(); location.hash = "#/"; location.reload(); });
         setStatus(nr.chyba.kod === "licence" ? "Bez předplatného" : nr.chyba.kod === "sit" ? "Bez internetu" : "Chyba serveru"); return;
