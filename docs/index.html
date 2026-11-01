@@ -1218,7 +1218,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   var planCache = { key: "", res: null };
   function serverData(inp) { return { show: inp.show, sauna: inp.sauna, rozbor: inp.rozbor }; }
   function getPlan(show) {   // -> Promise of {plan, rep, sauna}; on the server in the paid program
-    var key = JSON.stringify([show.casti, show.dropy, show.barvyDropu, show.maxJas, show.sauna, (G.sauny[show.sauna] || {}).upraveno, show.delka]);
+    var key = JSON.stringify([show.casti, show.dropy, show.barvyDropu, show.maxJas, show.styl, show.momenty, show.sauna, (G.sauny[show.sauna] || {}).upraveno, show.delka]);
     if (planCache.key === key && planCache.res) return planCache.res;
     var p;
     try {
@@ -1704,7 +1704,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var pct = function (t) { return (t / T * 100).toFixed(3); };
     var simple = !!mode, showParts = mode !== "dropy", showDrops = mode !== "nalada";
     body.innerHTML = '<div class="grid"><div class="col-main">' +
-      '<section class="card">' + (simple ? '' : '<div class="row between"><h2>Celá show</h2><span class="note">Klikni na část a uprav ji vpravo. Klik do hudby přetočí.</span></div>') + '<div class="tl' + (simple ? ' big' : '') + '" id="tl"></div>' + (showParts ? '<div class="field" style="margin-top:14px"><span class="lbl" id="jasL">Nejvyšší jas celé show</span><div class="sila" id="jas" role="group" aria-labelledby="jasL"></div><p class="note" style="margin-top:4px">Pro relaxační ceremoniál dej 40 % nebo méně: světla pak nikde nepřesáhnou tuhle hranici a nepulzují do rytmu.</p></div>' : '') + '</section>' +
+      '<section class="card">' + (simple ? '' : '<div class="row between"><h2>Celá show</h2><span class="note">Klikni na část a uprav ji vpravo. Klik do hudby přetočí.</span></div>') + '<div class="tl' + (simple ? ' big' : '') + '" id="tl"></div>' + (showParts ? '<div class="field" style="margin-top:14px"><span class="lbl" id="jasL">Nejvyšší jas celé show</span><div class="sila" id="jas" role="group" aria-labelledby="jasL"></div><p class="note" style="margin-top:4px">Pro relaxační ceremoniál dej 40 % nebo méně: světla pak nikde nepřesáhnou tuhle hranici a nepulzují do rytmu.</p></div><div class="field" style="margin-top:14px"><span class="lbl" id="stylL">Styl</span><div class="sila" id="styl" role="group" aria-labelledby="stylL"></div><p class="note" style="margin-top:4px">Jen nasvícení: každá část má jednu klidnou barevnou scénu, světla nepulzují ani neputují. Momenty příběhu (záblesky, tma, restart) zůstávají.</p></div>' : '') + '</section>' +
       (mode === "nalada" ? '' : playerHTML(show, false)) +
       '</div><aside class="col-side">' + (showParts ? '<section class="card" id="partCard"></section>' : '') +
       (showDrops ? '<section class="card"><div class="row between"><h2>Dropy</h2>' : '<div hidden><div><h2></h2>') + '<span class="sub" id="dropCount"></span></div><div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">' +
@@ -1721,6 +1721,13 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       on($("jas"), "button", "click", function (e, b) { show.maxJas = +b.dataset.j / 100; saveShow(show, { maxJas: show.maxJas }); renderJas(); });
     }
     renderJas();
+    function renderStyl() {
+      if (!$("styl")) return;
+      var v = show.styl === "nasviceni" ? "nasviceni" : "show";
+      $("styl").innerHTML = [["show", "Světelná show"], ["nasviceni", "Jen nasvícení"]].map(function (o) { return '<button type="button" data-s="' + o[0] + '" aria-pressed="' + (v === o[0]) + '" style="white-space:nowrap;width:auto;padding:0 10px">' + o[1] + '</button>'; }).join("");
+      on($("styl"), "button", "click", function (e, b) { show.styl = b.dataset.s === "nasviceni" ? "nasviceni" : ""; saveShow(show, { styl: show.styl }); renderStyl(); });
+    }
+    renderStyl();
     function saveDropy() { show.dropy.sort(function (a, b) { return a.beat_s - b.beat_s; }); saveShow(show, { dropy: show.dropy }); }
     function renderTimeline() {
       var h = ['<span></span><div class="ruler" aria-hidden="true">'];
