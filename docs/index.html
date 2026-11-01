@@ -289,7 +289,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     try { ver = sessionStorage.getItem("glowguss-pkce"); sessionStorage.removeItem("glowguss-pkce"); } catch (e) {}
     if (!code && !q.get("error")) return null;
     history.replaceState(null, "", zpetAdresa() + location.hash);
-    if (!code || !ver) throw err("auth", "Přihlášení se nepovedlo, zkus to znovu.");
+    if (q.get("error")) throw err("auth", "Přihlášení se nepovedlo: " + (q.get("error_description") || q.get("error")) + ". Pokud jsi v alfa testu nový, napiš Milanovi, ať tě přidá.");
+    if (!code || !ver) throw err("auth", "Přihlášení se nepovedlo, zkus to znovu. Přihlášení musíš dokončit ve stejném okně prohlížeče, kde jsi ho začal (ne v aplikaci Instagramu nebo Messengeru).");
     var j;
     try { j = await auth("token?grant_type=pkce", { auth_code: code, code_verifier: ver }); }
     catch (e) { if (e.kod === "sit") throw e; throw err("auth", "Přihlášení se nepovedlo, zkus to znovu."); }
