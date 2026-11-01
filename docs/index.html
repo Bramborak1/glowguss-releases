@@ -293,7 +293,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!code || !ver) throw err("auth", "Přihlášení se nepovedlo, zkus to znovu. Přihlášení musíš dokončit ve stejném okně prohlížeče, kde jsi ho začal (ne v aplikaci Instagramu nebo Messengeru).");
     var j;
     try { j = await auth("token?grant_type=pkce", { auth_code: code, code_verifier: ver }); }
-    catch (e) { if (e.kod === "sit") throw e; throw err("auth", "Přihlášení se nepovedlo, zkus to znovu."); }
+    catch (e) { if (e.kod === "sit") throw e; throw err("auth", "Přihlášení se nepovedlo (" + e.message + "), zkus to znovu."); }
     var s = fromAuth(j, ""); store(s); return s;
   }
   // crypto.subtle exists only on https; a plain JS SHA-256 keeps login working on http too
