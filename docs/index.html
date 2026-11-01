@@ -2602,11 +2602,13 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         s.nezarazeno.forEach(function (f) { h.push('<div class="light"><span class="nm">' + esc(f[1]) + ' <span class="sub">' + esc(f[3] || "") + '</span></span><select data-f="' + esc(f[0]) + '" aria-label="Skupina pro ' + esc(f[1]) + '">' + opts("NEZ") + '</select></div>'); });
         h.push('</div>');
       }
-      var JAS = [[1, "100 %"], [0.75, "75 %"], [0.5, "50 %"], [0.35, "35 %"], [0.25, "25 %"]], MK = [[0, "bez omezení"], [0.25, "0,25 s"], [0.5, "0,5 s"], [1, "1 s"]];
+      var JAS = [[1, "100 %"], [0.75, "75 %"], [0.5, "50 %"], [0.35, "35 %"], [0.25, "25 %"]], MK = [[0, "bez omezení"], [0.1, "0,1 s (fialová)"], [0.15, "0,15 s (modrá)"], [0.25, "0,25 s (tyrkysová)"], [0.35, "0,35 s (zelená)"], [0.5, "0,5 s (oranžová)"], [1, "1 s (červená)"]];
       var sel = function (attr, val, list) { var v = +val || list[0][0]; return list.map(function (o) { return '<option value="' + o[0] + '"' + (Math.abs(o[0] - v) < 1e-6 ? " selected" : "") + '>' + o[1] + '</option>'; }).join(""); };
       h.push('</section><section class="card"><h2>Jak svítí ve skutečnosti</h2><p class="note" style="margin-top:6px">Když jsou světla v sauně silnější než v náhledu, nebo nestíhají rychlé změny (některá bliknutí vynechají), nastav to tady. Platí to pro všechny show v této sauně.</p>' +
         ROLE.filter(function (g) { return s.skupiny[g] && s.skupiny[g].svetla.length; }).map(function (g) { return '<div class="light"><span class="nm">' + ROLE_CZ[g] + ' – jas</span><select data-jas="' + g + '" aria-label="Jas ' + ROLE_CZ[g] + '">' + sel("jas", s.skupiny[g].jas, JAS) + '</select></div>'; }).join("") +
-        '<div class="light"><span class="nm">Nejkratší změna</span><select id="sa-mk" aria-label="Nejrychlejší změna">' + sel("mk", s.min_krok, MK) + '</select></div></section>');
+        '<div class="light"><span class="nm">Nejkratší změna</span><select id="sa-mk" aria-label="Nejrychlejší změna">' + sel("mk", s.min_krok, MK) + '</select></div>' +
+        '<p class="note" style="margin-top:10px">Nevíš, kolik tvoje světla stihnou? Stáhni test rychlosti (1 minuta): hlavní světla 6× za sebou 8× bliknou, pokaždé rychleji a jinou barvou. Vyber poslední barvu, kde jsi napočítal všech 8 bliknutí.</p>' +
+        '<div class="row" style="margin-top:8px"><button class="btn" id="sa-rych" type="button">Stáhnout test rychlosti</button><span class="sub" id="sa-rst"></span></div></section>');
       h.push('<section class="card"><h2>Test pořadí světel</h2><p class="note" style="margin-top:8px">Zip pro QuickDMX, kde světlo skupinu po skupině třikrát oběhne dokola v pořadí, jaké používá generátor. První světlo svítí zeleně, poslední červeně, ostatní modře, kamna celou dobu klidně svítí. V sauně hned uvidíš, kde kruh začíná a kterým směrem jde. Když to nesedí, pořadí stěn přehodíš šipkami výš.</p>' +
         '<div class="row" style="margin-top:12px"><button class="btn" id="sa-test" type="button">Stáhnout test pořadí</button><span class="sub" id="sa-tst"></span></div></section><section class="card"><h2>Správa</h2><div class="field" style="margin-top:10px"><label class="lbl" for="sa-nazev">Název</label><input type="text" id="sa-nazev" value="' + esc(s.nazev) + '"></div><div class="row" style="margin-top:12px">' +
         (s.navrh ? '<button class="btn primary" id="sa-ok">Skupiny sedí</button>' : '') +
@@ -2629,18 +2631,20 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         try { await idb(function (st) { return st.delete("sauna-" + id); }); } catch (e) {}
         setStatus("Sauna smazána", true); location.hash = "#/sauny";
       });
-      $("sa-test").addEventListener("click", async function () {
-        var b = this, st = $("sa-tst"); b.disabled = true; st.textContent = "Vyrábím test…";
+      async function stahniTest(typ, b, st) {
+        var jm = typ === "rychlost" ? "TEST-RYCHLOST" : "TEST-PORADI"; b.disabled = true; st.textContent = "Vyrábím test…";
         try {
-          var r = REMOTE ? await K.zavolej({ akce: "test", sauna: s }) : (function () { var t = C.testPoradi(s, "TEST-PORADI"), k = C.validate(t.files, t.tmlPath, t.klidna); return { files: k.nalezu ? null : t.files, delka: t.delka, kontrola: k }; })();
+          var r = REMOTE ? await K.zavolej({ akce: "test", typ: typ, sauna: s }) : (function () { var t = typ === "rychlost" ? C.testRychlosti(s, jm) : C.testPoradi(s, jm), k = C.validate(t.files, t.tmlPath, t.klidna); return { files: k.nalezu ? null : t.files, delka: t.delka, kontrola: k }; })();
           if (!r.files) throw new Error("test neprošel kontrolou pravidel");
           var d = window.claude ? await window.claude.use("downloads") : null; if (!d || !window.JSZip) throw new Error("ukládání tady není dostupné");
           var z = new window.JSZip(); Object.keys(r.files).forEach(function (p) { z.file(p, r.files[p]); }); z.file("Music/TEST_TICHO.wav", tichoWav(r.delka + 1));
-          await d.save({ filename: "TEST-PORADI_" + C.ascii(s.nazev || id).replace(/[^A-Z0-9]+/g, "_") + ".zip", data: await z.generateAsync({ type: "blob", compression: "DEFLATE" }) });
-          st.textContent = "Uloženo. V QuickDMX otevři časovou osu TEST-PORADI (" + mmss(r.delka) + ").";
+          await d.save({ filename: jm + "_" + C.ascii(s.nazev || id).replace(/[^A-Z0-9]+/g, "_") + ".zip", data: await z.generateAsync({ type: "blob", compression: "DEFLATE" }) });
+          st.textContent = "Uloženo. V QuickDMX otevři časovou osu " + jm + " (" + mmss(r.delka) + ").";
         } catch (e) { st.textContent = e && e.code === "declined" ? "Stažení zrušeno." : e && e.kod ? serverChyba(e) : "Nepovedlo se: " + errText(e); }
         b.disabled = false;
-      });
+      }
+      $("sa-test").addEventListener("click", function () { stahniTest("poradi", this, $("sa-tst")); });
+      $("sa-rych").addEventListener("click", function () { stahniTest("rychlost", this, $("sa-rst")); });
     }
     render();
     G.cleanup = function () { if (S3) S3.dispose(); };
