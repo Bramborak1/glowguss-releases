@@ -2560,7 +2560,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     }
     function persist() {
       try { if (C.Sauna) new C.Sauna(s); } catch (e) { setStatus("Profil nejde uložit: " + e.message); return; }
-      G.sauny[id] = clone(s); planCache.key = ""; save("sauny/" + id, { skupiny: s.skupiny, nezarazeno: s.nezarazeno || [], nazev: s.nazev, navrh: !!s.navrh, archiv: !!s.archiv }); render();
+      G.sauny[id] = clone(s); planCache.key = ""; save("sauny/" + id, { skupiny: s.skupiny, nezarazeno: s.nezarazeno || [], nazev: s.nazev, navrh: !!s.navrh, archiv: !!s.archiv, min_krok: +s.min_krok || 0 }); render();
     }
     function opts(cur) { return ROLE.map(function (g) { return '<option value="' + g + '"' + (g === cur ? " selected" : "") + '>' + ROLE_CZ[g] + '</option>'; }).join("") + '<option value="NEZ"' + (cur === "NEZ" ? " selected" : "") + '>Nezařazeno</option>'; }
     function render() {
@@ -2591,7 +2591,12 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         s.nezarazeno.forEach(function (f) { h.push('<div class="light"><span class="nm">' + esc(f[1]) + ' <span class="sub">' + esc(f[3] || "") + '</span></span><select data-f="' + esc(f[0]) + '" aria-label="Skupina pro ' + esc(f[1]) + '">' + opts("NEZ") + '</select></div>'); });
         h.push('</div>');
       }
-      h.push('</section><section class="card"><h2>Test pořadí světel</h2><p class="note" style="margin-top:8px">Zip pro QuickDMX, kde světlo skupinu po skupině třikrát oběhne dokola v pořadí, jaké používá generátor. První světlo svítí zeleně, poslední červeně, ostatní modře, kamna celou dobu klidně svítí. V sauně hned uvidíš, kde kruh začíná a kterým směrem jde. Když to nesedí, pořadí stěn přehodíš šipkami výš.</p>' +
+      var JAS = [[1, "100 %"], [0.75, "75 %"], [0.5, "50 %"], [0.35, "35 %"], [0.25, "25 %"]], MK = [[0, "bez omezení"], [0.25, "0,25 s"], [0.5, "0,5 s"], [1, "1 s"]];
+      var sel = function (attr, val, list) { var v = +val || list[0][0]; return list.map(function (o) { return '<option value="' + o[0] + '"' + (Math.abs(o[0] - v) < 1e-6 ? " selected" : "") + '>' + o[1] + '</option>'; }).join(""); };
+      h.push('</section><section class="card"><h2>Jak svítí ve skutečnosti</h2><p class="note" style="margin-top:6px">Když jsou světla v sauně silnější než v náhledu, nebo nestíhají rychlé změny (některá bliknutí vynechají), nastav to tady. Platí to pro všechny show v této sauně.</p>' +
+        ROLE.filter(function (g) { return s.skupiny[g] && s.skupiny[g].svetla.length; }).map(function (g) { return '<div class="light"><span class="nm">' + ROLE_CZ[g] + ' – jas</span><select data-jas="' + g + '" aria-label="Jas ' + ROLE_CZ[g] + '">' + sel("jas", s.skupiny[g].jas, JAS) + '</select></div>'; }).join("") +
+        '<div class="light"><span class="nm">Nejkratší změna</span><select id="sa-mk" aria-label="Nejrychlejší změna">' + sel("mk", s.min_krok, MK) + '</select></div></section>');
+      h.push('<section class="card"><h2>Test pořadí světel</h2><p class="note" style="margin-top:8px">Zip pro QuickDMX, kde světlo skupinu po skupině třikrát oběhne dokola v pořadí, jaké používá generátor. První světlo svítí zeleně, poslední červeně, ostatní modře, kamna celou dobu klidně svítí. V sauně hned uvidíš, kde kruh začíná a kterým směrem jde. Když to nesedí, pořadí stěn přehodíš šipkami výš.</p>' +
         '<div class="row" style="margin-top:12px"><button class="btn" id="sa-test" type="button">Stáhnout test pořadí</button><span class="sub" id="sa-tst"></span></div></section><section class="card"><h2>Správa</h2><div class="field" style="margin-top:10px"><label class="lbl" for="sa-nazev">Název</label><input type="text" id="sa-nazev" value="' + esc(s.nazev) + '"></div><div class="row" style="margin-top:12px">' +
         (s.navrh ? '<button class="btn primary" id="sa-ok">Skupiny sedí</button>' : '') +
         '<button class="btn" id="sa-arch">' + (s.archiv ? 'Vrátit z archivu' : 'Archivovat') + '</button><button class="btn" id="sa-del"' + (used.length ? ' disabled' : '') + '>Smazat saunu</button></div>' +
@@ -2602,6 +2607,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       on(view, "#safocus .chip", "click", function (e, b) { Array.prototype.forEach.call(view.querySelectorAll("#safocus .chip"), function (x) { x.setAttribute("aria-pressed", String(x === b)); }); if (S3) S3.focus(b.dataset.g); });
       on(view, "select[data-f]", "change", function (e, el) { move(el.dataset.f, el.value); });
       on(view, "button[data-up]", "click", function (e, b) { var a = s.skupiny.STENY.svetla, i = +b.dataset.up; var t = a[i - 1]; a[i - 1] = a[i]; a[i] = t; persist(); });
+      on(view, "select[data-jas]", "change", function (e, el) { var v = +el.value; if (v >= 1) delete s.skupiny[el.dataset.jas].jas; else s.skupiny[el.dataset.jas].jas = v; persist(); });
+      $("sa-mk").addEventListener("change", function () { s.min_krok = +this.value || 0; persist(); });
       $("sa-nazev").addEventListener("change", function () { s.nazev = this.value.trim() || s.nazev; persist(); });
       if ($("sa-ok")) $("sa-ok").addEventListener("click", function () { s.navrh = false; persist(); });
       $("sa-arch").addEventListener("click", function () { s.archiv = !s.archiv; persist(); });
