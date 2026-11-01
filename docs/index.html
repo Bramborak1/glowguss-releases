@@ -1035,6 +1035,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   var K = window.SvetlaKlient, REMOTE = !!(K && K.zapnuto()), C = REMOTE ? K : (window.SvetlaCore || K), IMP = window.SvetlaImport;
   var ROLE = ["STENY", "KAMNA", "SPOTY", "LAVICE", "VODA"];
   var ROLE_CZ = { STENY: "Stěny", KAMNA: "Kamna", SPOTY: "Spoty", LAVICE: "Lavice", VODA: "Voda" };
+  var ROLE_HL = { STENY: "Hlavní světla", LAVICE: "Kulisa", SPOTY: "Kulisa", VODA: "Efekt", KAMNA: "Klidná" };
+  var ROLE_CO = { STENY: "nesou barvu scény, putují dokola a hrají do rytmu", LAVICE: "barva středu, jemně se zpěvem", SPOTY: "barva středu, jemně s harmonií", VODA: "klidná barva, naplno jen na dropech", KAMNA: "jen pomalu dýchají, vždy teplá barva" };
   var ROLE_COL = { STENY: "#FF8A3D", KAMNA: "#FF4D3D", SPOTY: "#5AA8FF", LAVICE: "#7EE2B0", VODA: "#3DE0E0", NEZ: "#666B75" };
   var LANES = [["STĚNY", "w"], ["LAVICE", "lav"], ["KAMNA", "kam"], ["SPOTY", "spo"], ["VODA", "voda"]];
   var TYPY = { drop: "Drop", nastup: "Nástup", zklidneni: "Zklidnění" };
@@ -2569,7 +2571,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       try { if (C.Sauna) new C.Sauna(s); } catch (e) { setStatus("Profil nejde uložit: " + e.message); return; }
       G.sauny[id] = clone(s); planCache.key = ""; save("sauny/" + id, { skupiny: s.skupiny, nezarazeno: s.nezarazeno || [], nazev: s.nazev, navrh: !!s.navrh, archiv: !!s.archiv, min_krok: +s.min_krok || 0 }); render();
     }
-    function opts(cur) { return ROLE.map(function (g) { return '<option value="' + g + '"' + (g === cur ? " selected" : "") + '>' + ROLE_CZ[g] + '</option>'; }).join("") + '<option value="NEZ"' + (cur === "NEZ" ? " selected" : "") + '>Nezařazeno</option>'; }
+    function opts(cur) { return ROLE.map(function (g) { return '<option value="' + g + '"' + (g === cur ? " selected" : "") + '>' + (g === "STENY" ? "Hlavní (stěny)" : ROLE_CZ[g]) + '</option>'; }).join("") + '<option value="NEZ"' + (cur === "NEZ" ? " selected" : "") + '>Nezařazeno</option>'; }
     function render() {
       if (S3) { S3.dispose(); S3 = null; }
       var h = ['<div class="row between"><div><h1 class="page">' + esc(s.nazev) + '</h1><div class="sub">' + countLights(s) + ' světel · ' + (used.length ? 'show: ' + esc(used.map(function (k) { return G.shows[k].nazev; }).join(", ")) : 'zatím bez show') + (s.zdroj ? ' · ze ' + esc(s.zdroj) : '') + '</div></div><a class="btn small" href="#/sauny">Všechny sauny</a></div>'];
@@ -2583,10 +2585,10 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         var usedM = ROLE.some(function (g) { return s.skupiny[g] && s.skupiny[g].svetla.some(function (f) { return f[2] === m; }); });
         if (usedM && (M.neznameKanaly || []).length) r.push('<span style="color:var(--drop)">neznámé kanály ' + esc(M.neznameKanaly.join(", ")) + ' zůstávají na 0, ověř v QuickDMX</span>');
         return '<tr><td>' + esc(m) + '</td><td class="sub">' + esc(M.kanaly.join(", ")) + '</td><td class="sub">' + (r.join("; ") || "–") + '</td></tr>'; }).join("") + '</tbody></table></div></section></div>');
-      h.push('<aside class="col-side"><section class="card"><h2>Skupiny = řádky časové osy</h2><p class="note" style="margin-top:6px">Stěny jdou po směru hodin od levého horního rohu, podle toho putuje barva.</p>');
+      h.push('<aside class="col-side"><section class="card"><h2>Skupiny = řádky časové osy</h2><p class="note" style="margin-top:6px">Hlavní světla nemusí být na stěnách: dej sem ta, která v sauně nejvíc svítí a mají nést barvu a rytmus. Ostatní jsou kulisa. Hlavní světla putují dokola v pořadí shora dolů.</p>');
       ROLE.forEach(function (g) {
         var G1 = s.skupiny[g]; if (!G1) return;
-        h.push('<div style="margin-top:14px"><div class="row between"><b><span class="dot" style="background:' + ROLE_COL[g] + ';vertical-align:-1px"></span> ' + ROLE_CZ[g] + '</b><span class="sub">řádek ' + G1.radek + (G1.klidna ? ' · jen dýchá' : '') + '</span></div>');
+        h.push('<div style="margin-top:14px"><div class="row between"><b><span class="dot" style="background:' + ROLE_COL[g] + ';vertical-align:-1px"></span> ' + (g === "STENY" ? "Hlavní světla (stěny)" : ROLE_CZ[g]) + '</b><span class="sub">řádek ' + G1.radek + '</span></div><div class="note" style="margin:2px 0 4px">' + ROLE_HL[g] + ': ' + ROLE_CO[g] + '</div>');
         G1.svetla.forEach(function (f, i) {
           h.push('<div class="light"><span class="nm" title="' + esc(f[2]) + '">' + esc(f[1]) + '</span>' + (g === "STENY" ? '<button class="mini" data-up="' + i + '" aria-label="Posunout výš"' + (i ? "" : " disabled") + '><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 8l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>' : '') +
             '<select data-f="' + esc(f[0]) + '" aria-label="Skupina pro ' + esc(f[1]) + '">' + opts(g) + '</select></div>');
