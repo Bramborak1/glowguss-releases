@@ -337,6 +337,25 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     catch (e) { if (e.kod === "sit") throw e; throw err("auth", "Přihlášení se nepovedlo, zkus to znovu."); }
     var s = fromAuth(j, ""); store(s); return s;
   }
+  // e-mail + password (for testers without a Google account); with "Confirm email" off Supabase returns the session at once
+  async function prihlasitHeslem(email, heslo, novy) {
+    email = String(email || "").trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw err("auth", "Zadej platný e-mail.");
+    if (String(heslo || "").length < 6) throw err("auth", "Heslo musí mít aspoň 6 znaků.");
+    var j;
+    try { j = await auth(novy ? "signup" : "token?grant_type=password", { email: email, password: heslo }); }
+    catch (e) {
+      if (e.kod === "sit") throw e;
+      var m = String(e.message || "");
+      if (/invalid login credentials/i.test(m)) throw err("auth", "Špatný e-mail nebo heslo. Nemáš ještě účet? Dej „Vytvořit účet“.");
+      if (/already registered|already exists/i.test(m)) throw err("auth", "Účet s tímto e-mailem už existuje, dej „Přihlásit“.");
+      if (/not confirmed/i.test(m)) throw err("auth", "E-mail ještě není potvrzený. Napiš Milanovi.");
+      if (/signups? not allowed|disabled/i.test(m)) throw err("auth", "Registrace e-mailem je teď vypnutá. Napiš Milanovi.");
+      throw err("auth", "Přihlášení se nepovedlo (" + m + ").");
+    }
+    if (!j.access_token) throw err("auth", "Účet je vytvořený, ale čeká na potvrzení e-mailu. Napiš Milanovi.");
+    var s = fromAuth(j, email); store(s); return s;
+  }
   async function token() {
     var s = load(); if (!s) throw err("odhlasen", "Nejsi přihlášený.");
     if (s.expires_at - Date.now() > 60000) return s.access_token;
@@ -393,7 +412,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
   // after each change: upload a few seconds later
   root.__dbZmena = function () { clearTimeout(syncCasovac); syncCasovac = setTimeout(function () { synchronizuj().catch(function () {}); }, 4000); };
-  var api = { synchronizuj: synchronizuj, ascii: ascii, sec: sec, stavV: stavV, prihlasit: prihlasitGoogle, dokoncit: dokoncitPrihlaseni, odhlasit: odhlasit, zavolej: zavolej, session: load, zapnuto: function () { return !!cfg().url; } };
+  var api = { synchronizuj: synchronizuj, ascii: ascii, sec: sec, stavV: stavV, prihlasit: prihlasitGoogle, prihlasitHeslem: prihlasitHeslem, dokoncit: dokoncitPrihlaseni, odhlasit: odhlasit, zavolej: zavolej, session: load, zapnuto: function () { return !!cfg().url; } };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.SvetlaKlient = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
 
@@ -1364,15 +1383,27 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   function loginPage(msg) {
     var nav = document.querySelector("nav.main"); if (nav) nav.style.display = "none";
     view.innerHTML = '<section class="card" style="max-width:420px;margin:40px auto"><h1 class="page" style="font-size:26px">Přihlášení</h1>' +
-      '<p class="sub" style="margin:6px 0 0">Přihlas se svým účtem Google.</p>' + ALFA +
+      '<p class="sub" style="margin:6px 0 0">Přihlas se účtem Google, nebo e-mailem a heslem.</p>' + ALFA +
       '<div style="display:flex;flex-direction:column;gap:12px;margin-top:16px"><button class="btn primary big" type="button" id="lg-go">Přihlásit přes Google</button>' +
       '<p class="note" id="lg-st">' + esc(msg || "") + '</p>' +
-      '<p class="note">Otevře se přihlášení Google. Po přihlášení se vrať sem.</p></div></section>';
+      '<p class="note">Otevře se přihlášení Google. Po přihlášení se vrať sem.</p></div>' +
+      '<div style="border-top:1px solid var(--line,#8884);margin-top:18px;padding-top:14px"><p class="sub" style="margin:0 0 10px">Nemáš Google? Přihlas se e-mailem a heslem.</p>' +
+      '<form id="lg-form" style="display:flex;flex-direction:column;gap:10px"><input type="email" id="lg-em" placeholder="E-mail" autocomplete="email" required>' +
+      '<input type="password" id="lg-pw" placeholder="Heslo (aspoň 6 znaků)" autocomplete="current-password" minlength="6" required>' +
+      '<div class="row" style="gap:10px"><button class="btn primary" type="submit" id="lg-in">Přihlásit</button><button class="btn" type="button" id="lg-new">Vytvořit účet</button></div>' +
+      '<p class="note" id="lg-st2"></p></form></div></section>';
     $("lg-go").addEventListener("click", async function () {
       var st = $("lg-st"), b = $("lg-go"); b.disabled = true; st.className = "note"; st.textContent = "Dokonči přihlášení v prohlížeči…";
       try { await K.prihlasit(); st.textContent = "Načítám…"; await nacti(); }
       catch (er) { st.className = "badbox"; st.textContent = er.message; b.disabled = false; }
     });
+    var heslem = async function (novy) {
+      var st = $("lg-st2"), bi = $("lg-in"), bn = $("lg-new"); bi.disabled = bn.disabled = true; st.className = "note"; st.textContent = novy ? "Vytvářím účet…" : "Přihlašuji…";
+      try { await K.prihlasitHeslem($("lg-em").value, $("lg-pw").value, novy); st.textContent = "Načítám…"; await nacti(); }
+      catch (er) { st.className = "badbox"; st.textContent = er.message; bi.disabled = bn.disabled = false; }
+    };
+    $("lg-form").addEventListener("submit", function (e) { e.preventDefault(); heslem(false); });
+    $("lg-new").addEventListener("click", function () { if ($("lg-form").reportValidity()) heslem(true); });
   }
   function accountPage() {
     var s = K.session() || {};
