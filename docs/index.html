@@ -1075,6 +1075,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   var ROLE_CO = { STENY: "nesou barvu scény, putují dokola a hrají do rytmu", LAVICE: "barva středu, jemně se zpěvem", SPOTY: "barva středu, jemně s harmonií", VODA: "klidná barva, naplno jen na dropech", KAMNA: "jen pomalu dýchají, vždy teplá barva" };
   var ROLE_COL = { STENY: "#FF8A3D", KAMNA: "#FF4D3D", SPOTY: "#5AA8FF", LAVICE: "#7EE2B0", VODA: "#3DE0E0", NEZ: "#666B75" };
   var LANES = [["STĚNY", "w"], ["LAVICE", "lav"], ["KAMNA", "kam"], ["SPOTY", "spo"], ["VODA", "voda"]];
+  var KLIC_SK = { w: "STENY", lav: "LAVICE", kam: "KAMNA", spo: "SPOTY", voda: "VODA" }, JMENO_SK = { STENY: "Stěny", LAVICE: "Lavice", KAMNA: "Kamna", SPOTY: "Spoty", VODA: "Voda" };
+  var CHOVANI_JMENA = [["", "Podle nálady"], ["stoji", "Stojí"], ["dech", "Pomalu dýchá"], ["bici", "Bliká na bicí"]];
   var TYPY = { drop: "Drop", nastup: "Nástup", zklidneni: "Zklidnění" };
   var PO_KONCI = { scena: "99-DEKUJI", fade_ms: 3000, fade_in: 300, vypnout_po_s: 65,
     barvy: { STENY: ["WARM", 0.3], KAMNA: ["AMBER", 0.5], SPOTY: ["WARM", 0.3], LAVICE: ["WARM", 0.3], VODA: ["OFF", 0] } };
@@ -1782,7 +1784,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var pct = function (t) { return (t / T * 100).toFixed(3); };
     var simple = !!mode, showParts = mode !== "dropy", showDrops = mode !== "nalada";
     body.innerHTML = '<div class="grid"><div class="col-main">' +
-      '<section class="card">' + (simple ? '' : '<div class="row between"><h2>Celá show</h2><span class="note">Klikni na část a uprav ji vpravo. Klik do hudby přetočí.</span></div>') + '<div class="tl' + (simple ? ' big' : '') + '" id="tl"></div>' + (showParts ? '<details class="more" id="celaShow" style="margin-top:14px"' + ((+show.maxJas && +show.maxJas < 1) || show.styl === "nasviceni" ? ' open' : '') + '><summary>Nastavení celé show (nejvyšší jas, styl)</summary><div class="field" style="margin-top:14px"><span class="lbl" id="jasL">Nejvyšší jas celé show</span><div class="sila" id="jas" role="group" aria-labelledby="jasL"></div><p class="note" style="margin-top:4px">Pro relaxační ceremoniál dej 40 % nebo méně: světla pak nikde nepřesáhnou tuhle hranici a nepulzují do rytmu.</p></div><div class="field" style="margin-top:14px"><span class="lbl" id="stylL">Styl</span><div class="sila" id="styl" role="group" aria-labelledby="stylL"></div><p class="note" style="margin-top:4px">Jen nasvícení: každá část má jednu klidnou barevnou scénu, světla nepulzují ani neputují. Momenty příběhu (záblesky, tma, restart) zůstávají.</p></div></details>' : '') + '</section>' +
+      '<section class="card">' + (simple ? '' : '<div class="row between"><h2>Celá show</h2><span class="note">Klikni na část nebo na políčko světel (stěny, lavice…) a uprav je vpravo. Klik do hudby přetočí.</span></div>') + '<div class="tl' + (simple ? ' big' : '') + '" id="tl"></div>' + (showParts ? '<details class="more" id="celaShow" style="margin-top:14px"' + ((+show.maxJas && +show.maxJas < 1) || show.styl === "nasviceni" ? ' open' : '') + '><summary>Nastavení celé show (nejvyšší jas, styl)</summary><div class="field" style="margin-top:14px"><span class="lbl" id="jasL">Nejvyšší jas celé show</span><div class="sila" id="jas" role="group" aria-labelledby="jasL"></div><p class="note" style="margin-top:4px">Pro relaxační ceremoniál dej 40 % nebo méně: světla pak nikde nepřesáhnou tuhle hranici a nepulzují do rytmu.</p></div><div class="field" style="margin-top:14px"><span class="lbl" id="stylL">Styl</span><div class="sila" id="styl" role="group" aria-labelledby="stylL"></div><p class="note" style="margin-top:4px">Jen nasvícení: každá část má jednu klidnou barevnou scénu, světla nepulzují ani neputují. Momenty příběhu (záblesky, tma, restart) zůstávají.</p></div></details>' : '') + '</section>' +
       (mode === "nalada" ? '' : playerHTML(show, false)) +
       '</div><aside class="col-side">' + (showParts ? '<section class="card" id="partCard"></section>' : '') +
       (showDrops ? '<section class="card"><div class="row between"><h2>Dropy</h2>' : '<div hidden><div><h2></h2>') + '<span class="sub" id="dropCount"></span></div><div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">' +
@@ -1828,11 +1830,16 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       if (simple) { $("tl").innerHTML = h.join(""); wireTl(); return; }
       h.push('<div style="grid-column:1/-1;height:1px;background:var(--line);margin:4px 0"></div>');
       var s = pt[st.sel] || pt[0];
-      LANES.forEach(function (L) {
+      var SA = G.sauny[show.sauna];
+      LANES.filter(function (L) { var k = SA && SA.skupiny && SA.skupiny[KLIC_SK[L[1]]]; return !SA || !SA.skupiny || (k && (k.svetla || []).length); }).forEach(function (L) {
+        var gk = KLIC_SK[L[1]];
         h.push('<span class="lbl l">' + L[0] + '</span><div class="lane">');
-        pt.forEach(function (x) { var v = laneVal(show, x.p.emoce, L[1], x.p.pisen, x.p);
-          if (v.name === "OFF" || v.lv <= 0) h.push('<div class="cell off" style="left:' + pct(x.a) + '%;width:' + pct(x.b - x.a) + '%"></div>');
-          else h.push('<div class="cell" style="left:' + pct(x.a) + '%;width:' + pct(x.b - x.a) + '%;background:' + hex(v.rgb) + ';opacity:' + Math.min(1, 0.3 + v.lv * 0.95).toFixed(2) + '"></div>'); });
+        pt.forEach(function (x) { var v = laneVal(show, x.p.emoce, L[1], x.p.pisen, x.p), u = (x.p.upravy || {})[gk], upr = !!(u || (x.p.skupiny || {})[gk]);
+          if (u && u.jas != null) v.lv = u.jas;
+          var at = ' role="button" tabindex="0" data-i="' + x.i + '" data-g="' + gk + '" title="' + esc(JMENO_SK[gk] + ", " + mmss(x.a) + "–" + mmss(x.b) + (upr ? " · upraveno" : "") + " · klikni pro úpravu") + '"', ram = upr ? ';box-shadow:inset 0 0 0 2px #fff' : '';
+          var sel = st.grp === gk && st.sel === x.i ? ';outline:2px solid #FF8A3D;outline-offset:-2px;z-index:2' : '';
+          if (v.name === "OFF" || v.lv <= 0) h.push('<div class="cell off gcell"' + at + ' style="cursor:pointer;left:' + pct(x.a) + '%;width:' + pct(x.b - x.a) + '%' + ram + sel + '"></div>');
+          else h.push('<div class="cell gcell"' + at + ' style="cursor:pointer;left:' + pct(x.a) + '%;width:' + pct(x.b - x.a) + '%;background:' + hex(v.rgb) + ';opacity:' + Math.min(1, 0.3 + v.lv * 0.95).toFixed(2) + ram + sel + '"></div>'); });
         if (L[1] === "w" || L[1] === "voda") show.dropy.forEach(function (d) { if (d.typ === "drop") h.push('<div class="cell" style="left:' + pct(d.beat_s) + '%;width:3px;background:' + hex(G.recept.paleta[(show.barvyDropu || {})[String(songAt(show, d.beat_s))]] || [255, 200, 0]) + ';box-shadow:0 0 6px rgba(255,255,255,.6)"></div>'); });
         h.push('<div class="selbox" style="left:' + pct(s.a) + '%;width:' + pct(s.b - s.a) + '%"></div></div>');
       });
@@ -1840,7 +1847,10 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     }
     function wireTl() {
       $("seekLane").addEventListener("click", function (e) { var r = this.getBoundingClientRect(); seek((e.clientX - r.left) / r.width * T); });
-      on($("tl"), ".part", "click", function (e, b) { st.sel = +b.dataset.i; renderTimeline(); renderPart(); });
+      on($("tl"), ".part", "click", function (e, b) { st.sel = +b.dataset.i; st.grp = null; renderTimeline(); renderPart(); });
+      var vyberSk = function (e, b) { st.sel = +b.dataset.i; st.grp = b.dataset.g; renderTimeline(); renderPart(); var pc = $("partCard"); if (pc && pc.scrollIntoView && window.innerWidth < 900) pc.scrollIntoView({ behavior: "smooth" }); };
+      on($("tl"), ".gcell", "click", vyberSk);
+      on($("tl"), ".gcell", "keydown", function (e, b) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); vyberSk(e, b); } });
       fire();
     }
     P.hooks.push(function (t) { if (st.hraje != null && t >= st.stop - 0.02 && isPlaying()) { pause(); st.hraje = null; renderPart(); } });
@@ -1849,6 +1859,17 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       var pt = partsT(show), x = pt[st.sel]; if (!x) { st.sel = 0; x = pt[0]; }
       var p = x.p, emos = Object.keys(G.recept.emoce), h = ['<div style="display:flex;flex-direction:column;gap:16px">'];
       h.push('<div><span class="sub" style="font-family:var(--f-num)">' + mmss(x.a) + '–' + mmss(x.b) + ' · Píseň ' + p.pisen + ' · část ' + (x.i + 1) + ' z ' + pt.length + '</span><h2 style="font-size:26px;font-weight:800;margin-top:4px">' + esc(p.emoce) + '</h2>' + (simple ? '' : '<p class="note" style="margin-top:4px">' + esc(emDesc(p.emoce)) + '</p>') + '</div>');
+      if (!simple && st.grp) {
+        var gk = st.grp, R0 = G.recept, u0 = (p.upravy || {})[gk] || {}, bar0 = (p.skupiny || {})[gk] || "", kamG = gk === "KAMNA";
+        var lst = kamG ? R0.teple : Object.keys(R0.barvyJmena).filter(function (c) { return c !== "OFF"; });
+        h.push('<div style="border:2px solid #FF8A3D;border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:12px"><div class="row between"><h3 style="margin:0">' + JMENO_SK[gk] + ' v této části</h3><button type="button" class="btn small" id="sk-x">Zavřít</button></div>' +
+          '<div class="field"><label class="lbl" for="sk-b">Barva</label><select id="sk-b"><option value="">Podle nálady</option>' + lst.map(function (c) { return '<option value="' + c + '"' + (bar0 === c ? ' selected' : '') + '>' + esc(R0.barvyJmena[c] || c) + '</option>'; }).join("") + '</select></div>' +
+          '<div class="field"><span class="lbl">Jas</span><div class="sila" id="sk-j" role="group" style="display:flex;flex-wrap:wrap;gap:6px">' + [["", "Podle nálady"], ["0", "Vypnuto"], ["0.2", "20 %"], ["0.4", "40 %"], ["0.6", "60 %"], ["0.8", "80 %"], ["1", "100 %"]].map(function (o) {
+            var on = o[0] === "" ? u0.jas == null : u0.jas != null && +o[0] === +u0.jas; return '<button type="button" data-j="' + o[0] + '" aria-pressed="' + on + '" style="white-space:nowrap;width:auto;padding:0 10px">' + o[1].replace(" ", "&nbsp;") + '</button>'; }).join("") + '</div></div>' +
+          '<div class="field"><label class="lbl" for="sk-c">Chování</label><select id="sk-c">' + CHOVANI_JMENA.filter(function (o) { return !(kamG && o[0] === "bici"); }).map(function (o) { return '<option value="' + o[0] + '"' + ((u0.chovani || "") === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select></div>' +
+          (kamG ? '<p class="note">Kamna jen v teplých barvách, nikdy neblikají.</p>' : '') +
+          ((bar0 || u0.jas != null || u0.chovani) ? '<button type="button" class="btn small" id="sk-r">Vrátit na „podle nálady“</button>' : '') + '</div>');
+      }
       h.push(P.has ? '<div class="row"><button type="button" class="btn" id="pplay">' + (st.hraje === x.i && isPlaying() ? "■ Zastavit" : "▶ Přehrát tuhle část") + '</button></div>'
         : '<p class="note">Aby šla část přehrát, načti hudbu v kroku Hudba.</p>');
       if (simple) h.push('<div class="row"><button type="button" class="btn small" id="pprev"' + (x.i ? '' : ' disabled') + '>‹ Předchozí část</button><button type="button" class="btn small" id="pnext"' + (x.i + 1 < pt.length ? '' : ' disabled') + '>Další část ›</button></div>');
@@ -1865,7 +1886,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       for (var n = 1; n <= 5; n++) h.push('<button type="button" data-s="' + n + '" aria-pressed="' + ((+p.sila || 3) === n) + '" style="white-space:nowrap;width:auto;padding:0 10px">' + (n * 20) + '&nbsp;%</button>');
       h.push('</div></div>');
       // fine-tuning: colour family, movement, drums, colour per group
-      var R = G.recept, upr = !!(p.barva || p.pohyb || p.bici || (p.skupiny && Object.keys(p.skupiny).length));
+      var R = G.recept, upr = !!(p.barva || p.pohyb || p.bici || (p.skupiny && Object.keys(p.skupiny).length) || (p.upravy && Object.keys(p.upravy).length));
       if (R.rodiny && R.pohyby) {
         h.push('<details class="more"' + (upr || st.doladit ? ' open' : '') + ' id="dolad"><summary>Doladit barvy a pohyb' + (upr ? ' · upraveno' : '') + '</summary><div style="display:flex;flex-direction:column;gap:14px;margin-top:12px">');
         h.push('<div class="field"><span class="lbl">Barva celé části</span><div class="chips"><button type="button" class="chip dl-b" data-b="" aria-pressed="' + !p.barva + '">Podle nálady</button>');
@@ -1894,6 +1915,15 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         st.hraje = x.i; st.stop = x.b; seek(x.a); play(); renderPart();
       });
       if (simple) { $("pprev").addEventListener("click", function () { if (st.hraje != null) { pause(); st.hraje = null; } st.sel = Math.max(0, x.i - 1); renderTimeline(); renderPart(); }); $("pnext").addEventListener("click", function () { if (st.hraje != null) { pause(); st.hraje = null; } st.sel = Math.min(pt.length - 1, x.i + 1); renderTimeline(); renderPart(); }); }
+      if ($("sk-x")) {
+        var gk2 = st.grp, upravy = function () { p.upravy = p.upravy || {}; p.upravy[gk2] = p.upravy[gk2] || {}; return p.upravy[gk2]; };
+        var hotovo = function () { var u = (p.upravy || {})[gk2]; if (u && u.jas == null && !u.chovani) delete p.upravy[gk2]; if (p.upravy && !Object.keys(p.upravy).length) delete p.upravy; saveCasti(); renderTimeline(); renderPart(); };
+        $("sk-x").addEventListener("click", function () { st.grp = null; renderTimeline(); renderPart(); });
+        $("sk-b").addEventListener("change", function () { p.skupiny = p.skupiny || {}; if (this.value) p.skupiny[gk2] = this.value; else delete p.skupiny[gk2]; if (!Object.keys(p.skupiny).length) delete p.skupiny; hotovo(); });
+        on($("sk-j"), "button", "click", function (e, b) { var u = upravy(); if (b.dataset.j === "") delete u.jas; else u.jas = +b.dataset.j; hotovo(); });
+        $("sk-c").addEventListener("change", function () { var u = upravy(); if (this.value) u.chovani = this.value; else delete u.chovani; hotovo(); });
+        if ($("sk-r")) $("sk-r").addEventListener("click", function () { if (p.upravy) delete p.upravy[gk2]; if (p.skupiny) delete p.skupiny[gk2]; if (p.skupiny && !Object.keys(p.skupiny).length) delete p.skupiny; hotovo(); });
+      }
       on($("partCard"), ".chip[data-em]", "click", function (e, b) { p.emoce = b.dataset.em; saveCasti(); renderTimeline(); renderPart(); });
       on($("partCard"), ".sila button", "click", function (e, b) { p.sila = +b.dataset.s; saveCasti(); renderTimeline(); renderPart(); });
       $("f-pozn").addEventListener("input", function () { p.pozn = this.value; p.slysim = ""; p.svetlo = ""; saveCasti(); });
@@ -1904,7 +1934,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         $("dl-p").addEventListener("change", function () { if (this.value) p.pohyb = this.value; else delete p.pohyb; upd(); });
         $("dl-h").addEventListener("change", function () { if (this.value) p.bici = this.value; else delete p.bici; upd(); });
         on($("partCard"), ".dl-g", "change", function (e, el) { p.skupiny = p.skupiny || {}; if (el.value) p.skupiny[el.dataset.g] = el.value; else delete p.skupiny[el.dataset.g]; upd(); });
-        if ($("dl-reset")) $("dl-reset").addEventListener("click", function () { delete p.barva; delete p.pohyb; delete p.bici; delete p.skupiny; upd(); });
+        if ($("dl-reset")) $("dl-reset").addEventListener("click", function () { delete p.barva; delete p.pohyb; delete p.bici; delete p.skupiny; delete p.upravy; upd(); });
       }
       $("split").addEventListener("click", function () {
         var t = now(), c = show.casti; if (t <= x.a + 2 || t >= x.b - 2) { setStatus("Přetoč dovnitř části, aspoň 2 s od kraje"); return; }
