@@ -899,7 +899,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     for (var i = 0; i < polozky.length; i++) dec.push(await ac.decodeAudioData((await polozky[i].file.arrayBuffer()).slice(0)));
     ac.close && ac.close();
     var t = 0, pisne = dec.map(function (d, i) {
-      var k = polozky[i].konec, dur = Math.floor((k && k > 1 && k < d.duration ? k : d.duration) * 100) / 100, p = { nazev: polozky[i].file.name.replace(/\.[^.]+$/, ""), zacatek: t, konec: t + dur, fade: Math.min(polozky[i].fade || 0, dur / 2) };
+      var od = Math.max(0, Math.min(+polozky[i].od || 0, d.duration - 1)), k = polozky[i].konec, kon = k && k > od + 1 && k < d.duration ? k : d.duration;
+      var dur = Math.floor((kon - od) * 100) / 100, p = { nazev: polozky[i].file.name.replace(/\.[^.]+$/, ""), zacatek: t, konec: t + dur, od: od, fade: Math.min(polozky[i].fade || 0, dur / 2), fadeIn: Math.min(polozky[i].fadeIn || 0, dur / 2) };
       t = Math.round((t + dur) * 100) / 100; return p;
     });
     async function render(ch, sr) {
@@ -907,8 +908,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       dec.forEach(function (d, i) {
         var p = pisne[i], src = off.createBufferSource(), g = off.createGain();
         src.buffer = d; src.connect(g); g.connect(off.destination);
+        if (p.fadeIn > 0) { g.gain.setValueAtTime(0, p.zacatek); g.gain.linearRampToValueAtTime(1, p.zacatek + p.fadeIn); }
         if (p.fade > 0) { g.gain.setValueAtTime(1, p.konec - p.fade); g.gain.linearRampToValueAtTime(0, p.konec); }
-        src.start(p.zacatek, 0, p.konec - p.zacatek);
+        src.start(p.zacatek, p.od, p.konec - p.zacatek);
       });
       return off.startRendering();
     }
@@ -1425,12 +1427,33 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     $("lg-form").addEventListener("submit", function (e) { e.preventDefault(); heslem(false); });
     $("lg-new").addEventListener("click", function () { if ($("lg-form").reportValidity()) heslem(true); });
   }
+  // one device, more saunéři: what is stored here belongs to the account that is logged in; logging out backs up and clears it
+  function smazLokalniData() {
+    var k = window.SVETLA_DB_KEY || "svetla-offline-v1";
+    try { localStorage.removeItem(k); localStorage.removeItem(k + "-zmeny"); } catch (e) {}
+    return new Promise(function (res) { try { var r = indexedDB.deleteDatabase("glowguss"); r.onsuccess = r.onerror = r.onblocked = function () { res(); }; } catch (e) { res(); } });
+  }
+  async function hlidejVlastnika() {
+    var se = K.session(); if (!se || !se.email) return false;
+    var ja = String(se.email).toLowerCase(), o = null; try { o = localStorage.getItem("glowguss-vlastnik"); } catch (e) {}
+    if (o === ja) return false;
+    try { localStorage.setItem("glowguss-vlastnik", ja); } catch (e) {}
+    if (!o) return false;   // first account on this device keeps what is here
+    setStatus("Jiný účet: načítám jeho data…"); await smazLokalniData(); location.reload(); return true;
+  }
+  async function odhlasitSe() {
+    setStatus("Zálohuji před odhlášením…"); var ok = true;
+    try { await Promise.race([K.synchronizuj(), new Promise(function (_, no) { setTimeout(function () { no(new Error("čas")); }, 15000); })]); } catch (e) { ok = false; }
+    if (!ok && !(await potvrd("Některé změny se nepodařilo zálohovat na server (asi chybí internet). Po odhlášení z tohohle zařízení zmizí. Odhlásit i tak?", "Odhlásit"))) { setStatus("Odhlášení zrušeno"); return; }
+    await K.odhlasit(); await smazLokalniData(); try { localStorage.removeItem("glowguss-vlastnik"); } catch (e) {}
+    location.hash = "#/"; location.reload();
+  }
   function accountPage() {
     var s = K.session() || {};
     view.innerHTML = '<h1 class="page">Účet</h1><div class="cards" style="margin-top:16px"><section class="card"><h2>' + esc(s.email || "") + '</h2>' +
       '<p class="sub" style="margin:8px 0 0">' + (G.centrum ? "Licenci ti platí centrum " + esc(G.centrum.nazev) + ", do " + esc(new Date(G.centrum.plati_do).toLocaleDateString("cs-CZ")) + "." : s.plati_do ? "Předplatné platí do " + esc(new Date(s.plati_do).toLocaleDateString("cs-CZ")) + "." : "Platnost předplatného se ukáže po prvním náhledu nebo stažení.") + '</p>' +
-      '<p class="note" style="margin-top:8px">' + esc(G.centrum ? "Licenci prodlužuje centrum." : kontaktText()) + '</p><div class="row" style="margin-top:14px"><button class="btn" id="ac-out" type="button">Odhlásit</button></div></section></div>';
-    $("ac-out").addEventListener("click", async function () { await K.odhlasit(); location.hash = "#/"; location.reload(); });
+      '<p class="note" style="margin-top:8px">' + esc(G.centrum ? "Licenci prodlužuje centrum." : kontaktText()) + '</p><p class="note" style="margin-top:6px">Po odhlášení se tvoje show zálohují na server a z tohohle zařízení zmizí, takže je další saunér neuvidí. Po přihlášení se vrátí. Hudbu pak jen znovu vybereš.</p><div class="row" style="margin-top:14px"><button class="btn" id="ac-out" type="button">Odhlásit</button></div></section></div>';
+    $("ac-out").addEventListener("click", odhlasitSe);
     if (REMOTE) { centrumKarta(); zarizeniKarta(view); uceniKarta(); }
     if (G.spravce) { spravaLicenci(); spravaCenter(); }
   }
@@ -1723,9 +1746,9 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     $("m-file").addEventListener("change", async function () {
       var fs = Array.prototype.slice.call(this.files || []); if (!fs.length) return;
       var mix = show.mix || [], lab = body.querySelector("label.drop");
-      if (mix.length > 1 || (mix[0] && (mix[0].konec || mix[0].fade))) {
+      if (mix.length > 1 || (mix[0] && (mix[0].konec || mix[0].fade || mix[0].od || mix[0].fadeIn))) {
         var poloz = [], chybi = [];
-        mix.forEach(function (m) { var f = fs.filter(function (x) { return x.name === m.soubor; })[0]; if (f) poloz.push({ file: f, konec: m.konec, fade: m.fade }); else chybi.push(m.soubor); });
+        mix.forEach(function (m) { var f = fs.filter(function (x) { return x.name === m.soubor; })[0]; if (f) poloz.push({ file: f, od: m.od || 0, konec: m.konec, fade: m.fade, fadeIn: m.fadeIn || 0 }); else chybi.push(m.soubor); });
         if (chybi.length) { lab.querySelector("span").textContent = "Vyber všechny skladby show najednou. Chybí: " + chybi.join(", "); return; }
         lab.querySelector("span").textContent = "Spojuji skladby…";
         try { var m = await mixHudby(poloz); nastavHudbu(show, m.blob, mix.length + " skladby"); } catch (e) { lab.querySelector("span").textContent = "Nepovedlo se: " + errText(e); return; }
@@ -1771,20 +1794,32 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         '<label for="m-file" class="drop"><svg width="34" height="34" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 12V3l8-1.5V10" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="4" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="10.5" r="2" fill="currentColor"/></svg>' +
         '<b>' + (list.length ? "Přidat další skladbu" : "Vybrat skladby") + '</b><span>MP3 nebo WAV, můžeš vybrat víc najednou</span></label>' +
         (list.length ? '<div class="mix" style="display:flex;flex-direction:column;gap:8px;margin-top:14px">' + list.map(function (it, i) {
-          return '<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center;border:1px solid var(--line,#2a2d36);border-radius:12px;padding:8px 10px">' +
-            '<b style="flex:1 1 180px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (i + 1) + '. ' + esc(it.file.name.replace(/\.[^.]+$/, "")) + '</b>' +
+          return '<div class="mx-row" data-i="' + i + '" draggable="true" style="border:1px solid var(--line,#2a2d36);border-radius:12px;padding:8px 10px"><div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">' +
+            '<span class="mx-tah" aria-hidden="true" title="Přetáhni pro změnu pořadí" style="cursor:grab;opacity:.6;padding:0 4px;touch-action:none">⠿</span><b style="flex:1 1 180px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (i + 1) + '. ' + esc(it.file.name.replace(/\.[^.]+$/, "")) + '</b>' +
+            (it.zacTxt ? '<span class="sub">od ' + esc(it.zacTxt) + '</span>' : '') +
             '<input type="text" class="mx-konec" data-i="' + i + '" value="' + esc(it.konecTxt || "") + '" placeholder="konec: celá" title="Kde skladbu utnout, např. 3:20. Prázdné = celá." style="width:110px">' +
             '<select class="mx-fade" data-i="' + i + '">' + FADE.map(function (f) { return '<option value="' + f[0] + '"' + (+it.fade === f[0] ? " selected" : "") + '>' + f[1] + '</option>'; }).join("") + '</select>' +
             '<button type="button" class="mini mx-up" data-i="' + i + '" aria-label="Posunout výš"' + (i ? "" : " disabled") + '>↑</button>' +
             '<button type="button" class="mini mx-dn" data-i="' + i + '" aria-label="Posunout níž"' + (i + 1 < list.length ? "" : " disabled") + '>↓</button>' +
-            '<button type="button" class="mini mx-x" data-i="' + i + '" aria-label="Odebrat">✕</button></div>';
-        }).join("") + '</div><p class="note" style="margin-top:8px">Skladby se spojí za sebe do jedné stopy pro QuickDMX. „Konec“ skladbu utne (např. 3:20), „Zeslabit“ ji na konci plynule ztlumí.</p>' +
+            '<button type="button" class="btn small mx-cut" data-i="' + i + '" aria-pressed="' + !!it.otevreno + '">' + (it.otevreno ? "Hotovo" : "Stříhat") + '</button>' +
+            '<button type="button" class="mini mx-x" data-i="' + i + '" aria-label="Odebrat">✕</button></div>' + (it.otevreno ? strihHTML(it, i) : '') + '</div>';
+        }).join("") + '</div><p class="note" style="margin-top:8px">Skladby se spojí za sebe do jedné stopy pro QuickDMX v tomhle pořadí (seřadí se podle názvu souboru, změníš ho šipkami nebo přetažením). „Konec“ skladbu utne (např. 3:20), „Zeslabit“ ji na konci plynule ztlumí. Ve „Stříhat“ nastavíš i začátek a uslyšíš, jak střih zní.</p>' +
         '<div class="row" style="margin-top:12px"><button type="button" class="btn primary big" id="mx-go">Rozebrat hudbu</button></div>' : '') +
         '<div id="an-st" class="note" style="margin-top:14px">Program v ní sám najde beaty, takty a části. Trvá to pár vteřin a nic se nikam neposílá.</div></section>';
-      $("m-file").addEventListener("change", function () {
-        Array.prototype.forEach.call(this.files || [], function (f) { list.push({ file: f, konecTxt: "", fade: 0 }); });
+      $("m-file").addEventListener("change", function () {   // the browser does not keep the click order: sort by file name (01, 02… or a, b…)
+        Array.prototype.slice.call(this.files || []).sort(function (a, b) { return a.name.localeCompare(b.name, "cs", { numeric: true, sensitivity: "base" }); })
+          .forEach(function (f) { list.push({ file: f, konecTxt: "", zacTxt: "", fade: 0, fadeIn: 0 }); });
         draw();
       });
+      on(body, ".mx-cut", "click", function (e, b) { var it = list[+b.dataset.i]; it.otevreno = !it.otevreno; stop(); draw(); });
+      wireStrih();
+      // drag a row to a new place
+      var tah = null;
+      var zUchytu = false; on(body, ".mx-row", "mousedown", function (e) { zUchytu = !!(e.target.closest && e.target.closest(".mx-tah")); });
+      on(body, ".mx-row", "dragstart", function (e, el) { if (!zUchytu) { e.preventDefault(); return; } tah = +el.dataset.i; e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", String(tah)); } catch (x) {} el.style.opacity = ".5"; });
+      on(body, ".mx-row", "dragend", function (e, el) { el.style.opacity = ""; });
+      on(body, ".mx-row", "dragover", function (e) { if (tah != null) e.preventDefault(); });
+      on(body, ".mx-row", "drop", function (e, el) { e.preventDefault(); var na = +el.dataset.i; if (tah == null || na === tah) return; list.splice(na, 0, list.splice(tah, 1)[0]); tah = null; draw(); });
       on(body, ".mx-konec", "input", function (e, el) { list[+el.dataset.i].konecTxt = el.value; });
       on(body, ".mx-fade", "change", function (e, el) { list[+el.dataset.i].fade = +el.value; });
       on(body, ".mx-up", "click", function (e, b) { var i = +b.dataset.i; list.splice(i - 1, 0, list.splice(i, 1)[0]); draw(); });
@@ -1792,15 +1827,84 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       on(body, ".mx-x", "click", function (e, b) { list.splice(+b.dataset.i, 1); draw(); });
       if ($("mx-go")) $("mx-go").addEventListener("click", go);
     }
+    // ----- trimming one song: drag the start / end on the waveform, listen, fade in / out -----
+    var nahled = new Audio(), nahledKonec = null, nahledI = -1, kresliT = null;
+    function stop() { nahled.pause(); nahledI = -1; cancelAnimationFrame(kresliT); }
+    function fmtS(x) { var m = Math.floor(x / 60), r = (x - m * 60).toFixed(1); return m + ":" + (r < 10 ? "0" : "") + r; }
+    function strihHTML(it, i) {
+      return '<div class="mx-strih" data-i="' + i + '" style="margin-top:10px;display:flex;flex-direction:column;gap:10px">' +
+        '<canvas class="mx-vlna" data-i="' + i + '" height="90" style="width:100%;height:90px;border-radius:8px;background:#0b0c10;cursor:ew-resize;touch-action:none"></canvas>' +
+        '<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">' +
+        '<label class="row" style="gap:6px">Začátek <input type="text" class="mx-zac" data-i="' + i + '" value="' + esc(it.zacTxt || "") + '" placeholder="0:00" style="width:80px"></label>' +
+        '<select class="mx-fin" data-i="' + i + '" aria-label="Náběh">' + [[0, "Bez náběhu"], [2, "Náběh 2 s"], [4, "Náběh 4 s"], [8, "Náběh 8 s"]].map(function (f) { return '<option value="' + f[0] + '"' + (+it.fadeIn === f[0] ? " selected" : "") + '>' + f[1] + '</option>'; }).join("") + '</select>' +
+        '<span class="sub mx-info" data-i="' + i + '"></span></div>' +
+        '<div class="row" style="gap:8px;flex-wrap:wrap"><button type="button" class="btn small mx-p" data-i="' + i + '" data-m="zac">▶ Poslechnout začátek</button><button type="button" class="btn small mx-p" data-i="' + i + '" data-m="kon">▶ Poslechnout konec</button><button type="button" class="btn small mx-p" data-i="' + i + '" data-m="stop">■ Stop</button></div>' +
+        '<p class="note">Táhni po vlně: levá polovina posouvá začátek, pravá konec. Nebo napiš čas.</p></div>';
+    }
+    function rozsah(it) { var d = it.dur || 0, a = secOf(it.zacTxt) || 0, b = secOf(it.konecTxt) || d; a = Math.max(0, Math.min(a, d)); b = Math.max(a, Math.min(b, d)); return [a, b]; }
+    function kresli(i) {
+      var it = list[i], cv = body.querySelector('.mx-vlna[data-i="' + i + '"]'); if (!cv) return;
+      var w = cv.width = Math.max(200, Math.round(cv.clientWidth * (window.devicePixelRatio || 1))), h = cv.height = 90 * (window.devicePixelRatio || 1), g = cv.getContext("2d");
+      g.clearRect(0, 0, w, h);
+      if (!it.peaks) { g.fillStyle = "#888"; g.font = (12 * (window.devicePixelRatio || 1)) + "px sans-serif"; g.fillText("Načítám vlnu…", 10, h / 2); return; }
+      var r = rozsah(it), x = function (t) { return t / it.dur * w; }, n = it.peaks.length;
+      for (var k = 0; k < w; k++) { var p = it.peaks[Math.floor(k / w * n)], t = k / w * it.dur, uvnitr = t >= r[0] && t <= r[1];
+        g.fillStyle = uvnitr ? "#FF8A3D" : "#3a3d48"; var v = Math.max(1, p * h * 0.9); g.fillRect(k, (h - v) / 2, 1, v); }
+      g.fillStyle = "rgba(0,0,0,.55)"; g.fillRect(0, 0, x(r[0]), h); g.fillRect(x(r[1]), 0, w - x(r[1]), h);
+      g.fillStyle = "#fff"; g.fillRect(x(r[0]) - 1, 0, 2, h); g.fillRect(x(r[1]) - 1, 0, 2, h);
+      if (nahledI === i && !nahled.paused) { g.fillStyle = "#4ade80"; g.fillRect(x(nahled.currentTime) - 1, 0, 2, h); }
+      var inf = body.querySelector('.mx-info[data-i="' + i + '"]'); if (inf) inf.textContent = "Výřez " + fmtS(r[0]) + " – " + fmtS(r[1]) + " (" + fmtS(r[1] - r[0]) + " z " + fmtS(it.dur) + ")";
+    }
+    async function vlna(i) {
+      var it = list[i]; if (it.peaks) return kresli(i);
+      kresli(i);
+      try {
+        var AC = window.AudioContext || window.webkitAudioContext, ac = new AC(), d = await ac.decodeAudioData((await it.file.arrayBuffer()).slice(0)); ac.close && ac.close();
+        var ch = d.getChannelData(0), N = 1200, kr = Math.floor(ch.length / N) || 1, pk = new Float32Array(N), mx = 0;
+        for (var k = 0; k < N; k++) { var m = 0; for (var j = k * kr, e = Math.min(ch.length, j + kr); j < e; j += 16) { var v = Math.abs(ch[j]); if (v > m) m = v; } pk[k] = m; if (m > mx) mx = m; }
+        for (k = 0; k < N; k++) pk[k] /= mx || 1;
+        it.peaks = pk; it.dur = d.duration;
+      } catch (e) { it.peaks = new Float32Array(1); it.dur = 1; }
+      kresli(i);
+    }
+    function wireStrih() {
+      list.forEach(function (it, i) { if (it.otevreno) vlna(i); });
+      on(body, ".mx-zac", "input", function (e, el) { list[+el.dataset.i].zacTxt = el.value; kresli(+el.dataset.i); });
+      on(body, ".mx-konec", "input", function (e, el) { kresli(+el.dataset.i); });
+      on(body, ".mx-fin", "change", function (e, el) { list[+el.dataset.i].fadeIn = +el.value; });
+      on(body, ".mx-p", "click", function (e, b) {
+        var i = +b.dataset.i, it = list[i], r = rozsah(it); stop(); if (b.dataset.m === "stop" || !it.dur) return;
+        if (nahled.src.indexOf(it.url || "-") < 0) { if (!it.url) it.url = URL.createObjectURL(it.file); nahled.src = it.url; }
+        var od = b.dataset.m === "zac" ? r[0] : Math.max(r[0], r[1] - 8); nahledKonec = b.dataset.m === "zac" ? Math.min(r[1], r[0] + 10) : r[1]; nahledI = i;
+        var pust = function () { nahled.currentTime = od; nahled.play().catch(function () {}); var tik = function () { if (nahled.currentTime >= nahledKonec) { stop(); kresli(i); return; } kresli(i); kresliT = requestAnimationFrame(tik); }; kresliT = requestAnimationFrame(tik); };
+        if (nahled.readyState >= 1) pust(); else nahled.addEventListener("loadedmetadata", pust, { once: true });
+      });
+      Array.prototype.forEach.call(body.querySelectorAll(".mx-vlna"), function (cv) {
+        var i = +cv.dataset.i, kt = null;
+        var cas = function (e) { var b = cv.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - b.left) / b.width)) * (list[i].dur || 0); };
+        var nastav = function (t) { var it = list[i], r = rozsah(it);
+          if (kt === "zac") { it.zacTxt = t < 0.2 ? "" : fmtS(Math.min(t, r[1] - 1)); var z = body.querySelector('.mx-zac[data-i="' + i + '"]'); if (z) z.value = it.zacTxt; }
+          else { it.konecTxt = t > it.dur - 0.2 ? "" : fmtS(Math.max(t, r[0] + 1)); var k = body.querySelector('.mx-konec[data-i="' + i + '"]'); if (k) k.value = it.konecTxt; }
+          kresli(i); };
+        cv.addEventListener("pointerdown", function (e) { if (!list[i].dur) return; var t = cas(e), r = rozsah(list[i]); kt = Math.abs(t - r[0]) <= Math.abs(t - r[1]) ? "zac" : "kon"; cv.setPointerCapture(e.pointerId); nastav(t); });
+        cv.addEventListener("pointermove", function (e) { if (kt) nastav(cas(e)); });
+        cv.addEventListener("pointerup", function () { kt = null; });
+      });
+    }
     function go() {
+      stop();
       var st = $("an-st"), btn = $("mx-go");
-      for (var i = 0; i < list.length; i++) if (list[i].konecTxt.trim() && secOf(list[i].konecTxt) == null) { st.className = "badbox"; st.textContent = "U skladby " + (i + 1) + " nerozumím konci „" + list[i].konecTxt + "“. Napiš třeba 3:20, nebo nech prázdné."; return; }
+      for (var i = 0; i < list.length; i++) {
+        if ((list[i].zacTxt || "").trim() && secOf(list[i].zacTxt) == null) { st.className = "badbox"; st.textContent = "U skladby " + (i + 1) + " nerozumím začátku „" + list[i].zacTxt + "“. Napiš třeba 0:15, nebo nech prázdné."; return; }
+        var z0 = secOf(list[i].zacTxt) || 0, k0 = secOf(list[i].konecTxt); if (k0 != null && k0 <= z0 + 1) { st.className = "badbox"; st.textContent = "U skladby " + (i + 1) + " je konec dřív než začátek."; return; }
+      }
+      for (i = 0; i < list.length; i++) if (list[i].konecTxt.trim() && secOf(list[i].konecTxt) == null) { st.className = "badbox"; st.textContent = "U skladby " + (i + 1) + " nerozumím konci „" + list[i].konecTxt + "“. Napiš třeba 3:20, nebo nech prázdné."; return; }
       btn.disabled = true; body.querySelector("label.drop").style.pointerEvents = "none";
       st.className = "note"; st.textContent = "Načítám a spojuji skladby…";
       setTimeout(async function () {
         try {
           if (!A || !A.spoj) throw new Error("rozbor hudby se nenačetl, spusť program znovu");
-          var polozky = list.map(function (it) { return { file: it.file, konec: secOf(it.konecTxt), fade: +it.fade || 0 }; });
+          var polozky = list.map(function (it) { return { file: it.file, od: secOf(it.zacTxt) || 0, konec: secOf(it.konecTxt), fade: +it.fade || 0, fadeIn: +it.fadeIn || 0 }; });
           var m = await mixHudby(polozky), d = m.d, sr = A.SR, rp = [], casti = [], tempa = [], nb = 0, bts = 0;
           for (var k = 0; k < d.pisne.length; k++) {
             var ps = d.pisne[k], z = ps.zacatek;
@@ -1833,7 +1937,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
           if (nu && nu.casti) nu.casti.forEach(function (q, i) { if (q && casti[i]) { casti[i].emoce = q.emoce; casti[i].sila = q.sila; casti[i].naucene = q.jistota; } });
           var rozbor = { pisne: rp, navrh: navrh, zdroj: "rozbor v programu " + new Date().toISOString().slice(0, 10) + (bts ? ", beaty Beat This" : "") + ", " + tempa.join(" / ") + " BPM" };
           var fields = { pisne: d.pisne.map(function (p, i) { return { cislo: i + 1, nazev: p.nazev, zacatek: p.zacatek, konec: p.konec }; }), casti: casti, dropy: [], navrzeneDropy: nu && nu.dropy && nu.dropy.length ? nu.dropy : null, delka: delka, konec: delka, nabehy: [],
-            mix: polozky.map(function (p) { return { soubor: p.file.name, konec: p.konec, fade: p.fade }; }) };
+            mix: polozky.map(function (p) { return { soubor: p.file.name, od: p.od || 0, konec: p.konec, fade: p.fade, fadeIn: p.fadeIn || 0 }; }) };
           await G.db.doc("rozbor/" + show.id).set(rozbor); G.rozbor[show.id] = rozbor; delete G.beaty[show.id];
           await saveShow(show, fields);
           nastavHudbu(show, m.blob, d.pisne.length > 1 ? d.pisne.length + " skladby" : list[0].file.name);
@@ -2307,7 +2411,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       if (!batch) render();
     }
     function zadani() {
-      var emos = Object.keys(G.recept.emoce).filter(function (e) { return e !== "UV"; }), pt = partsT(show), scen = $("ai-prani").value.trim(), bary = Object.keys(G.recept.barvyJmena || {}).filter(function (b) { return b !== "OFF"; });
+      var emos = Object.keys(G.recept.emoce).filter(function (e) { return e !== "UV" && e !== "Jen UV"; }), pt = partsT(show), scen = $("ai-prani").value.trim(), bary = Object.keys(G.recept.barvyJmena || {}).filter(function (b) { return b !== "OFF"; });
       var data = pt.map(function (x) { var s = partStats(show, x); return { cast: x.i, od: mmss(x.a), do: mmss(x.b), pisen: x.p.pisen, emoce: x.p.emoce, sila: +x.p.sila || 0, slysim: x.p.slysim || "", svetlo: x.p.svetlo || "", tempo_bpm: s.bpm, bici_pct: s.bici, zpev_pct: s.zpev, nastroje_pct: s.nastroje, basa_pct: s.basa, dropu: s.dropy }; });
       return "Jsi světelný designér saunových ceremonií (saunový ceremoniál = aufguss se světlem a hudbou). Show: " + show.nazev + ". Skladby: " + show.pisne.map(function (p) { return p.cislo + ". " + p.nazev; }).join(", ") + ".\n" +
         "Každá část show má jednu náladu z tohoto seznamu (nic jiného nepoužívej):\n" + emos.map(function (e) { return "- " + e + ": " + emDesc(e).replace(/; každá skladba dostane vlastní barevnou variantu a pohyb podle hudby$/, ""); }).join("\n") +
@@ -2327,7 +2431,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         "\nOdpověz jen JSON, bez dalšího textu: {\"navrhy\":[{\"cast\":číslo,\"emoce\":\"…\",\"sila\":číslo,\"pohyb\":\"…\",\"steny\":\"BARVA\",\"lavice\":\"BARVA\",\"spoty\":\"BARVA\",\"voda\":\"BARVA\",\"kamna\":\"BARVA\",\"proc\":\"…\"}],\"momenty\":[{\"cas\":\"m:ss.s\",\"typ\":\"…\",\"delka\":sekundy,\"barva\":\"BARVA\",\"proc\":\"…\"}]}";
     }
     function prijmi(r) {
-      var emos = Object.keys(G.recept.emoce).filter(function (e) { return e !== "UV"; }), pt = partsT(show), list = (r && r.navrhy) || [];
+      var emos = Object.keys(G.recept.emoce).filter(function (e) { return e !== "UV" && e !== "Jen UV"; }), pt = partsT(show), list = (r && r.navrhy) || [];
       var bary = G.recept.barvyJmena || {}, okB = function (b) { b = String(b || "").toUpperCase(); return bary[b] && b !== "OFF" ? b : null; }, sk = function (x) { return x.p.skupiny || {}; };
       var teple = G.recept.teple || [], pohyby = G.recept.pohyby || {};
       var scena = function (n) {   // full colour scene from the answer (stred = benches + spots); the stove only warm
@@ -2704,7 +2808,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         if (chk.nalezu === 0) h.push('<div class="okbox">' + (simple ? 'Hotovo a zkontrolováno: žádná bílá, kamna jen dýchají, nikdy tma. Můžeš stáhnout.' : 'Kontrola prošla: 0 nálezů (bílá, kamna, UV ve tmě, kolize řad). Balíček je připravený.') + '</div><div class="row" style="flex-wrap:wrap">' + (slozkaJde() ? '<button class="btn primary" id="p-qd">Uložit rovnou do QuickDMX</button><button class="btn" id="p-dl">Stáhnout zip</button>' : '<button class="btn primary" id="p-dl">Stáhnout ' + esc(v) + '_svetla.zip</button>') + '<span class="sub" id="p-dls"></span></div>');
         else {
           var names = { BILA: "bílá nebo skoro bílá", PRECHOD: "přechod přes bílou", STRED: "kamna/střed blikají", "UV-TMA": "jen UV ve tmě", KOLIZE: "dvě řady na stejných světlech", CHYBI: "chybí scéna" };
-          h.push('<div class="badbox"><b>Kontrola našla ' + chk.nalezu + ' problémů, zip se nevyrobí.</b><ul style="margin:8px 0 0;padding-left:18px">' + Object.keys(chk.vysledky).filter(function (k) { return chk.vysledky[k].length; }).map(function (k) { return '<li>' + esc(names[k] || k) + ': ' + chk.vysledky[k].length + ' × (např. ' + esc(chk.vysledky[k][0]) + ')</li>'; }).join("") + '</ul><p style="margin:8px 0 0">Napiš mi do projektu, podívám se, co to způsobilo.</p></div>');
+          h.push('<div class="badbox"><b>Kontrola našla ' + chk.nalezu + ' problémů, zip se nevyrobí.</b><ul style="margin:8px 0 0;padding-left:18px">' + Object.keys(chk.vysledky).filter(function (k) { return k !== "UV-TMA" && chk.vysledky[k].length; }).map(function (k) { return '<li>' + esc(names[k] || k) + ': ' + chk.vysledky[k].length + ' × (např. ' + esc(chk.vysledky[k][0]) + ')</li>'; }).join("") + '</ul><p style="margin:8px 0 0">Napiš mi do projektu, podívám se, co to způsobilo.</p></div>');
         }
         var D = show.dropy.filter(function (d) { return d.typ === "drop"; });
         if (D.length) h.push((simple ? '<details class="more"><summary>Kontrola dropů bez poslouchání (' + D.length + ')</summary>' : '') + '<div><h3 style="margin-top:6px">Dropy: tvůj ťuk → světlo</h3><p class="note">Kontrola bez poslouchání: kdy jsi ťukl a na kterém beatu bouchne světlo naplno.</p><div class="scroll"><table class="t"><thead><tr><th>#</th><th>Tvůj ťuk</th><th>Světlo naplno</th><th>Píseň</th><th>Barva</th></tr></thead><tbody>' +
@@ -2937,6 +3041,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var chybaPrihlaseni = null;
     if (REMOTE) {
       if (K.dokoncit) { try { await K.dokoncit(); } catch (e) { chybaPrihlaseni = e; } }
+      if (await hlidejVlastnika()) return;
       // shows saved on the server (other computer, cleared browser) come back before the page reads them
       if (K.session() && K.synchronizuj) { setStatus("Načítám zálohu ze serveru…"); try { await Promise.race([K.synchronizuj(), new Promise(function (r) { setTimeout(r, 15000); })]); } catch (e) {} }
     }
@@ -2958,12 +3063,12 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         if (nr.chyba.kod === "zarizeni") {
           view.innerHTML = '<div style="max-width:620px;margin:40px auto"><section class="card"><h2>Licence běží na jiném zařízení</h2><p class="sub" style="margin:8px 0 0">' + esc(nr.chyba.message) + '</p>' + (K.session() && K.session().email ? '<p class="note" style="margin-top:8px">Přihlášen jako <b>' + esc(K.session().email) + '</b></p>' : '') +
             '<div class="row" style="margin-top:14px;gap:8px"><button class="btn primary" type="button" onclick="location.reload()">Zkusit znovu</button><button class="btn" type="button" id="ex-out">Odhlásit</button></div></section><div id="zr-wrap"></div></div>';
-          $("ex-out").addEventListener("click", async function () { await K.odhlasit(); location.hash = "#/"; location.reload(); });
+          $("ex-out").addEventListener("click", odhlasitSe);
           zarizeniKarta($("zr-wrap"), nr.chyba.stav); setStatus("Limit zařízení"); return;
         }
         view.innerHTML = '<section class="card" style="max-width:520px;margin:40px auto"><h2>' + (nr.chyba.kod === "licence" ? "Předplatné není aktivní" : "Nejde se spojit se serverem") + '</h2><p class="sub" style="margin:8px 0 0">' + esc(serverChyba(nr.chyba)) + '</p>' + (nr.chyba.kod === "licence" ? ALFA : '') + (K.session() && K.session().email ? '<p class="note" style="margin-top:8px">Přihlášen jako <b>' + esc(K.session().email) + '</b></p>' : '') +
           '<div class="row" style="margin-top:14px;gap:8px"><button class="btn" type="button" onclick="location.reload()">Zkusit znovu</button><button class="btn" type="button" id="ex-out">Odhlásit</button></div></section>';
-        $("ex-out").addEventListener("click", async function () { await K.odhlasit(); location.hash = "#/"; location.reload(); });
+        $("ex-out").addEventListener("click", odhlasitSe);
         setStatus(nr.chyba.kod === "licence" ? "Bez předplatného" : nr.chyba.kod === "sit" ? "Bez internetu" : "Chyba serveru"); return;
       }
       G.recept = nr.recept;
