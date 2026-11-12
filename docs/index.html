@@ -2119,7 +2119,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       h.push('</div></div>');
       if (!simple) h.push('</div><div class="pcol">');
       // fine-tuning: colour family, movement, drums, colour per group
-      var R = G.recept, upr = !!(p.barva || p.pohyb || p.bici || (p.skupiny && Object.keys(p.skupiny).length) || (p.upravy && Object.keys(p.upravy).length) || (p.svetla && Object.keys(p.svetla).length));
+      var R = G.recept, upr = !!(p.barva || p.pohyb || p.bici || p.stridani || (p.skupiny && Object.keys(p.skupiny).length) || (p.upravy && Object.keys(p.upravy).length) || (p.svetla && Object.keys(p.svetla).length));
       if (R.rodiny && R.pohyby) {
         h.push('<details class="more"' + (upr || st.doladit ? ' open' : '') + ' id="dolad"><summary>Doladit barvy a pohyb' + (upr ? ' · upraveno' : '') + '</summary><div style="display:flex;flex-direction:column;gap:14px;margin-top:12px">');
         h.push('<div class="field"><span class="lbl">Barva celé části</span><div class="chips"><button type="button" class="chip dl-b" data-b="" aria-pressed="' + !p.barva + '">Podle nálady</button>');
@@ -2127,6 +2127,10 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         h.push('</div></div><div class="row" style="gap:12px;flex-wrap:wrap"><div class="field" style="flex:1 1 140px"><label class="lbl" for="dl-p">Pohyb barvy</label><select id="dl-p"><option value="">Automaticky</option>');
         Object.keys(R.pohyby).forEach(function (k) { h.push('<option value="' + k + '"' + (p.pohyb === k ? ' selected' : '') + '>' + esc(R.pohyby[k]) + '</option>'); });
         h.push('</select></div><div class="field" style="flex:1 1 140px"><label class="lbl" for="dl-h">Reakce na bicí</label><select id="dl-h">' + [["", "Podle nálady"], ["bez", "Bez reakce"], ["jemne", "Jemně"], ["naplno", "Naplno"]].map(function (o) { return '<option value="' + o[0] + '"' + ((p.bici || "") === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select></div></div>');
+        var SB = p.stridaniBarvy || [];
+        h.push('<div class="field"><label class="lbl" for="dl-st">Střídání barev (celá sauna skočí na další barvu, vždy na takt)</label><select id="dl-st">' + [["", "Vypnuto"], [2, "každé 2 s"], [4, "každé 4 s"], [8, "každých 8 s"], [16, "každých 16 s"]].map(function (o) { return '<option value="' + o[0] + '"' + (String(p.stridani || "") === String(o[0]) ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select>' +
+          (p.stridani ? '<div class="row" id="dl-sb" style="flex-wrap:wrap;gap:8px;margin-top:8px;align-items:center">' + Object.keys(R.barvyJmena || {}).filter(function (c) { return c !== "OFF"; }).map(function (c) { var ix = SB.indexOf(c);
+              return '<button type="button" class="sw dl-sw" data-c="' + c + '" aria-pressed="' + (ix >= 0) + '" title="' + esc(R.barvyJmena[c]) + '" aria-label="' + esc(R.barvyJmena[c]) + '" style="background:' + hex(R.paleta[c]) + ';color:#111;font-weight:700;font-size:13px">' + (ix >= 0 ? ix + 1 : '') + '</button>'; }).join("") + '</div><p class="note" style="margin-top:6px">' + (SB.length >= 2 ? 'Pořadí: ' + SB.map(function (c) { return esc(R.barvyJmena[c] || c); }).join(" → ") + '. Lavice a spoty jsou vždy o barvu napřed, kamna se nemění.' : 'Klikáním vyber aspoň 2 barvy v pořadí, jak se mají střídat. Bez výběru se střídá červená, fialová, modrá, tyrkysová…') + '</p>' : '') + '</div>');
         var SA = G.sauny[show.sauna], maG = function (g) { var k = SA && SA.skupiny && SA.skupiny[g]; return !SA || !SA.skupiny || (k && (k.svetla || []).length); };
         var skup = (p.skupiny && Object.keys(p.skupiny).length);
         h.push('<details class="more"' + (skup ? ' open' : '') + '><summary>Jiná barva pro jednotlivá světla' + (skup ? ' · upraveno' : '') + '</summary><div class="field" style="margin-top:10px"><div style="display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center">');
@@ -2176,8 +2180,10 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         on($("partCard"), ".dl-b", "click", function (e, b) { if (b.dataset.b) p.barva = b.dataset.b; else delete p.barva; upd(); });
         $("dl-p").addEventListener("change", function () { if (this.value) p.pohyb = this.value; else delete p.pohyb; upd(); });
         $("dl-h").addEventListener("change", function () { if (this.value) p.bici = this.value; else delete p.bici; upd(); });
+        $("dl-st").addEventListener("change", function () { if (this.value) p.stridani = +this.value; else { delete p.stridani; delete p.stridaniBarvy; } upd(); });
+        if ($("dl-sb")) on($("dl-sb"), ".dl-sw", "click", function (e, b) { var a0 = p.stridaniBarvy || [], c = b.dataset.c, ix = a0.indexOf(c); if (ix >= 0) a0.splice(ix, 1); else a0.push(c); if (a0.length) p.stridaniBarvy = a0; else delete p.stridaniBarvy; upd(); });
         on($("partCard"), ".dl-g", "change", function (e, el) { p.skupiny = p.skupiny || {}; if (el.value) p.skupiny[el.dataset.g] = el.value; else delete p.skupiny[el.dataset.g]; upd(); });
-        if ($("dl-reset")) $("dl-reset").addEventListener("click", function () { delete p.barva; delete p.pohyb; delete p.bici; delete p.skupiny; delete p.upravy; delete p.svetla; upd(); });
+        if ($("dl-reset")) $("dl-reset").addEventListener("click", function () { delete p.barva; delete p.pohyb; delete p.bici; delete p.skupiny; delete p.upravy; delete p.svetla; delete p.stridani; delete p.stridaniBarvy; upd(); });
       }
       $("split").addEventListener("click", function () {
         var t = now(), c = show.casti; if (t <= x.a + 2 || t >= x.b - 2) { setStatus("Přetoč dovnitř části, aspoň 2 s od kraje"); return; }
@@ -2313,11 +2319,38 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var t = document.createElement("textarea"); t.value = text; t.setAttribute("readonly", ""); t.style.position = "fixed"; t.style.opacity = "0"; document.body.appendChild(t); t.select();
     var ok = false; try { ok = document.execCommand("copy"); } catch (e) { ok = false; } t.remove(); return ok;
   }
-  // the answer pasted back from Claude: may sit in ```json fences or have text around it
+  // the answer pasted back from Claude: may sit in ```json fences, have text around it, typographic quotes, trailing commas…
+  function opravJson(x) {
+    x = x.replace(/[   ]/g, " ").replace(/^\s*\/\/.*$/gm, "");
+    x = x.replace(/([{\[,:]\s*)[“”„‟″]/g, '$1"').replace(/[“”„‟″](\s*[:,}\]])/g, '"$1');   // structural typographic quotes
+    var o = "", v = false, esc0 = false;   // inside strings: raw line breaks -> space, a quote that does not end the string -> \"
+    for (var i = 0; i < x.length; i++) {
+      var ch = x[i];
+      if (!v) { if (ch === '"') v = true; o += ch; continue; }
+      if (esc0) { o += ch; esc0 = false; continue; }
+      if (ch === "\\") { o += ch; esc0 = true; continue; }
+      if (ch === "\n" || ch === "\r" || ch === "\t") { o += " "; continue; }
+      if (ch === '"') { var dal = x.slice(i + 1).match(/^\s*(.)/); if (!dal || /[,:}\]]/.test(dal[1])) { v = false; o += ch; } else o += '\\"'; continue; }
+      o += ch;
+    }
+    return o.replace(/,(\s*[}\]])/g, "$1").replace(/:\s*(-?)\.(\d)/g, ":$10.$2");
+  }
   function ctiOdpoved(txt) {
-    var s = String(txt || ""), a = s.indexOf("{"), z = s.lastIndexOf("}");
+    var s = String(txt || "").replace(/^﻿/, "").replace(/```(?:json|JSON)?/g, ""), a = s.indexOf("{"), z = s.lastIndexOf("}"), aa = s.indexOf("["), r = null, chyba = null;
     if (a < 0 || z <= a) throw new Error("V odpovědi nevidím návrhy. Zkopíruj z Claude celou odpověď (tlačítko Kopírovat pod ní).");
-    var r; try { r = JSON.parse(s.slice(a, z + 1)); } catch (e) { throw new Error("Odpověď je useknutá nebo poškozená. Zkopíruj z Claude celou odpověď ještě jednou."); }
+    var celek = function (i0) {   // from an opening bracket to its matching close (skips brackets inside strings)
+      var hl = 0, v = false, e0 = false; for (var i = i0; i < s.length; i++) { var ch = s[i];
+        if (v) { if (e0) e0 = false; else if (ch === "\\") e0 = true; else if (ch === '"') v = false; continue; }
+        if (ch === '"') v = true; else if (ch === "{" || ch === "[") hl++; else if (ch === "}" || ch === "]") { hl--; if (!hl) return s.slice(i0, i + 1); } }
+      return null; };
+    var kusy = [celek(a), s.slice(a, z + 1)]; if (aa >= 0 && aa < a) kusy.unshift(celek(aa), s.slice(aa, s.lastIndexOf("]") + 1));
+    kusy = kusy.filter(function (k, i) { return k && kusy.indexOf(k) === i; });
+    for (var k = 0; k < kusy.length && !r; k++) {
+      [kusy[k], opravJson(kusy[k])].forEach(function (t) { if (r) return; try { r = JSON.parse(t); } catch (e) { chyba = chyba || e; } });
+    }
+    if (Array.isArray(r)) r = { navrhy: r };
+    if (!r) { var m = String(chyba && chyba.message || "").match(/position (\d+)/), u = kusy[0], p0 = m ? +m[1] : -1;
+      throw new Error("Odpověď je useknutá nebo poškozená" + (p0 >= 0 ? " (kolem: „" + u.slice(Math.max(0, p0 - 40), p0 + 20).replace(/\s+/g, " ") + "“)" : "") + ". Zkopíruj z Claude celou odpověď ještě jednou, nebo mi pošli tenhle text."); }
     if (r && !Array.isArray(r.navrhy) && Array.isArray(r.momenty)) r.navrhy = [];
     if (!r || !Array.isArray(r.navrhy)) throw new Error("Odpověď nemá seznam návrhů. Zkus v Claude napsat „odpověz jen tím JSON“.");
     return r;
@@ -2384,7 +2417,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
           var x = pt[n.cast]; if (!x) return "";
           var bj = function (b) { return '<span class="dot" style="background:' + hex(G.recept.paleta[b]) + '"></span>' + esc(G.recept.barvyJmena[b] || b); };
           var chg = (n.emoce !== x.p.emoce ? esc(x.p.emoce) + ' → <b>' + esc(n.emoce) + '</b>' : esc(x.p.emoce)) + (n.sila && n.sila !== +x.p.sila ? ' · síla ' + x.p.sila + ' → <b>' + n.sila + '</b>' : '') +
-            (n.pohyb ? ' · ' + esc((G.recept.pohyby || {})[n.pohyb] || n.pohyb) : '') +
+            (n.pohyb ? ' · ' + esc((G.recept.pohyby || {})[n.pohyb] || n.pohyb) : '') + (n.stridani ? ' · střídání barev každé ' + n.stridani + ' s' + (n.stridaniBarvy ? ' (' + n.stridaniBarvy.map(function (c) { return (G.recept.barvyJmena || {})[c] || c; }).join(" → ") + ')' : '') : '') +
             ((n.scena && Object.keys(n.scena).length) ? '<br><span class="note">' + [["STENY", "stěny"], ["LAVICE", "lavice"], ["SPOTY", "spoty"], ["VODA", "voda"], ["KAMNA", "kamna"]].filter(function (g) { return n.scena[g[0]]; }).map(function (g) { return g[1] + ' ' + bj(n.scena[g[0]]); }).join(' · ') + '</span>' : '');
           return '<div class="prop' + (n.hotovo ? " done" : "") + '"><div class="row between"><span class="sub" style="font-family:var(--f-num)">' + mmss(x.a) + '–' + mmss(x.b) + ' · píseň ' + x.p.pisen + '</span>' + (n.hotovo ? '<span class="badge' + (n.hotovo === "ano" ? " ok" : "") + '">' + (n.hotovo === "ano" ? "přijato" : "necháno") + '</span>' : '') + '</div>' +
             '<div class="row" style="gap:8px"><span class="dot" style="background:' + emColor(show, n.emoce, x.p.pisen) + '"></span><span>' + chg + '</span></div><p class="note">' + esc(n.proc) + '</p>' +
@@ -2406,6 +2439,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         x.p.emoce = n.emoce; if (n.sila) x.p.sila = n.sila;
         if (n.scena && Object.keys(n.scena).length) x.p.skupiny = Object.assign(x.p.skupiny || {}, n.scena);
         if (n.pohyb) x.p.pohyb = n.pohyb;
+        if (n.stridani) { x.p.stridani = n.stridani; if (n.stridaniBarvy) x.p.stridaniBarvy = n.stridaniBarvy; else delete x.p.stridaniBarvy; }
         if (!batch) saveShow(show, { casti: show.casti });
       }
       if (!batch) render();
@@ -2418,6 +2452,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         "\n\nNálada určuje jen energii a rytmus. BARVY urči ty: ke každé části napiš celou scénu jako v divadle, jednu jasnou barevnou myšlenku: steny, lavice, spoty, voda a kamna (kamna jen teplé: " + (G.recept.teple || []).join(", ") + "). Méně barev je víc: klidné scény klidně celé jednou barvou, silné scény nejvýš dvě barvy proti sobě (stěny proti středu). Bez pestrobarevného míchání. Barvy jen z: " + bary.join(", ") + " (OFF = zhasnuto, ale nikdy všechno). Bílá neexistuje." +
         "\nPříklady dobrých scén: mlha/noc = všude DBLUE, slabě (síla 1–2), voda OFF, kamna EMBER; kouzlo nebo postava = všude VIOLET, voda CYAN; vztek/síla = stěny RED proti středu VIOLET; let/svoboda = stěny BLUE, střed CYAN, voda BLUE; oheň/horko = stěny ORANGE, střed RED; návod/všední chvíle = stěny OFF nebo DBLUE, lavice AMBER. Nikdy nedávej proti sobě doplňkové barvy (modrá proti zlaté nebo oranžové, zelená proti růžové): v sauně se smíchají do bílé." +
         "\nPohyb (pohyb) vyber z: " + Object.keys(G.recept.pohyby || {}).map(function (k) { return k + " (" + G.recept.pohyby[k] + ")"; }).join(", ") + ". Klidné scény stoji nebo dech, rychlé pohyby jen do silné hudby." +
+        "\nStřídání barev (stridani, sekundy): když autor chce, aby se světla v části pravidelně měnila (např. každé 4 s), napiš stridani:4 a stridani_barvy = 2–6 barev v pořadí (celá sauna vždy skočí na další barvu, na nejbližší takt). Jinak stridani nepiš." +
         "\n\nMomenty = krátké efekty na přesný čas, přes náladu části. Dávej je na důležitá místa příběhu (náraz, zvuk, něco se pokazí, kouzlo, postava se objeví, vypnutí/restart). Typy:\n" + Object.keys(MOMENT_POPIS).map(function (k) { return "- " + k + ": " + MOMENT_POPIS[k] + " (bez délky " + MOMENT_DELKA[k] + " s)"; }).join("\n") +
         "\nDélka momentu (delka, sekundy, nejvýš 20) = jak dlouho trvá zvuk nebo děj ve scénáři. Delší děj, kde se něco opakuje (např. kouzlo 3× naskočí a zhasne), rozepiš na víc momentů za sebou (jiskry, zhasnuti, jiskry, zhasnuti…), ať efekt trvá po celou dobu zvuku." +
         "\n\nČásti show s rozborem hudby (od/do = čas v celé show; bici_pct = jak velkou část beatů hrají bicí, zpev/nastroje/basa = průměrná hlasitost 0–100, dropu = kolik dropů tam autor ťukl; slysim „bez hudby“ = řeč, zvuky nebo ticho bez rytmu):\n" + JSON.stringify(data) +
@@ -2428,7 +2463,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         (show.momenty && show.momenty.length ? "\n\nMomenty, které už autor má (neopakuj je): " + JSON.stringify(show.momenty.map(function (m) { return { cas: mmss1(m.t), typ: m.typ }; })) : "") +
         "\n\n" + (scen ? "Řiď se hlavně příběhem: časy v něm odpovídají časům od/do. Pro KAŽDOU část napiš náladu, sílu (1–5), pohyb a celou barevnou scénu. Sousední části stejné scény příběhu (např. celá jedna píseň) drž ve stejné barevné myšlence a měň jen sílu a pohyb. Momenty dej na místa z příběhu; kde jsou výše změřené zvuky, ber čas a délku ze zvuků, jinak čas ze scénáře na desetiny sekundy. " : "Pro každou část napiš náladu, sílu (1–5), pohyb a celou barevnou scénu podle hudby. ") +
         "Části bez hudby (řeč, zvuky, ticho) mají klidnou náladu bez úderů, která sedí k ději. Nálady s údery dávej jen tam, kde hrají bicí. Pestrost: nedávej stejnou náladu mnoha částem za sebou, pokud to příběh nechce. Respektuj autorovy popisy „slysim“ a „svetlo“. Důvod napiš česky, jednou krátkou větou." +
-        "\nOdpověz jen JSON, bez dalšího textu: {\"navrhy\":[{\"cast\":číslo,\"emoce\":\"…\",\"sila\":číslo,\"pohyb\":\"…\",\"steny\":\"BARVA\",\"lavice\":\"BARVA\",\"spoty\":\"BARVA\",\"voda\":\"BARVA\",\"kamna\":\"BARVA\",\"proc\":\"…\"}],\"momenty\":[{\"cas\":\"m:ss.s\",\"typ\":\"…\",\"delka\":sekundy,\"barva\":\"BARVA\",\"proc\":\"…\"}]}";
+        "\nOdpověz jen JSON, bez dalšího textu: {\"navrhy\":[{\"cast\":číslo,\"emoce\":\"…\",\"sila\":číslo,\"pohyb\":\"…\",\"steny\":\"BARVA\",\"lavice\":\"BARVA\",\"spoty\":\"BARVA\",\"voda\":\"BARVA\",\"kamna\":\"BARVA\",\"stridani\":sekundy nebo nic,\"stridani_barvy\":[\"BARVA\",…],\"proc\":\"…\"}],\"momenty\":[{\"cas\":\"m:ss.s\",\"typ\":\"…\",\"delka\":sekundy,\"barva\":\"BARVA\",\"proc\":\"…\"}]}";
     }
     function prijmi(r) {
       var emos = Object.keys(G.recept.emoce).filter(function (e) { return e !== "UV" && e !== "Jen UV"; }), pt = partsT(show), list = (r && r.navrhy) || [];
@@ -2441,8 +2476,10 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       };
       st.navrhy = list.filter(function (n) { var x = pt[n.cast]; if (!x) return false; if (emos.indexOf(n.emoce) < 0) n.emoce = x.p.emoce;
           var sc = scena(n), jine = Object.keys(sc).some(function (g) { return sc[g] !== sk(x)[g]; });
-          return n.emoce !== x.p.emoce || (n.sila && n.sila !== +x.p.sila) || jine || (pohyby[n.pohyb] && n.pohyb !== x.p.pohyb); })
-        .map(function (n) { var o = { cast: n.cast, emoce: n.emoce, sila: Math.max(1, Math.min(5, Math.round(+n.sila || +pt[n.cast].p.sila || 3))), proc: String(n.proc || ""), scena: scena(n) }; if (pohyby[n.pohyb]) o.pohyb = n.pohyb; return o; });
+          return n.emoce !== x.p.emoce || (n.sila && n.sila !== +x.p.sila) || jine || (pohyby[n.pohyb] && n.pohyb !== x.p.pohyb) || (+n.stridani >= 1 && +n.stridani !== +x.p.stridani); })
+        .map(function (n) { var o = { cast: n.cast, emoce: n.emoce, sila: Math.max(1, Math.min(5, Math.round(+n.sila || +pt[n.cast].p.sila || 3))), proc: String(n.proc || ""), scena: scena(n) }; if (pohyby[n.pohyb]) o.pohyb = n.pohyb;
+          if (+n.stridani >= 1) { o.stridani = Math.max(1, Math.min(30, Math.round(+n.stridani * 2) / 2)); var sb = (n.stridani_barvy || n.stridaniBarvy || []).map(okB).filter(Boolean); if (sb.length >= 2) o.stridaniBarvy = sb.slice(0, 8); }
+          return o; });
       var T = show.delka || show.konec || 1e9;
       ((r && r.momenty) || []).forEach(function (m) {
         var t = typeof m.cas === "number" ? m.cas : secOf(String(m.cas || "")); if (t == null || t < 0 || t > T || !MOMENT_JMENA[m.typ]) return;
