@@ -157,13 +157,23 @@ details.more>summary::before{content:"▸";margin-right:8px;transition:transform
 .drop:hover{border-color:var(--accent)}.drop b{font-size:18px;color:var(--fg)}.drop span{font-size:13px;color:var(--muted)}
 .drop.ok{border-style:solid;border-color:var(--ok)}
 label.drop:focus-within{outline:2px solid var(--accent)}
-/* mood buttons painted like the sauna will look; hover = short preview */
-.chip.nal{background:var(--nal);background-size:300% 100%;background-position:0 50%;border-color:transparent;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.75);font-weight:700}
-.chip.nal[aria-pressed="true"]{border-color:var(--fg);box-shadow:0 0 0 2px var(--accent)}
-.chip.nal:hover,.chip.nal:focus-visible{animation:nal-pohyb var(--nal-t) linear infinite}
-.chip.nal.nal-bici:hover,.chip.nal.nal-bici:focus-visible{animation:nal-pohyb var(--nal-t) linear infinite,nal-uder .5s ease-out infinite}
-@keyframes nal-pohyb{to{background-position:100% 50%}}
-@keyframes nal-uder{0%{filter:brightness(1.45)}100%{filter:brightness(.85)}}
+/* mood buttons = a live mini sauna: a row of lamps plays the mood (colours travel at its speed, strong moods flash on a beat) */
+.chip.nal{flex-direction:column;align-items:stretch;gap:7px;min-height:0;padding:9px 12px 8px;border-radius:14px;background:#0B0C10;border:1.5px solid #2E323C;color:#EDEEF2;min-width:132px}
+.chip.nal[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.chip.nal:hover{border-color:#5A6070}
+.nal-nm{font:600 13px var(--f-ui);text-align:left;white-space:nowrap}
+.nal-lampy{display:flex;justify-content:space-between;gap:6px;opacity:var(--nal-jas)}
+.nal-lampy i{width:12px;height:12px;border-radius:50%;background:var(--c1);box-shadow:0 0 8px 1px var(--c1);animation:nal-barvy var(--nal-t) linear infinite}
+.nal-stoji .nal-lampy i{animation:none}
+.nal-dech .nal-lampy{animation:nal-dech 5s ease-in-out infinite}
+.nal-jemne .nal-lampy i{animation:nal-barvy var(--nal-t) linear infinite,nal-uder-jemne .5s ease-out infinite}
+.nal-bici .nal-lampy i{animation:nal-barvy var(--nal-t) linear infinite,nal-uder .5s ease-out infinite}
+.nal-uv .nal-lampy i{box-shadow:0 0 10px 3px var(--c1)}
+@keyframes nal-barvy{0%,100%{background:var(--c1);box-shadow:0 0 8px 1px var(--c1)}33%{background:var(--c2);box-shadow:0 0 8px 1px var(--c2)}66%{background:var(--c3);box-shadow:0 0 8px 1px var(--c3)}}
+@keyframes nal-dech{0%,100%{opacity:calc(var(--nal-jas) * .55)}50%{opacity:var(--nal-jas)}}
+@keyframes nal-uder{0%{filter:brightness(1.7)}100%{filter:brightness(.55)}}
+@keyframes nal-uder-jemne{0%{filter:brightness(1.25)}100%{filter:brightness(.85)}}
+@media (prefers-reduced-motion:reduce){.nal-lampy,.nal-lampy i{animation:none!important}}
 /* show folders */
 details.slozka{margin-bottom:22px}
 details.slozka>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px 12px;flex-wrap:wrap;cursor:pointer;padding:8px 10px 8px 14px;min-height:56px;background:var(--panel);border:1px solid var(--line);border-radius:14px;margin-bottom:14px}
@@ -1672,14 +1682,17 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     "Oheň": "Plápolající oheň", "Rituál": "Rituální rytmus", "Bouře": "Bouře s blesky" };   // no colour words: every song gets its own colour variant, the button shows it
   var NALADA_SILNE = { "Bouře": 1 };   // flashes on the drums, so it belongs with the strong ones even though the walls are dim
   // mood button painted like the sauna will look; on hover it plays a short preview: colours move at the mood's speed, strong moods pulse on a beat
-  function emStyl(show, e, song) {
+  function emStyl(show, e, song) {   // returns the attributes + the inner "mini sauna": a row of lamps that plays the mood live
     var E = G.recept.emoce[e] || {}, c = [emColor(show, e, song)];
     (E.w || []).slice(1, 3).forEach(function (x) { if (G.recept.paleta[x]) c.push(hex(G.recept.paleta[x])); });
-    if (E.jenuv) c = ["#1a0b2e", "#3b1670"]; else if (E.uv) c = ["#2a1450", "#4b1d8f"];
-    if (c.length === 1) c.push(c[0]);
-    var g = "linear-gradient(110deg," + c.concat([c[0]]).join(",") + ")", t = E.move >= 99 ? 0 : E.move <= 4 ? 1.6 : E.move <= 8 ? 3.2 : 6;
-    return ' class="chip nal' + (E.hit >= 0.3 ? ' nal-bici' : '') + '" style="--nal:' + g + ';--nal-t:' + (t || 0) + 's' + (t ? '' : ';--nal-stoji:1') + '"';
+    if (E.jenuv) c = ["#5a1fb0"]; else if (E.uv) c = ["#5a1fb0", "#3b1670"];
+    while (c.length < 3) c.push(c[c.length - 1]);
+    var t = E.move >= 99 ? 0 : E.move <= 4 ? 2 : E.move <= 8 ? 4 : 8, jas = E.wl ? Math.max(0.45, Math.min(1, 0.35 + (+E.wl[1] || 0) * 1.6)) : 0.8;
+    var lamp = ""; for (var i = 0; i < 6; i++) lamp += '<i style="animation-delay:' + (-(t || 1) * i / 6).toFixed(2) + 's' + (E.hit > 0 ? ',' + (-0.08 * i).toFixed(2) + 's' : '') + '"></i>';
+    return { a: ' class="chip nal' + (t ? '' : ' nal-stoji') + (E.hit >= 0.3 ? ' nal-bici' : E.hit > 0 ? ' nal-jemne' : ' nal-dech') + (E.uv ? ' nal-uv' : '') + '" style="--c1:' + c[0] + ';--c2:' + c[1] + ';--c3:' + c[2] + ';--nal-t:' + (t || 1) + 's;--nal-jas:' + jas.toFixed(2) + '"',
+      lampy: '<span class="nal-lampy" aria-hidden="true">' + lamp + '</span>' };
   }
+
   function emJm(e) { return NALADA_JMENA[e] || e; }
   function emDots(show, e, song) { var E = G.recept.emoce[e] || {}, d = [emColor(show, e, song)];
     (E.w || []).slice(1, 3).forEach(function (c) { if (G.recept.paleta[c]) d.push(hex(G.recept.paleta[c])); });
@@ -2795,10 +2808,10 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       [["Klidné (pomalé, bez úderů)", 0, 0.2], ["Střední", 0.2, 0.35], ["Silné (na bicí)", 0.35, 99]].forEach(function (g) {
         var ee = emos.filter(function (e) { var v = lvE(e); return v >= g[1] && v < g[2]; }); if (!ee.length) return;
         h.push('<span class="note" style="display:block;margin:8px 0 4px">' + g[0] + '</span><div class="chips">');
-        ee.forEach(function (e) { h.push('<button type="button" data-em="' + esc(e) + '" aria-pressed="' + (e === p.emoce) + '" title="' + esc(emDesc(e)) + '"' + emStyl(show, e, p.pisen) + '>' + esc(emJm(e)) + '</button>'); });
+        var es; ee.forEach(function (e) { h.push('<button type="button" data-em="' + esc(e) + '" aria-pressed="' + (e === p.emoce) + '" title="' + esc(emDesc(e)) + '"' + (es = emStyl(show, e, p.pisen)).a + '>' + es.lampy + '<span class="nal-nm">' + esc(emJm(e)) + '</span></button>'); });
         h.push('</div>');
       });
-      h.push('<p class="note" style="margin-top:6px">Tečky jsou barvy stěn v téhle písni. Každá píseň má svůj odstín, aby se show neopakovala.</p></div>');
+      h.push('<p class="note" style="margin-top:6px">Každé tlačítko je malá sauna: světýlka hrají barvy stěn v téhle písni a pohyb nálady naživo. Každá píseň má svůj odstín, aby se show neopakovala.</p></div>');
       h.push('<div class="field"><span class="lbl" id="silaL">Jas této části</span><div class="sila" role="group" aria-labelledby="silaL">');
       for (var n = 1; n <= 5; n++) h.push('<button type="button" data-s="' + n + '" aria-pressed="' + ((+p.sila || 3) === n) + '" style="white-space:nowrap;width:auto;padding:0 10px">' + (n * 20) + '&nbsp;%</button>');
       h.push('</div></div>');
