@@ -2908,7 +2908,9 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
           if ($("fx-r")) $("fx-r").addEventListener("click", function () { if (p.svetla) delete p.svetla[st.fx]; hotovoF(); });
         }
       }
-      on($("partCard"), ".chip[data-em]", "click", function (e, b) { p.emoce = b.dataset.em; saveCasti(); renderTimeline(); renderPart(); });
+      on($("partCard"), ".chip[data-em]", "click", function (e, b) { p.emoce = b.dataset.em;
+        var Em = G.recept.emoce[p.emoce] || {}; if ((Em.zive && Em.zive.vzor) || Em.vzor) delete p.pohyb;   // a mood with its own movement (heartbeat, carousel…) replaces an older movement choice, e.g. one the AI made
+        saveCasti(); renderTimeline(); renderPart(); });
       on($("partCard"), ".sila button", "click", function (e, b) { p.sila = +b.dataset.s; saveCasti(); renderTimeline(); renderPart(); });
       $("f-pozn").addEventListener("input", function () { p.pozn = this.value; p.slysim = ""; p.svetlo = ""; saveCasti(); });
       if ($("dolad")) {
