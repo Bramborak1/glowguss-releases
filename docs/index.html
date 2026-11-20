@@ -1,16 +1,29 @@
 <!doctype html><html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Glowguss</title><meta name="theme-color" content="#0E0F13"><link rel="manifest" href="manifest.json"><link rel="icon" href="ikona.png"><script>window.GLOWGUSS_WEB = true; if ("serviceWorker" in navigator) addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });</script></head><body><title>Glowguss</title>
+<script>try{if(localStorage.getItem("glowguss-motiv")==="svetly")document.documentElement.dataset.motiv="svetly";}catch(e){}</script>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-/* Light-show studio. Dark-only on purpose: light colours must read as light. Layout: top bar with sections, per-show tabs, main + side columns that stack on phone. */
+/* Light-show studio. Dark by default (light colours read best on dark); a light mode is switchable in the top bar (html[data-motiv="svetly"]). Layout: top bar with sections, per-show tabs, main + side columns that stack on phone. */
 :root{
   --bg:#0E0F13; --panel:#16181E; --panel2:#1E2129; --line:#262A33; --line2:#2E323C;
   --fg:#EDEEF2; --fg2:#C9CDD6; --muted:#9AA0AD; --accent:#FF8A3D; --accent-ink:#1A0F06;
   --drop:#FFC14D; --ok:#7EE2B0; --ok-bg:#12301F; --bad:#FF7A7A; --bad-bg:#3A1717; --track:#121419;
   --f-ui:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif; --f-num:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --chip:#1A1D24; --chip-on:#2A2E38; --hover:#454B58; --row:#22252D; --beat:rgba(255,255,255,.35); --beat2:rgba(255,255,255,.7);
+  --off1:#15171C; --off2:#121419; --mark:#fff; --warn-bg:#33270F; --warn-fg:#FFE3A8; --bad-fg:#FFD9D9; --cellA:#1B1E25; --cellB:#20232B; --cell-line:#5A6070; --banner:#2a1d10;
   color-scheme:dark;
 }
+html[data-motiv="svetly"]{
+  --bg:#F3F4F7; --panel:#FFFFFF; --panel2:#ECEEF2; --line:#DEE1E7; --line2:#C8CDD6;
+  --fg:#16181D; --fg2:#3B414D; --muted:#5D6471; --accent:#FF8A3D; --accent-ink:#1A0F06;
+  --drop:#F5B000; --ok:#127A45; --ok-bg:#DBF3E6; --bad:#C42B2B; --bad-bg:#FBE3E3; --track:#E3E6EC;
+  --chip:#F7F8FA; --chip-on:#FFEBDC; --hover:#9AA1AE; --row:#E5E8ED; --beat:rgba(0,0,0,.28); --beat2:rgba(0,0,0,.6);
+  --off1:#E8EAEE; --off2:#DFE2E8; --mark:#16181D; --warn-bg:#FFF1D1; --warn-fg:#5E4100; --bad-fg:#7A1A1A; --cellA:#E3E6EC; --cellB:#D7DBE3; --cell-line:#9AA1AE; --banner:#FFEBDD;
+  color-scheme:light;
+}
+.motiv svg{width:20px;height:20px}
+html[data-motiv="svetly"] .motiv .slunce,html:not([data-motiv="svetly"]) .motiv .mesic{display:none}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:15px;line-height:1.45}
 a{color:inherit}
@@ -28,7 +41,7 @@ nav.main a[aria-current="page"]{background:var(--panel2);color:var(--fg)}
 .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .between{justify-content:space-between}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border-radius:12px;border:1px solid var(--line2);background:var(--panel2);color:var(--fg);font:600 14px var(--f-ui);cursor:pointer;text-decoration:none}
-.btn:hover{border-color:#454B58}
+.btn:hover{border-color:var(--hover)}
 .btn:focus-visible,.chip:focus-visible,.part:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,.tap:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
 .btn.small{min-height:36px;padding:0 12px;font-size:13px;border-radius:10px}
@@ -40,7 +53,7 @@ nav.main a[aria-current="page"]{background:var(--panel2);color:var(--fg)}
 .col-main{flex:999 1 640px;min-width:0;display:flex;flex-direction:column;gap:18px}
 .col-side{flex:1 1 340px;min-width:0;max-width:440px;display:flex;flex-direction:column;gap:18px}
 @media (max-width:760px){.col-side{max-width:none}}
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;align-items:start}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;min-width:0}
 .card h2{margin:0;font-size:16px;font-weight:700;text-wrap:balance}
 .card h3{margin:0 0 6px;font-size:15px}
@@ -52,22 +65,22 @@ h1.page{font-size:24px;font-weight:800;letter-spacing:-.02em;margin:0}
 .ruler{position:relative;height:16px;font:11px var(--f-num);color:var(--muted)}
 .ruler span{position:absolute;transform:translateX(-50%);white-space:nowrap}
 .parts{position:relative;height:48px;overflow:hidden;touch-action:pan-y}
-.beat{position:absolute;bottom:0;width:1px;height:5px;background:rgba(255,255,255,.35);pointer-events:none}.beat.takt{height:10px;background:rgba(255,255,255,.7)}
+.beat{position:absolute;bottom:0;width:1px;height:5px;background:var(--beat);pointer-events:none}.beat.takt{height:10px;background:var(--beat2)}
 .vodit{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:#FF8A3D;pointer-events:none;z-index:5}.vodit span{position:absolute;top:2px;left:4px;background:#FF8A3D;color:#111;font:700 11px var(--f-num);padding:1px 4px;border-radius:4px;white-space:nowrap}
 .mblok{position:absolute;top:6px;height:14px;min-width:6px;border-radius:4px;cursor:grab;touch-action:pan-y;box-shadow:inset -3px 0 0 rgba(0,0,0,.35)}
 .part{position:absolute;top:0;bottom:0;border:2px solid transparent;border-radius:8px;padding:0 4px;color:#fff;font:700 11px var(--f-ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;text-shadow:0 1px 2px rgba(0,0,0,.5)}
-.part.sel{border-color:#fff}
+.part.sel{border-color:var(--mark)}
 .cell{position:absolute;top:0;bottom:0}
-.cell.off{background:repeating-linear-gradient(45deg,#15171C 0 4px,#121419 4px 8px)}
+.cell.off{background:repeating-linear-gradient(45deg,var(--off1) 0 4px,var(--off2) 4px 8px)}
 .dmark{position:absolute;top:6px;width:10px;height:10px;margin-left:-5px;transform:rotate(45deg);border-radius:2px;background:var(--drop)}
 .dmark.other{background:#7CB8FF}.dmark.calm{background:#B9A4FF}
-.head{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:#fff;pointer-events:none}
-.selbox{position:absolute;top:0;bottom:0;outline:2px solid #fff;outline-offset:-2px;border-radius:4px;pointer-events:none}
+.head{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--mark);pointer-events:none}
+.selbox{position:absolute;top:0;bottom:0;outline:2px solid var(--mark);outline-offset:-2px;border-radius:4px;pointer-events:none}
 .player{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .time{font:500 15px var(--f-num);min-width:120px;font-variant-numeric:tabular-nums}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 14px;border-radius:999px;border:1.5px solid var(--line2);background:#1A1D24;color:var(--fg);font:600 14px var(--f-ui);cursor:pointer}
-.chip[aria-pressed="true"]{border-color:var(--accent);background:#2A2E38}
+.chip{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 14px;border-radius:999px;border:1.5px solid var(--line2);background:var(--chip);color:var(--fg);font:600 14px var(--f-ui);cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--accent);background:var(--chip-on)}
 .dot{width:12px;height:12px;border-radius:50%;flex:none;display:inline-block}
 .field{display:flex;flex-direction:column;gap:6px}
 input[type=text],input[type=email],input[type=password],input[type=date],textarea,select{width:100%;background:var(--bg);color:var(--fg);border:1.5px solid var(--line2);border-radius:12px;padding:10px 12px;font:15px var(--f-ui)}
@@ -75,7 +88,7 @@ select{min-height:44px}
 textarea{resize:vertical;min-height:84px;line-height:1.5}
 input[type=range]{width:100%;accent-color:var(--accent)}
 .sila{display:flex;gap:6px}
-.sila button{width:44px;height:40px;border-radius:10px;border:1.5px solid var(--line2);background:#1A1D24;color:var(--fg);font:700 14px var(--f-num);cursor:pointer}
+.sila button{width:44px;height:40px;border-radius:10px;border:1.5px solid var(--line2);background:var(--chip);color:var(--fg);font:700 14px var(--f-num);cursor:pointer}
 .sila button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;background:var(--bg);border-radius:12px;padding:4px}
 .seg button{min-height:40px;border:0;border-radius:9px;background:transparent;color:var(--fg2);font:700 13px var(--f-ui);cursor:pointer}
@@ -85,18 +98,18 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .tap small{font:600 13px var(--f-ui)}
 .tap[disabled]{opacity:.4;cursor:default}
 .dlist{display:flex;flex-direction:column;max-height:340px;overflow:auto}
-.drow{display:flex;align-items:center;gap:8px;min-height:48px;border-top:1px solid #22252D}
+.drow{display:flex;align-items:center;gap:8px;min-height:48px;border-top:1px solid var(--row)}
 .drow .t{font:500 14px var(--f-num);font-variant-numeric:tabular-nums;min-width:66px}
 .drow .m{font-size:12px;color:var(--muted);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media (max-width:700px){.ruler span.odd{display:none}}
 .mini{width:36px;height:36px;border-radius:9px;border:1px solid var(--line2);background:transparent;color:var(--fg2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:none}
-.mini:hover{color:var(--fg);border-color:#454B58}
+.mini:hover{color:var(--fg);border-color:var(--hover)}
 .mini[disabled]{opacity:.35;cursor:default}
 .note{font-size:13px;color:var(--muted);line-height:1.55;margin:0}
 .box{background:var(--panel2);border-radius:12px;padding:12px 14px}
 .okbox{background:var(--ok-bg);color:var(--fg2);border-radius:12px;padding:12px 14px;font-size:13px}
-.badbox{background:var(--bad-bg);color:#FFD9D9;border-radius:12px;padding:12px 14px;font-size:13px}
-.warnbox{background:#33270F;color:#FFE3A8;border-radius:12px;padding:12px 14px;font-size:13px}
+.badbox{background:var(--bad-bg);color:var(--bad-fg);border-radius:12px;padding:12px 14px;font-size:13px}
+.warnbox{background:var(--warn-bg);color:var(--warn-fg);border-radius:12px;padding:12px 14px;font-size:13px}
 .empty{padding:40px 10px;text-align:center;color:var(--muted)}
 .badge{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:999px;background:var(--panel2);font:600 12px var(--f-ui);color:var(--fg2)}
 .badge.ok{background:var(--ok-bg);color:var(--ok)}
@@ -105,7 +118,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .stats b{font:500 20px var(--f-num)}
 table.t{width:100%;border-collapse:collapse;font-size:14px}
 table.t th{text-align:left;font-size:12px;color:var(--muted);font-weight:700;padding:6px 8px;border-bottom:1px solid var(--line)}
-table.t td{padding:8px;border-bottom:1px solid #22252D;font-variant-numeric:tabular-nums}
+table.t td{padding:8px;border-bottom:1px solid var(--row);font-variant-numeric:tabular-nums}
 table.t td.n{font-family:var(--f-num)}
 .scroll{overflow:auto;max-height:420px}
 .stage{position:relative;height:min(62vh,620px);min-height:320px;border-radius:14px;overflow:hidden;background:#07080A;touch-action:none}
@@ -114,10 +127,10 @@ table.t td.n{font-family:var(--f-num)}
 .legend{display:flex;flex-direction:column;gap:8px}
 .legend .r{display:flex;align-items:center;gap:10px;font-size:14px}
 .legend .sw{display:flex;gap:3px;flex-wrap:wrap}
-.legend .sw span{width:14px;height:14px;border-radius:4px;border:1px solid #333}
+.legend .sw span{width:14px;height:14px;border-radius:4px;border:1px solid var(--line2)}
 .prop{border-left:3px solid var(--accent);padding:10px 12px;background:var(--panel2);border-radius:0 12px 12px 0;display:flex;flex-direction:column;gap:8px}
 .prop.done{opacity:.55;border-left-color:var(--line2)}
-.light{display:flex;align-items:center;gap:8px;min-height:44px;border-top:1px solid #22252D}
+.light{display:flex;align-items:center;gap:8px;min-height:44px;border-top:1px solid var(--row)}
 .light .nm{flex:1;min-width:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .light select{width:auto;min-height:36px;padding:4px 8px;font-size:13px;border-radius:9px}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -157,8 +170,11 @@ label.drop:focus-within{outline:2px solid var(--accent)}
       <a href="#/sauny" id="nav-sauny">Sauny</a>
       <a href="#/napoveda" id="nav-help">Nápověda</a>
     </nav>
-    <span class="status" id="status" role="status">…</span>
+    <div class="row" style="gap:10px;flex-wrap:nowrap"><span class="status" id="status" role="status">…</span>
+    <button class="btn icon motiv" id="motiv" type="button" aria-label="Přepnout světlý a tmavý režim" title="Světlý / tmavý režim"><svg class="slunce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="mesic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button></div>
   </header>
+<script>(function(){var r=document.documentElement,b=document.getElementById("motiv");function barva(){var m=document.querySelector('meta[name="theme-color"]');if(m)m.content=r.dataset.motiv==="svetly"?"#F3F4F7":"#0E0F13";}
+b.addEventListener("click",function(){if(r.dataset.motiv==="svetly")delete r.dataset.motiv;else r.dataset.motiv="svetly";try{localStorage.setItem("glowguss-motiv",r.dataset.motiv||"tmavy");}catch(e){}barva();});addEventListener("load",barva);})();</script>
   <main id="view"><div class="card empty">Načítám…</div></main>
 </div>
 
@@ -1365,17 +1381,16 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var ids = Object.keys(G.shows), sa = Object.keys(G.sauny).filter(function (k) { return !G.sauny[k].archiv; });
     var h = ['<div class="row between" style="margin-bottom:16px"><h1 class="page">Show</h1></div><div class="cards">'];
     ids.forEach(function (id) {
-      var s = G.shows[id], d = (s.dropy || []).filter(function (x) { return x.typ === "drop"; }).length, r = !!G.rozbor[id];
+      var s = G.shows[id], r = !!G.rozbor[id];
       h.push('<section class="card"><div class="row between"><h2>' + esc(s.nazev) + '</h2>' + (r ? '<span class="badge ok">hudba rozebraná</span>' : '<span class="badge">čeká na rozbor hudby</span>') + '</div>' +
         '<p class="sub" style="margin:6px 0 0">' + esc((G.sauny[s.sauna] || {}).nazev || s.saunaNazev || s.sauna) + ' · ' + (s.pisne || []).length + ' písně · ' + mmss(s.delka || s.konec || 0) + '</p>' +
-        '<div class="stats"><div><b>' + (s.casti || []).length + '</b><span class="sub">částí s emocí</span></div><div><b>' + d + '</b><span class="sub">dropů</span></div><div><b>' + esc(s.verze || "–") + '</b><span class="sub">další verze</span></div></div>' +
-        '<p class="sub" style="margin:10px 0 0">Upraveno ' + esc(when(s.upraveno)) + '</p>' +
+                '<p class="sub" style="margin:10px 0 0">Upraveno ' + esc(when(s.upraveno)) + '</p>' +
         '<div class="row" style="margin-top:14px"><a class="btn primary" href="#/show/' + esc(id) + '/krok1">Pokračovat</a></div>' +
         '<details class="more" style="margin-top:12px"><summary>Upravit show</summary><div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">' +
         '<div class="field"><label class="lbl" for="e-n-' + esc(id) + '">Název</label><input type="text" id="e-n-' + esc(id) + '" value="' + esc(s.nazev) + '"></div>' +
         '<div class="field"><label class="lbl" for="e-s-' + esc(id) + '">Sauna</label><select id="e-s-' + esc(id) + '">' + Object.keys(G.sauny).filter(function (k) { return !G.sauny[k].archiv || k === s.sauna; }).map(function (k) { return '<option value="' + esc(k) + '"' + (k === s.sauna ? " selected" : "") + '>' + esc(G.sauny[k].nazev) + '</option>'; }).join("") + '</select></div>' +
         '<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn small" data-act="save" data-id="' + esc(id) + '" type="button">Uložit</button><button class="btn small" data-act="copy" data-id="' + esc(id) + '" type="button">Vytvořit kopii</button>' +
-        '<button class="btn small" data-act="send" data-id="' + esc(id) + '" type="button">Uložit show do souboru</button><button class="btn small" data-act="del" data-id="' + esc(id) + '" type="button" style="color:#f87171">Smazat</button></div>' +
+        '<button class="btn small" data-act="send" data-id="' + esc(id) + '" type="button">Uložit show do souboru</button><button class="btn small" data-act="del" data-id="' + esc(id) + '" type="button" style="color:var(--bad)">Smazat</button></div>' +
         '<p class="note">Kopie se hodí, když chceš stejnou hudbu a nálady pro jinou saunu. Soubor se show pošleš jinému saunerovi, ten si ho načte v Záloze.</p></div></details></section>');
     });
     h.push('<section class="card"><h2>Nová show</h2><div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">' +
@@ -1585,7 +1600,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
           var ty = m.email === ja;
           return '<div style="border:1px solid var(--line,#2a2d36);border-radius:12px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center"><div style="flex:1 1 200px;min-width:0"><b style="overflow-wrap:anywhere">' + esc(m.email) + '</b>' + (ty ? ' <span class="note">(ty)</span>' : '') +
             '<div class="sub">' + (m.prihlasen ? (m.naposledy ? "naposledy " + kdy(m.naposledy) : "přihlášen") : "ještě se nepřihlásil") + '</div></div>' +
-            (ty ? '<span class="badge">správce</span>' : '<select class="cen-role" data-i="' + i + '" style="width:auto;flex:0 0 auto" aria-label="Role ' + esc(m.email) + '"><option value="sauner"' + (m.role !== "spravce" ? " selected" : "") + '>saunér</option><option value="spravce"' + (m.role === "spravce" ? " selected" : "") + '>správce</option></select><button class="btn small cen-x" data-i="' + i + '" type="button" style="color:#f87171">Odebrat</button>') + '</div>';
+            (ty ? '<span class="badge">správce</span>' : '<select class="cen-role" data-i="' + i + '" style="width:auto;flex:0 0 auto" aria-label="Role ' + esc(m.email) + '"><option value="sauner"' + (m.role !== "spravce" ? " selected" : "") + '>saunér</option><option value="spravce"' + (m.role === "spravce" ? " selected" : "") + '>správce</option></select><button class="btn small cen-x" data-i="' + i + '" type="button" style="color:var(--bad)">Odebrat</button>') + '</div>';
         }).join("") + '</div>' +
           (Cl.length < c.mist ? '<form id="cen-add" class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><input type="email" id="cen-em" placeholder="e-mail saunéra" required style="flex:1 1 220px;width:auto"><select id="cen-r" aria-label="Role" style="width:auto;flex:0 0 auto"><option value="sauner">saunér</option><option value="spravce">správce</option></select><button class="btn primary" type="submit">Přidat</button></form>' +
             '<p class="note" style="margin-top:8px">Saunér se pak přihlásí přesně tímhle e-mailem (přes Google, nebo e-mailem a heslem) a licenci má hned. Správce navíc přidává saunéry a sdílí sauny.</p>'
@@ -1662,7 +1677,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       var ja = K.zarizeni().id, Z = st.zarizeni || [];
       el.innerHTML = (Z.length ? '<div style="display:flex;flex-direction:column;gap:8px">' + Z.map(function (z, i) {
         return '<div style="border:1px solid var(--line,#2a2d36);border-radius:12px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center"><div style="flex:1 1 200px;min-width:0"><b>' + esc(z.popis || "Zařízení") + '</b>' + (z.id === ja ? ' <span class="note">(tohle)</span>' : '') +
-          '<div class="sub">Přidáno ' + kdy(z.pridano) + ' · naposledy ' + kdy(z.naposledy) + '</div></div><button class="btn small zr-x" data-i="' + i + '" type="button" style="color:#f87171">Odebrat</button></div>';
+          '<div class="sub">Přidáno ' + kdy(z.pridano) + ' · naposledy ' + kdy(z.naposledy) + '</div></div><button class="btn small zr-x" data-i="' + i + '" type="button" style="color:var(--bad)">Odebrat</button></div>';
       }).join("") + '</div>' : '<p class="sub">Zatím žádné zařízení.</p>') +
         (st.pridat_od ? '<p class="note" style="margin-top:10px">Nové zařízení jde přidat až ' + kdy(st.pridat_od) + '.</p>' : '');
       on(el, ".zr-x", "click", async function (e, b) {
@@ -1690,7 +1705,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
             '<div style="flex:1 1 220px;min-width:0"><b style="overflow-wrap:anywhere">' + esc(u.email || u.id) + '</b><div class="sub">' + (u.plati_do ? (plati ? "Platí do " : "Vypršelo ") + new Date(u.plati_do).toLocaleDateString("cs-CZ") : u.centrum ? "Bez vlastního předplatného" : "Bez předplatného") + (u.centrum ? " · centrum " + esc(u.centrum.nazev) + " do " + new Date(u.centrum.plati_do).toLocaleDateString("cs-CZ") : "") + (u.naposledy ? " · naposledy " + new Date(u.naposledy).toLocaleDateString("cs-CZ") : "") + " · zařízení " + (u.zarizeni || 0) + "/2" + '</div></div>' +
             '<input type="text" class="sl-pz" data-i="' + i + '" value="' + esc(u.poznamka || "") + '" placeholder="poznámka (sauna, platba)" style="flex:1 1 160px">' +
             '<input type="date" class="sl-d" data-i="' + i + '" value="' + (u.plati_do ? dnes(u.plati_do) : "") + '" style="width:150px">' +
-            '<div class="row" style="gap:6px"><button class="btn small sl-m" data-i="' + i + '" data-m="1" type="button">+1 měsíc</button><button class="btn small sl-m" data-i="' + i + '" data-m="12" type="button">+1 rok</button><button class="btn small sl-s" data-i="' + i + '" type="button">Uložit</button><button class="btn small sl-x" data-i="' + i + '" type="button" style="color:#f87171">Zrušit</button>' + (u.zarizeni ? '<button class="btn small sl-z" data-i="' + i + '" type="button">Uvolnit zařízení</button>' : '') + '</div></div>';
+            '<div class="row" style="gap:6px"><button class="btn small sl-m" data-i="' + i + '" data-m="1" type="button">+1 měsíc</button><button class="btn small sl-m" data-i="' + i + '" data-m="12" type="button">+1 rok</button><button class="btn small sl-s" data-i="' + i + '" type="button">Uložit</button><button class="btn small sl-x" data-i="' + i + '" type="button" style="color:var(--bad)">Zrušit</button>' + (u.zarizeni ? '<button class="btn small sl-z" data-i="' + i + '" type="button">Uvolnit zařízení</button>' : '') + '</div></div>';
         }).join("") + '</div>';
         var ulozit = async function (i, datum) {
           var u = U[i]; setStatus("Ukládám licenci…");
@@ -1714,7 +1729,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       var ja = await D.verze(), r = await K.zavolej({ akce: "verze" });
       if (!r || !r.verze || !r.url || !novejsi(r.verze, ja.verze) || $("akt-bar")) return;
       var bar = document.createElement("div"); bar.id = "akt-bar"; bar.setAttribute("role", "status");
-      bar.style.cssText = "display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:#2a1d10;border:1px solid #FF8A3D;border-radius:12px;padding:10px 14px;margin:0 0 14px";
+      bar.style.cssText = "display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--banner);border:1px solid #FF8A3D;border-radius:12px;padding:10px 14px;margin:0 0 14px";
       bar.innerHTML = '<span style="flex:1 1 220px"><b>Nová verze ' + esc(r.verze) + '</b>' + (r.poznamka ? ' · ' + esc(r.poznamka) : '') + '</span><button class="btn small primary" id="akt-go" type="button">' + (ja.aktualizace ? "Aktualizovat" : "Stáhnout") + '</button>';
       view.parentNode.insertBefore(bar, view);
       $("akt-go").addEventListener("click", async function () {
@@ -1913,7 +1928,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     function fmtS(x) { var m = Math.floor(x / 60), r = (x - m * 60).toFixed(1); return m + ":" + (r < 10 ? "0" : "") + r; }
     function strihHTML(it, i) {
       return '<div class="mx-strih" data-i="' + i + '" style="margin-top:10px;display:flex;flex-direction:column;gap:10px">' +
-        '<canvas class="mx-vlna" data-i="' + i + '" height="90" style="width:100%;height:90px;border-radius:8px;background:#0b0c10;cursor:ew-resize;touch-action:none"></canvas>' +
+        '<canvas class="mx-vlna" data-i="' + i + '" height="90" style="width:100%;height:90px;border-radius:8px;background:var(--track);cursor:ew-resize;touch-action:none"></canvas>' +
         '<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">' +
         '<label class="row" style="gap:6px">Začátek <input type="text" class="mx-zac" data-i="' + i + '" value="' + esc(it.zacTxt || "") + '" placeholder="0:00" style="width:80px"></label>' +
         '<select class="mx-fin" data-i="' + i + '" aria-label="Náběh">' + [[0, "Bez náběhu"], [2, "Náběh 2 s"], [4, "Náběh 4 s"], [8, "Náběh 8 s"]].map(function (f) { return '<option value="' + f[0] + '"' + (+it.fadeIn === f[0] ? " selected" : "") + '>' + f[1] + '</option>'; }).join("") + '</select>' +
@@ -2107,7 +2122,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       var h = ['<span></span><div class="ruler" aria-hidden="true">'];
       for (var m = Math.ceil(V.a / krok - 1e-6), n0 = m; m * krok <= V.b; m++) h.push('<span' + ((m - n0) % 2 ? ' class="odd"' : '') + ' style="left:' + pct(m * krok) + '%">' + (krok >= 60 ? (m * krok / 60) + ':00' : mmss(m * krok)) + '</span>');
       h.push('</div><span class="lbl l">Hudba</span><div class="lane click" id="seekLane" title="Klikni pro přetočení">');
-      show.pisne.forEach(function (p) { h.push('<div class="cell" style="left:' + pct(p.zacatek) + '%;width:' + sir(p.konec - p.zacatek) + '%;background:' + (p.cislo % 2 ? "#1B1E25" : "#20232B") + ';border-right:1px dashed #5A6070"></div><span style="position:absolute;left:calc(' + pct(Math.max(p.zacatek, V.a)) + '% + 6px);top:5px;font-size:11px;color:var(--muted);white-space:nowrap">' + p.cislo + '. ' + esc(p.nazev) + '</span>'); });
+      show.pisne.forEach(function (p) { h.push('<div class="cell" style="left:' + pct(p.zacatek) + '%;width:' + sir(p.konec - p.zacatek) + '%;background:' + (p.cislo % 2 ? "var(--cellA)" : "var(--cellB)") + ';border-right:1px dashed var(--cell-line)"></div><span style="position:absolute;left:calc(' + pct(Math.max(p.zacatek, V.a)) + '% + 6px);top:5px;font-size:11px;color:var(--muted);white-space:nowrap">' + p.cislo + '. ' + esc(p.nazev) + '</span>'); });
       if (span <= 90) {   // zoomed in: every detected beat as a tick, the first beat of a bar taller
         var BT = beatyTaktu();
         B.forEach(function (t) { if (t < V.a || t > V.b) return; var tk = BT[t.toFixed(3)]; h.push('<div class="beat' + (tk ? ' takt' : '') + '" style="left:' + pct(t) + '%"></div>'); });
@@ -2964,7 +2979,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       el.innerHTML = '<div class="row between"><h2>Soulad s hudbou</h2><b style="font-size:28px;color:' + col(d.celkem) + '">' + d.celkem + ' %</b></div>' +
         '<div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">' + d.kontroly.map(function (k) {
           return '<div><div class="row between sub"><span>' + esc(k.nazev) + '</span><span style="color:' + col(k.pct) + '">' + k.pct + ' %</span></div>' +
-            '<div style="height:6px;border-radius:3px;background:rgba(255,255,255,.08);margin-top:4px"><div style="height:6px;border-radius:3px;width:' + k.pct + '%;background:' + col(k.pct) + '"></div></div></div>';
+            '<div style="height:6px;border-radius:3px;background:var(--line);margin-top:4px"><div style="height:6px;border-radius:3px;width:' + k.pct + '%;background:' + col(k.pct) + '"></div></div></div>';
         }).join("") + '</div>' +
         (d.tip ? '<p class="note" style="margin-top:12px">' + esc(d.tip.text) + (d.tip.cas != null ? ' <button class="btn small" id="drama-go" type="button">Ukázat</button>' : '') + '</p>' : '<p class="note" style="margin-top:12px">Světla sedí k hudbě.</p>') +
         '<details class="more" style="margin-top:8px"><summary>Jak se to měří</summary><p class="note">Program projde scény, které dostane QuickDMX, a porovná je s rozborem hudby: jestli údery padnou na beat, jestli jas sleduje, kdy hudba sílí a slábne, jestli silné části svítí silně a klidné klidně, jestli jsou dropy na místech, kde se v hudbě něco děje, a jestli se světla při změně mění stejným směrem jako hudba. Je to kontrola řemesla, ne vkusu: záměrný kontrast (třeba tichý zlom) sníží skóre, i když je správně.</p></details>';
