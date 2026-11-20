@@ -181,6 +181,13 @@ label.drop:focus-within{outline:2px solid var(--accent)}
 .sw-kolo[aria-pressed=true]{border-color:#fff;box-shadow:0 0 0 2px #FF8A3D}
 .sw-kolo.spatne{animation:sw-ne .3s 3}
 @keyframes sw-ne{50%{transform:translateX(3px)}}
+.stage.stage-mini{height:260px;min-height:0}
+.mini-nahled{position:sticky;top:12px;z-index:2}
+.col-side:has(.mini-nahled){align-self:stretch}
+details#dropyBox>summary{cursor:pointer;display:flex;align-items:center;min-height:28px;list-style:none}
+details#dropyBox>summary::-webkit-details-marker{display:none}
+details#dropyBox>summary::before{content:"▸";margin-right:8px;color:var(--muted)}details#dropyBox[open]>summary::before{content:"▾"}
+details#dropyBox[open]>section{margin-top:12px}
 /* show folders */
 details.slozka{margin-bottom:22px}
 details.slozka>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px 12px;flex-wrap:wrap;cursor:pointer;padding:8px 10px 8px 14px;min-height:56px;background:var(--panel);border:1px solid var(--line);border-radius:14px;margin-bottom:14px}
@@ -2330,21 +2337,23 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   var KROKY = [
     { n: "Hudba", t: "Načti skladbu show", d: "Vyber soubor s hudbou. Program v něm sám najde beaty a části. Hraje jen v tvém počítači, nikam se neposílá." },
     { n: "Nálada", t: "Jaká má být nálada v každé části?", d: "Nahoře je celá show rozdělená na části. Klikni na část a dole jí vyber náladu. Barva bloku je barva stěn." },
-    { n: "Dropy", t: "Kde má světlo bouchnout naplno?", d: "Pusť hudbu a ťukni (nebo zmáčkni mezerník) přesně v místě, kde má celá sauna bouchnout. Ťuk se sám přichytí na nejbližší beat." },
+    { n: "Dropy", skryt: true, t: "Kde má světlo bouchnout naplno?", d: "Pusť hudbu a ťukni (nebo zmáčkni mezerník) přesně v místě, kde má celá sauna bouchnout. Ťuk se sám přichytí na nejbližší beat." },
     { n: "Náhled", t: "Podívej se, jak to bude svítit", d: "Pusť přehrávání. Světla v sauně svítí přesně tak, jak to dostane QuickDMX. Táhnutím myši saunou otáčíš." },
     { n: "Stáhnout", t: "Stáhni světla pro QuickDMX", d: "Jedno tlačítko vyrobí světla, zkontroluje pravidla (žádná bílá, kamna jen dýchají, nikdy tma) a připraví zip." }
   ];
   function wizard(id, show, k) {
     var ready = !!G.rozbor[id] && show.casti.length && show.pisne.length, K = KROKY[k - 1];
     var h = ['<div class="row between"><div><h1 class="page">' + esc(show.nazev) + '</h1><div class="sub">' + esc((G.sauny[show.sauna] || {}).nazev || show.sauna) + ' · ' + mmss(show.delka || 0) + '</div></div><a class="btn small" href="#/show/' + esc(id) + '/emoce">Pokročilý režim</a></div>'];
-    h.push('<ol class="steps" aria-label="Kroky">' + KROKY.map(function (x, i) { return '<li><a href="#/show/' + esc(id) + '/krok' + (i + 1) + '"' + (i + 1 === k ? ' aria-current="step"' : '') + (i + 1 < k ? ' class="done"' : '') + '><span class="num">' + (i + 1 < k ? "✓" : i + 1) + '</span><span class="nm">' + x.n + '</span></a></li>'; }).join("") + '</ol>');
+    var vid = KROKY.map(function (x, i) { return i + 1; }).filter(function (n) { return !KROKY[n - 1].skryt || n === k; });   // the Dropy step lives in the advanced mode now (route krok3 still works)
+    var dal = vid.filter(function (n) { return n > k; })[0], pred = vid.filter(function (n) { return n < k; }).pop();
+    h.push('<ol class="steps" aria-label="Kroky">' + KROKY.map(function (x, i) { if (vid.indexOf(i + 1) < 0) return ""; return '<li><a href="#/show/' + esc(id) + '/krok' + (i + 1) + '"' + (i + 1 === k ? ' aria-current="step"' : '') + (i + 1 < k ? ' class="done"' : '') + '><span class="num">' + (i + 1 < k ? "✓" : vid.indexOf(i + 1) + 1) + '</span><span class="nm">' + x.n + '</span></a></li>'; }).join("") + '</ol>');
     h.push('<div class="stephead"><h2>' + esc(K.t) + '</h2><p>' + esc(K.d) + '</p>' + (k === 2 && ready ? '<p style="margin-top:8px"><a class="btn small" href="#/show/' + esc(id) + '/ai">Máš scénář nebo příběh? Ať nálady navrhne AI</a></p>' : '') + '</div>');
     if (!ready) {
       if (k !== 1) { h.push('<div class="card empty">Nejdřív v kroku 1 vyber skladbu. Program v ní najde beaty a části.<div class="row" style="justify-content:center;margin-top:14px"><a class="btn primary" href="#/show/' + esc(id) + '/krok1">Krok 1: Hudba</a></div></div>'); view.innerHTML = h.join(""); return; }
       h.push('<div id="tabBody"></div>'); view.innerHTML = h.join(""); analyzeStep($("tabBody"), show); return;
     }
-    h.push('<div id="tabBody"></div><div class="stepnav">' + (k > 1 ? '<a class="btn" href="#/show/' + esc(id) + '/krok' + (k - 1) + '">← Zpět</a>' : '<span></span>') +
-      (k < 5 ? '<a class="btn primary big" href="#/show/' + esc(id) + '/krok' + (k + 1) + '">Další: ' + KROKY[k].n + ' →</a>' : '<a class="btn" href="#/">Hotovo, zpět na přehled</a>') + '</div>');
+    h.push('<div id="tabBody"></div><div class="stepnav">' + (pred ? '<a class="btn" href="#/show/' + esc(id) + '/krok' + pred + '">← Zpět</a>' : '<span></span>') +
+      (dal ? '<a class="btn primary big" href="#/show/' + esc(id) + '/krok' + dal + '">Další: ' + KROKY[dal - 1].n + ' →</a>' : '<a class="btn" href="#/">Hotovo, zpět na přehled</a>') + '</div>');
     view.innerHTML = h.join("");
     mount(id, show, $("tabBody"), function (body) {
       if (k === 1) return musicStep(body, show);
@@ -2618,13 +2627,16 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       '<div class="row tlbar" id="tlbar" style="margin-top:10px;gap:6px;flex-wrap:wrap;align-items:center"><button type="button" class="btn small" data-z="in" title="Přiblížit (Ctrl + kolečko)">+ Přiblížit</button><button type="button" class="btn small" data-z="out">− Oddálit</button><button type="button" class="btn small" data-z="all">Celá show</button><button type="button" class="btn small" data-z="l" aria-label="Posunout pohled doleva">‹</button><button type="button" class="btn small" data-z="r" aria-label="Posunout pohled doprava">›</button><span class="note" id="tlinfo"></span></div>' +
       '<div class="tl' + (simple ? ' big' : '') + '" id="tl"></div>' + (showParts ? '<details class="more" id="celaShow" style="margin-top:14px"' + ((+show.maxJas && +show.maxJas < 1) || show.styl === "nasviceni" ? ' open' : '') + '><summary>Nastavení celé show (nejvyšší jas, styl)</summary><div class="field" style="margin-top:14px"><span class="lbl" id="jasL">Nejvyšší jas celé show</span><div class="sila" id="jas" role="group" aria-labelledby="jasL"></div><p class="note" style="margin-top:4px">Pro relaxační ceremoniál dej 40 % nebo méně: světla pak nikde nepřesáhnou tuhle hranici a nepulzují do rytmu.</p></div><div class="field" style="margin-top:14px"><span class="lbl" id="stylL">Styl</span><div class="sila" id="styl" role="group" aria-labelledby="stylL"></div><p class="note" style="margin-top:4px">Jen nasvícení: každá část má jednu klidnou barevnou scénu, světla nepulzují ani neputují. Momenty příběhu (záblesky, tma, restart) zůstávají.</p></div></details>' : '') + '</section>' +
       (mode === "nalada" ? '' : playerHTML(show, false)) + (showParts && !simple ? '<section class="card" id="partCard" style="margin-top:16px"></section>' : '') +
-      '</div><aside class="col-side">' + (showParts && simple ? '<section class="card" id="partCard"></section>' : '') +
-      (showDrops ? '<section class="card"><div class="row between"><h2>Dropy</h2>' : '<div hidden><div><h2></h2>') + '<span class="sub" id="dropCount"></span></div><div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">' +
+      '</div><aside class="col-side">' + (showParts ? '<section class="card mini-nahled"><div class="row between"><h2>Náhled sauny</h2><span class="sub" id="mnCo"></span></div><div class="stage stage-mini" id="miniStage"></div><p class="note" id="mnSt" style="margin-top:8px">Hraje vybranou část dokola. Každá změna se tu ukáže za chvilku.</p></section>' : '') +
+      (showParts && simple ? '<section class="card" id="partCard"></section>' : '') +
+      (showDrops && !simple ? '<details class="card more" id="dropyBox"><summary><b>Dropy</b>&nbsp;<span class="sub">(místa naplno, ťukáním do hudby)</span></summary>' : '') +
+      (showDrops ? '<section' + (simple ? ' class="card"' : '') + '><div class="row between"><h2>Dropy</h2>' : '<div hidden><div><h2></h2>') + '<span class="sub" id="dropCount"></span></div><div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">' +
       (simple ? '<div hidden>' : '<div>') + '<div class="seg" role="group" aria-label="Typ místa" id="typSeg"><button type="button" data-typ="drop" aria-pressed="true">Drop</button><button type="button" data-typ="nastup" aria-pressed="false">Nástup</button><button type="button" data-typ="zklidneni" aria-pressed="false">Zklidnění</button></div></div>' +
       '<button class="tap" id="tap" type="button"' + (P.has ? "" : " disabled") + '><span>Ťuk</span><small>' + (P.has ? "nebo mezerník" : "Nejdřív načti hudbu") + '</small></button>' +
       '<div class="row"><button class="btn" id="undo" type="button" disabled>Vrátit poslední ťuk</button></div>' +
       (simple ? '<p class="note">Šipkami posuneš drop o beat, ▶ ho přehraje, × smaže. Z vrátí poslední ťuk.</p>' : '<p class="note">Ťuk se přichytí na nejbližší skutečný beat. Naplno (100 %) svítí jen typ Drop. Nástup a Zklidnění si zatím jen zapisuješ.</p>') +
-      '<div class="dlist" id="dlist" aria-label="Seznam dropů"></div></div>' + (showDrops ? '</section>' : '</div>') + '</aside></div>';
+      '<div class="dlist" id="dlist" aria-label="Seznam dropů"></div></div>' + (showDrops ? '</section>' : '</div>') + (showDrops && !simple ? '</details>' : '') + '</aside></div>';
+    var MN = showParts ? miniNahled($("miniStage"), show, function () { return partsT(show)[st.sel]; }) : null;
     function saveCasti() { saveShow(show, { casti: show.casti }); }
     function renderJas() {
       if (!$("jas")) return;
@@ -2981,7 +2993,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       if (!tah && span < T - 0.01 && isPlaying() && (t > V.b - span * 0.03 || t < V.a)) { V.a = Math.max(0, Math.min(T - span, t - span * 0.1)); V.b = V.a + span; renderTimeline(); }   // zoomed in: the view follows the music
       Array.prototype.forEach.call(body.querySelectorAll(".head"), function (e) { e.style.left = pct(t) + "%"; });
     });
-    return { refresh: all, dispose: function () { document.removeEventListener("keydown", key); } };
+    return { refresh: all, dispose: function () { document.removeEventListener("keydown", key); if (MN) MN.dispose(); } };
   }
 
   // ----- learning: numbers about the music + what the sauna master chose (server/uceni.js) -----
@@ -3260,6 +3272,33 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   }
 
   // ----- 3D scene (shared by the show preview and the sauna page) -----
+  // live sauna preview inside the editor: plays the selected part in a loop (or follows the music while it plays); recomputes shortly after every change
+  function miniNahled(el, show, castF) {
+    var sauna = G.sauny[show.sauna]; if (!el || !sauna) return null;
+    var S3 = scene3d(el, sauna, { view: "roh" }); if (!S3) return null;
+    var res = null, klic = "", zmena = 0, bezi = false, zivy = true, t0 = performance.now(), posl = null, raf = 0;
+    var kl = function () { return JSON.stringify([show.casti, show.dropy, show.barvyDropu, show.maxJas, show.styl, show.momenty]); };
+    var st = function (s) { var e = $("mnSt"); if (e) e.textContent = s; };
+    function prepocet() {
+      if (bezi) return; bezi = true; var k = kl(); st("Počítám náhled…");
+      getPlan(show).then(function (r) { bezi = false; if (!zivy) return; res = r; klic = k; st("Hraje vybranou část dokola. Každá změna se tu ukáže za chvilku."); },
+        function (e) { bezi = false; klic = k; st("Náhled teď nejde spočítat: " + serverChyba(e)); });
+    }
+    var hl = setInterval(function () { var k = kl(); if (k !== klic) { if (!zmena) zmena = performance.now(); else if (performance.now() - zmena > 600 && !bezi) { zmena = 0; prepocet(); } } else zmena = 0; }, 250);
+    prepocet();
+    function snimek() {
+      if (!zivy) return; raf = requestAnimationFrame(snimek);
+      if (!res || document.hidden) return;
+      var x = castF(), t;
+      if (isPlaying()) t = now();
+      else if (x) { if (posl !== x.a) { posl = x.a; t0 = performance.now(); } var d = Math.max(1, x.b - x.a); t = x.a + ((performance.now() - t0) / 1000) % d; }
+      else return;
+      try { S3.update(C.stavV(res.plan, res.sauna, t)); } catch (e) {}
+      var co = $("mnCo"); if (co) co.textContent = mmss(t);
+    }
+    raf = requestAnimationFrame(snimek);
+    return { dispose: function () { zivy = false; clearInterval(hl); cancelAnimationFrame(raf); try { S3.dispose(); } catch (e) {} } };
+  }
   function scene3d(el, sauna, opts) {
     if (!window.THREE) { el.innerHTML = '<div class="empty">3D knihovna se nenačetla. Zkus stránku obnovit.</div>'; return null; }
     var THREE = window.THREE, d3 = sauna.d3 || {}, W = el.clientWidth || 600, H = el.clientHeight || 400;
