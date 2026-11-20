@@ -626,8 +626,238 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     fx.forEach(function (f) { if (p2[f.name]) prof.d2[f.id] = p2[f.name]; });
     return prof;
   }
-  var api = { importuj: importuj, ini: ini, ROLE_ORDER: ROLE_ORDER };
+  var api = { importuj: importuj, ini: ini, ROLE_ORDER: ROLE_ORDER, roleOfText: roleOfText };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.SvetlaImport = api;
+})(typeof globalThis !== "undefined" ? globalThis : this);
+
+</script>
+<script>
+/* Převzatá show: a finished QuickDMX show (timeline .tml + its scenes .scex) from one sauna, converted for another sauna's lights.
+   Times stay exactly as they were (same events, same step lengths in hundredths of a second); only the lights change:
+   each light of the new sauna takes over the light of the old sauna with the same job (walls, benches, stove, water)
+   and the same place in its group. Pure logic first (also runs in node for tests), the page at the bottom. */
+(function (root) {
+  "use strict";
+  var ROLE = ["STENY", "KAMNA", "SPOTY", "LAVICE", "VODA"];
+  var ZALOHA = { STENY: ["STENY", "SPOTY", "LAVICE"], SPOTY: ["SPOTY", "STENY", "LAVICE"], LAVICE: ["LAVICE", "STENY", "SPOTY"], KAMNA: ["KAMNA"], VODA: ["VODA"] };
+
+  function tx(x) {   // zip entries come as text (latin1-safe); strip BOM
+    return String(x == null ? "" : x).replace(/^﻿/, "");
+  }
+  function najdi(files, p) { var lo = p.toLowerCase().replace(/\\/g, "/"); var k = Object.keys(files).filter(function (x) { return x.toLowerCase() === lo; })[0]; return k == null ? null : files[k]; }
+  function cs(s) {   // "h:mm:ss.d" -> seconds
+    var a = String(s || "0").trim().split(":").map(Number);
+    while (a.length < 3) a.unshift(0);
+    return a[0] * 3600 + a[1] * 60 + a[2];
+  }
+
+  // ---------- reading ----------
+  function osy(files) {   // the show timelines in a project zip
+    return Object.keys(files).filter(function (k) { return /(^|\/)Live\/TimeLine\/timelines\/[^\/]+\.tml$/i.test(k) || /^[^\/]+\.tml$/i.test(k); }).map(function (k) {
+      var ev = ctiOsu(files[k]), hud = ev.filter(function (e) { return +e.TimeLineIndex === 2; })[0], sc = ev.filter(function (e) { return /\.scex$/i.test(e.Path || ""); }).length;
+      return { cesta: k, nazev: k.split("/").pop().replace(/\.tml$/i, ""), sceny: sc, hudba: hud ? hud.Path : "", delka: hud ? cs(hud.Length) : 0 };
+    }).filter(function (o) { return o.sceny > 0; }).sort(function (a, b) { return a.nazev.localeCompare(b.nazev); });
+  }
+  function ctiOsu(text) {   // [{key: value, _k: [keys in file order]}] for each [Event_n]
+    var out = [], cur = null;
+    tx(text).split(/\r?\n/).forEach(function (l) {
+      var m = l.match(/^\s*\[Event_\d+\]\s*$/); if (m) { cur = { _k: [] }; out.push(cur); return; }
+      if (/^\s*\[/.test(l)) { cur = null; return; }
+      var kv = l.match(/^\s*([^=]+?)\s*=\s*(.*?)\s*$/); if (kv && cur) { cur[kv[1]] = kv[2]; cur._k.push(kv[1]); }
+    });
+    return out;
+  }
+  function ctiScenu(text) {   // -> {fx: {id: [name, model]}, steps: [[hundredths, {id: {ch: [value, fade]}}]]}
+    var t = tx(text), fx = {}, steps = [], m, re = /<Fixture id="(\d+)" name="([^"]*)" model="([^"]*)"\s*\/>/g;
+    while ((m = re.exec(t))) fx[m[1]] = [m[2], m[3]];
+    var sre = /<Step length="(\d+)"[^>]*>([\s\S]*?)<\/Step>/g;
+    while ((m = sre.exec(t))) {
+      var d = {}, fre = /<Fixture id="(\d+)">([\s\S]*?)<\/Fixture>/g, f;
+      while ((f = fre.exec(m[2]))) {
+        var ch = {}, cre = /<Channel [^>]*name="([^"]+)" value="(\d+)"([^>]*)\/>/g, c;
+        while ((c = cre.exec(f[2]))) ch[c[1]] = [+c[2], /fade="1"/.test(c[3])];
+        d[f[1]] = ch;
+      }
+      steps.push([+m[1], d]);
+    }
+    return { fx: fx, steps: steps };
+  }
+  // one light's channels in a step -> [r, g, b, uv] the way it looks (dimmer, white and amber folded into the colour)
+  function barva(ch, role) {
+    var v = function (n) { return ch[n] ? ch[n][0] : 0; };
+    var k = role !== "VODA" && ch.dimmer ? ch.dimmer[0] / 255 : 1;   // the water effect uses its "dimmer" as speed
+    if (ch.shutter && ch.shutter[0] === 0) k = 0;
+    var w = v("white"), a = v("amber");
+    var c = [v("red") + a + w, v("green") + a * 0.6 + w, v("blue") + w, v("uv")].map(function (x) { return Math.max(0, Math.min(255, Math.round(x * k))); });
+    return c;
+  }
+
+  /* files: {path relative to the project folder: text}; prof: the source sauna from SvetlaImport (or null: roles guessed from names).
+     -> the stored form of the show: lights of the old sauna by job + the events + the scenes as colours */
+  function prevezmi(files, tmlCesta, prof, roleOfText) {
+    var ev = ctiOsu(najdi(files, tmlCesta)), sceny = {}, svetla = {}, preskoceno = {}, chybi = {}, bila = 0, cizi = {};
+    if (prof) Object.keys(prof.skupiny || {}).forEach(function (r) { prof.skupiny[r].svetla.forEach(function (f, i) { svetla[f[0]] = { n: f[1], m: f[2], r: r, i: i }; }); });
+    var udalosti = [], hudba = "", delka = 0;
+    ev.forEach(function (e) {
+      var lane = +e.TimeLineIndex, p = String(e.Path || "");
+      if (lane === 2) { hudba = p; delka = Math.max(delka, cs(e.StartTime) + cs(e.Length)); return; }
+      if (lane < 3) return;
+      var u = { l: lane, t: e.StartTime, p: p };
+      e._k.forEach(function (k) { if (["TimeLineIndex", "StartTime", "Path"].indexOf(k) < 0) (u.x = u.x || []).push([k, e[k]]); });
+      if (p === "OFF") { udalosti.push(u); return; }
+      if (!/\.scex$/i.test(p)) { preskoceno[p] = (preskoceno[p] || 0) + 1; return; }
+      if (!(p in sceny)) {
+        var text = najdi(files, "scenes/" + p);
+        if (text == null) { chybi[p] = 1; sceny[p] = null; }
+        else sceny[p] = ctiScenu(text);
+      }
+      if (!sceny[p]) return;
+      udalosti.push(u);
+      delka = Math.max(delka, cs(e.StartTime) + cs(e.Length || "0"));
+    });
+    // lights that are in the scenes but not in the sauna file: guess their job from the name
+    var dalsi = {};
+    Object.keys(sceny).forEach(function (p) { var s = sceny[p]; if (!s) return; Object.keys(s.fx).forEach(function (id) { if (!svetla[id] && !cizi[id]) {
+      var r = !prof && roleOfText ? (roleOfText(s.fx[id][0]) || roleOfText(s.fx[id][1]) || (/h2o/i.test(s.fx[id][1]) ? "VODA" : null)) : null;
+      if (r) { dalsi[r] = dalsi[r] || []; dalsi[r].push(id); svetla[id] = { n: s.fx[id][0], m: s.fx[id][1], r: r }; } else cizi[id] = s.fx[id][0];
+    } }); });
+    Object.keys(dalsi).forEach(function (r) { var n = Object.keys(svetla).filter(function (id) { return svetla[id].r === r && svetla[id].i != null; }).length; dalsi[r].forEach(function (id, i) { svetla[id].i = n + i; }); });
+    // scenes as colours per light (missing channel in a step = the value it had in the step before)
+    var S = {};
+    Object.keys(sceny).forEach(function (p) {
+      var s = sceny[p]; if (!s) return;
+      var last = {};
+      S[p] = s.steps.map(function (st) {
+        var v = {}, fade = 0;
+        Object.keys(st[1]).forEach(function (id) {
+          if (!svetla[id]) return;
+          var ch = Object.assign({}, last[id] || {}, st[1][id]); last[id] = ch;
+          var c = barva(ch, svetla[id].r), f = ["red", "green", "blue", "uv", "dimmer", "white", "amber"].some(function (n) { return st[1][id][n] && st[1][id][n][1]; });
+          if ((ch.white && ch.white[0] > 0)) bila++;
+          v[id] = f ? c.concat([1]) : c;
+          if (f) fade = 1;
+        });
+        return [st[0], v];
+      });
+    });
+    var pocty = {}; Object.keys(svetla).forEach(function (id) { pocty[svetla[id].r] = Math.max(pocty[svetla[id].r] || 0, svetla[id].i + 1); });
+    return { v: 1, zdroj: prof ? prof.nazev : "", svetla: svetla, pocty: pocty, udalosti: udalosti, sceny: S, hudba: hudba, delka: Math.round(delka * 10) / 10, osa: tmlCesta.split("/").pop(),
+      preskoceno: preskoceno, chybi: Object.keys(chybi), bila: bila, cizi: Object.keys(cizi).map(function (k) { return cizi[k]; }) };
+  }
+
+  // ---------- converting for a sauna ----------
+  function vychoziMapa(pr, sauna) {   // new sauna's group -> the old sauna's group that plays it
+    var m = {};
+    Object.keys(sauna.skupiny || {}).forEach(function (g) { m[g] = (ZALOHA[g] || [g]).filter(function (r) { return pr.pocty[r]; })[0] || ""; });
+    return m;
+  }
+  // for every light of the new sauna: which light of the old sauna it copies
+  function prirazeni(pr, sauna, mapa) {
+    var out = {}, podle = {};
+    Object.keys(pr.svetla).forEach(function (id) { var s = pr.svetla[id]; (podle[s.r] = podle[s.r] || [])[s.i] = id; });
+    Object.keys(sauna.skupiny || {}).forEach(function (g) {
+      var src = (podle[mapa[g]] || []).filter(Boolean), fx = sauna.skupiny[g].svetla;
+      if (!src.length) return;
+      fx.forEach(function (f, i) { out[f[0]] = { z: src[Math.floor(i * src.length / fx.length)], g: g, f: f }; });
+    });
+    return out;
+  }
+  function hodnoty(sauna, g, model, c) {   // [r,g,b,uv] -> the new light's channel values
+    var m = sauna.modely[model], z = m.zakazane || [], p = m.pevne || {}, jsk = +(sauna.skupiny[g] || {}).jas, k = jsk > 0 && jsk < 1 ? Math.max(0.15, jsk) : 1;
+    var lit = c[0] || c[1] || c[2] || c[3], jks = m.jen_kdyz_sviti || [];
+    return m.kanaly.map(function (n) {
+      if (n === "red") return Math.round(c[0] * k); if (n === "green") return Math.round(c[1] * k); if (n === "blue") return Math.round(c[2] * k);
+      if (n === "uv") return Math.round(c[3] * k);
+      if (jks.indexOf(n) >= 0) return lit ? 255 : 0;
+      if (z.indexOf(n) >= 0) return 0;
+      if (n in p) return p[n];
+      return 0;
+    });
+  }
+  function scexText(svetla, sauna, steps) {   // steps: [[hundredths, {id: [values], fade per light in .f}]]
+    var used = {};
+    svetla.forEach(function (f) { var ch = sauna.modely[f[2]].kanaly, u = []; for (var c = 0; c < ch.length; c++) if (steps.some(function (st) { var v = st[1][f[0]]; return v && v[c] > 0; })) u.push(c); used[f[0]] = u; });
+    var any = svetla.some(function (f) { return used[f[0]].length; });
+    var bez = sauna.bez_prolinani || ["dimmer", "shutter"];
+    var L = ['<?xml version="1.0" encoding="UTF-8"?>', '', '<Scene>', '  <Fixtures>'];
+    svetla.forEach(function (f) { L.push('    <Fixture id="' + f[0] + '" name="' + f[1] + '" model="' + f[2] + '"/>'); });
+    L.push('  </Fixtures>', '  <Steps>');
+    steps.forEach(function (st) {
+      L.push('    <Step length="' + Math.max(1, st[0]) + '">');
+      svetla.forEach(function (f) {
+        var v = st[1][f[0]], ch = sauna.modely[f[2]].kanaly, chs = any ? used[f[0]] : [0];
+        if (!v || !chs.length) return;
+        L.push('      <Fixture id="' + f[0] + '">');
+        chs.forEach(function (c) { L.push('        <Channel index="' + c + '" name="' + ch[c] + '" value="' + v[c] + '"' + (st[2][f[0]] && bez.indexOf(ch[c]) < 0 ? ' fade="1"' : '') + '/>'); });
+        L.push('      </Fixture>');
+      });
+      L.push('    </Step>');
+    });
+    L.push('  </Steps>', '</Scene>', '');
+    return L.join("\r\n");
+  }
+  function ascii(s) {
+    var TR = { "Á": "A", "Č": "C", "Ď": "D", "É": "E", "Ě": "E", "Í": "I", "Ň": "N", "Ó": "O", "Ř": "R", "Š": "S", "Ť": "T", "Ú": "U", "Ů": "U", "Ý": "Y", "Ž": "Z" };
+    return String(s || "").toUpperCase().split("").map(function (c) { return TR[c] || c; }).join("").replace(/[^A-Z0-9_-]+/g, "");
+  }
+  /* -> {files: {path: text}, tmlPath, plan, rep} ; plan is for the 3D preview (HTP of all lanes, scenes loop like in QuickDMX) */
+  function preved(pr, sauna, mapa, verze) {
+    verze = ascii(verze) || "PREVZATA1";
+    var kdo = prirazeni(pr, sauna, mapa), files = {}, plan = { lanes: {}, delka: pr.delka }, nove = {}, rep = { sceny: 0, udalosti: 0, svetel: Object.keys(kdo).length, prazdne: 0 };
+    Object.keys(pr.sceny).forEach(function (p) {
+      var sc = pr.sceny[p], ids = {};
+      sc.forEach(function (st) { Object.keys(st[1]).forEach(function (id) { ids[id] = 1; }); });
+      var fx = Object.keys(kdo).filter(function (nid) { return ids[kdo[nid].z]; }).map(function (nid) { return kdo[nid].f; });
+      if (!fx.length) { rep.prazdne++; return; }   // nothing of this scene exists in the new sauna's mapping
+      var steps = sc.map(function (st) {
+        var v = {}, f = {};
+        fx.forEach(function (x) { var c = st[1][kdo[x[0]].z]; if (!c) return; v[x[0]] = hodnoty(sauna, kdo[x[0]].g, x[2], c); f[x[0]] = c[4] === 1; });
+        return [st[0], v, f];
+      });
+      var cesta = verze + "/" + p.replace(/\\/g, "/");
+      files["scenes/" + cesta] = scexText(fx, sauna, steps); nove[p] = cesta; rep.sceny++;
+      plan[p] = { fx: fx.map(function (x) { return [x[0], x[2], kdo[x[0]].g]; }), steps: steps.map(function (s) { return [s[0] * 10, s[1], s[2]]; }) };
+    });
+    var L = ['[Params]', 'Version = 0.2', 'CommentTimeLine = 0', 'LightTimeLines = 8', 'MediaTimeLines = 1', 'ShowWaveForm = 1', 'MaxTime = 0:30:00', 'Zoom = 2',
+      'TimeLine_1 = V I D E O   P I C T U R E   T I M E L I N E', 'TimeLine_2 = A U D I O   T I M E L I N E'];
+    for (var k = 0; k < 8; k++) L.push('TimeLine_' + (k + 3) + ' = L I G H T   S C E N E   T I M E L I N E   #   ' + (k + 1));
+    var n = 0, ev = function (lines) { L.push("[Event_" + (n++) + "]"); lines.forEach(function (x) { L.push(x); }); };
+    var dl = Math.floor(pr.delka / 3600) + ":" + ("0" + Math.floor(pr.delka % 3600 / 60)).slice(-2) + ":" + ("0" + (pr.delka % 60).toFixed(1)).slice(-4);
+    if (pr.hudba) ev(["TimeLineIndex = 2", "StartTime = 0:00:00.0", "Path = " + pr.hudba, "Length = " + dl]);
+    pr.udalosti.forEach(function (u) {
+      var p = u.p === "OFF" ? "OFF" : nove[u.p]; if (!p) return;
+      ev(["TimeLineIndex = " + u.l, "StartTime = " + u.t, "Path = " + p].concat((u.x || []).map(function (x) { return x[0] + " = " + x[1]; })));
+      (plan.lanes[u.l] = plan.lanes[u.l] || []).push({ a: cs(u.t), p: u.p === "OFF" ? null : u.p, rych: +((u.x || []).filter(function (x) { return x[0] === "Speed"; })[0] || [0, 100])[1] || 100 });
+    });
+    rep.udalosti = n;
+    var tmlPath = "Live/TimeLine/timelines/" + verze + ".tml";
+    files[tmlPath] = "﻿" + L.join("\r\n") + "\r\n";
+    return { files: files, tmlPath: tmlPath, plan: plan, rep: rep, kdo: kdo };
+  }
+  // light state at time t: every lane plays its last scene (looping), lanes merge highest-takes-precedence like QuickDMX
+  function stav(plan, t) {
+    var out = {};
+    Object.keys(plan.lanes).forEach(function (l) {
+      var E = plan.lanes[l], e = null;
+      for (var i = 0; i < E.length && E[i].a <= t; i++) e = E[i];
+      if (!e || !e.p || !plan[e.p]) return;
+      var S = plan[e.p], tot = 0; S.steps.forEach(function (s) { tot += s[0]; });
+      var el = (t - e.a) * 1000 * e.rych / 100; if (tot > 0) el = el % tot;
+      var acc = 0, k = 0; while (k < S.steps.length - 1 && el >= acc + S.steps[k][0]) { acc += S.steps[k][0]; k++; }
+      var st = S.steps[k], pv = S.steps[(k + S.steps.length - 1) % S.steps.length], fr = st[0] > 0 ? Math.min(1, (el - acc) / st[0]) : 1;
+      S.fx.forEach(function (f) {
+        var cur = st[1][f[0]]; if (!cur) return;
+        var p0 = pv[1][f[0]] || cur, v = st[2][f[0]] ? cur.map(function (x, c) { return p0[c] + (x - p0[c]) * fr; }) : cur;
+        var o = out[f[0]]; if (!o) out[f[0]] = { seg: f[2], model: f[1], v: v.slice() };
+        else o.v = o.v.map(function (x, c) { return Math.max(x, v[c] || 0); });
+      });
+    });
+    return out;
+  }
+
+  var api = { osy: osy, ctiOsu: ctiOsu, ctiScenu: ctiScenu, prevezmi: prevezmi, vychoziMapa: vychoziMapa, preved: preved, stav: stav, ascii: ascii, ROLE: ROLE };
+  if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
+  root.SvetlaPrevod = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
 
 </script>
@@ -1382,6 +1612,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var ids = Object.keys(G.shows), sa = Object.keys(G.sauny).filter(function (k) { return !G.sauny[k].archiv; });
     var h = ['<div class="row between" style="margin-bottom:16px"><h1 class="page">Show</h1></div><div class="cards">'];
     ids.forEach(function (id) {
+      if (G.shows[id].typ === "prevzata") { h.push(prevzataKarta(id)); return; }
       var s = G.shows[id], r = !!G.rozbor[id];
       h.push('<section class="card"><div class="row between"><h2>' + esc(s.nazev) + '</h2>' + (r ? '<span class="badge ok">hudba rozebraná</span>' : '<span class="badge">čeká na rozbor hudby</span>') + '</div>' +
         '<p class="sub" style="margin:6px 0 0">' + esc((G.sauny[s.sauna] || {}).nazev || s.saunaNazev || s.sauna) + ' · ' + (s.pisne || []).length + ' písně · ' + mmss(s.delka || s.konec || 0) + '</p>' +
@@ -1400,11 +1631,12 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       '<div class="field"><label class="lbl" for="n-hudba">Název souboru hudby v QuickDMX (nepovinné)</label><input type="text" id="n-hudba" placeholder="např. Relax.wav"></div>' +
       '<button class="btn" id="n-ok"' + (sa.length ? "" : " disabled") + '>Založit show</button>' +
       '<p class="note">Po založení vybereš skladbu a program v ní sám najde beaty a části.</p></div></section>');
+    h.push(prevzitKarta());
     h.push('<section class="card"><h2>Záloha</h2><p class="sub" style="margin:6px 0 0">Všechny show a sauny v jednom souboru. Na jiném počítači nebo u jiného saunera ho načteš a máš všechno zpátky.</p>' +
       '<div class="row" style="margin-top:14px;gap:8px;flex-wrap:wrap"><button class="btn" id="b-save" type="button">Uložit zálohu</button><input type="file" id="b-file" accept=".json,application/json" class="vh"><label class="btn" for="b-file">Načíst zálohu nebo show</label></div><p class="note" id="b-st"></p></section>');
     h.push('</div>');
     view.innerHTML = h.join("");
-    wireManage();
+    wireManage(); wirePrevzit();
     $("n-ok").addEventListener("click", function () {
       var nazev = $("n-nazev").value.trim(); if (!nazev) { $("n-nazev").focus(); setStatus("Zadej název show"); return; }
       var id = slug(nazev), k = 2; while (G.shows[id]) id = slug(nazev) + "-" + (k++);
@@ -1769,6 +2001,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   function showPage(id, tab) {
     var base = G.shows[id];
     if (!base) { view.innerHTML = '<div class="card empty">Show „' + esc(id) + '“ neexistuje. <a href="#/">Zpět na přehled</a></div>'; return; }
+    if (base.typ === "prevzata") return prevzataPage(id);
     var show = clone(base);
     if (!G.soubor[id] || P.id !== id) obnovHudbu(id).then(function (nova) { if (nova && (location.hash || "").indexOf("#/show/" + id + "/") === 0) route(); });
     var ready = !!G.rozbor[id] && show.casti.length && show.pisne.length;
@@ -3118,6 +3351,140 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       } catch (e) { s.textContent = e && e.code === "declined" ? "Stažení zrušeno." : "Stažení se nepovedlo: " + errText(e); }
     }
     return {};
+  }
+
+  // ---------- převzatá show: a finished QuickDMX show from another sauna, converted for this sauna's lights (prevod.js) ----------
+  var PR = window.SvetlaPrevod;
+  function prevzataKarta(id) {
+    var s = G.shows[id], pr = s.prevod || {};
+    return '<section class="card"><div class="row between"><h2>' + esc(s.nazev) + '</h2><span class="badge">převzatá z QuickDMX</span></div>' +
+      '<p class="sub" style="margin:6px 0 0">' + esc((G.sauny[s.sauna] || {}).nazev || s.saunaNazev || s.sauna) + ' · ' + mmss(s.delka || 0) + (pr.zdroj ? ' · původně ' + esc(pr.zdroj) : '') + '</p>' +
+      '<p class="sub" style="margin:10px 0 0">Upraveno ' + esc(when(s.upraveno)) + '</p>' +
+      '<div class="row" style="margin-top:14px"><a class="btn primary" href="#/show/' + esc(id) + '/prevod">Otevřít</a></div>' +
+      '<details class="more" style="margin-top:12px"><summary>Upravit show</summary><div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px">' +
+      '<button class="btn small" data-act="send" data-id="' + esc(id) + '" type="button">Uložit show do souboru</button><button class="btn small" data-act="del" data-id="' + esc(id) + '" type="button" style="color:#f87171">Smazat</button></div></details></section>';
+  }
+  function prevzitKarta() {
+    var sa = Object.keys(G.sauny).filter(function (k) { return !G.sauny[k].archiv; });
+    return '<section class="card"><h2>Převzít hotovou show z QuickDMX</h2><p class="sub" style="margin:6px 0 0">Máš show hotovou v QuickDMX pro jinou saunu? Program ji převede na světla tvé sauny. Časy zůstanou přesně stejné, mění se jen světla.</p>' +
+      '<div style="display:flex;flex-direction:column;gap:12px;margin-top:12px"><input type="file" id="pz-zip" accept=".zip,application/zip" class="vh"><label class="btn" for="pz-zip">Nahrát zip složky projektu</label>' +
+      '<p class="note">Zip celé složky projektu sauny, kde show běží (se složkami scenes a Live). Hudbu ze zipu program vezme taky.</p><div id="pz-krok2" style="display:none;flex-direction:column;gap:12px">' +
+      '<div class="field"><label class="lbl" for="pz-osa">Která show (časová osa)</label><select id="pz-osa"></select></div>' +
+      '<div class="field"><label class="lbl" for="pz-sauna">Pro kterou saunu</label><select id="pz-sauna">' + sa.map(function (k) { return '<option value="' + esc(k) + '">' + esc(G.sauny[k].nazev) + '</option>'; }).join("") + '</select></div>' +
+      '<div class="field"><label class="lbl" for="pz-nazev">Název</label><input type="text" id="pz-nazev"></div><button class="btn primary" id="pz-ok" type="button"' + (sa.length ? '' : ' disabled') + '>Převzít show</button></div>' +
+      '<p class="note" id="pz-st">' + (sa.length ? '' : 'Nejdřív si v Saunách přidej saunu, pro kterou show chceš.') + '</p></div></section>';
+  }
+  function wirePrevzit() {
+    if (!$("pz-zip")) return;
+    var Z = null;   // {files, prof, hudby: {path: zip entry}, jmeno}
+    $("pz-zip").addEventListener("change", async function () {
+      var f = this.files && this.files[0], st = $("pz-st"); if (!f) return;
+      if (!window.JSZip) { st.textContent = "Knihovna pro zip se nenačetla, obnov stránku."; return; }
+      st.textContent = "Čtu zip…"; $("pz-krok2").style.display = "none";
+      try {
+        var z = await window.JSZip.loadAsync(f), names = Object.keys(z.files).filter(function (n) { return !z.files[n].dir && !/(^|\/)(__MACOSX|\.)/.test(n); });
+        // project folder = the one that holds Live/ or scenes/ (zips often have one extra top folder)
+        var top = names.map(function (n) { var m = n.match(/^(.*?)(Live|scenes)\//i); return m ? m[1] : null; }).filter(function (x) { return x != null; }).sort(function (a, b) { return a.length - b.length; })[0];
+        if (top == null) throw new Error("v zipu nejsou složky scenes ani Live. Nahraj zip celé složky projektu QuickDMX.");
+        var files = {}, hudby = {};
+        await Promise.all(names.filter(function (n) { return n.indexOf(top) === 0; }).map(function (n) {
+          var rel = n.slice(top.length);
+          if (/^Music\//i.test(rel)) { hudby[rel.toLowerCase()] = z.files[n]; return null; }
+          if (!/\.(ini|txt|scex|tml)$/i.test(rel)) return null;
+          return z.files[n].async("string").then(function (t) { files[rel] = t; });
+        }));
+        var osy = PR.osy(files); if (!osy.length) throw new Error("v zipu není žádná časová osa se scénami (Live/TimeLine/timelines/*.tml).");
+        var prof = null; try { prof = IMP.importuj(files, top.replace(/\/$/, "").split("/").pop() || f.name.replace(/\.zip$/i, "")); } catch (e) { prof = null; }
+        Z = { files: files, prof: prof, hudby: hudby, osy: osy };
+        $("pz-osa").innerHTML = osy.map(function (o, i) { return '<option value="' + i + '">' + esc(o.nazev) + ' · ' + mmss(o.delka) + ' · ' + o.sceny + ' scén</option>'; }).join("");
+        var setN = function () { $("pz-nazev").value = osy[+$("pz-osa").value].nazev.replace(/[_-]+/g, " "); }; setN(); $("pz-osa").onchange = setN;
+        $("pz-krok2").style.display = "flex";
+        st.textContent = prof ? "Show z projektu „" + prof.nazev + "“. Vyber, kterou převzít." : "Zip nemá popis světel (fixtures.ini), světla poznám podle jmen. Vyber show.";
+      } catch (e) { st.textContent = "Zip se nepodařilo přečíst: " + (e.message || e); }
+    });
+    $("pz-ok").addEventListener("click", async function () {
+      if (!Z) return; var st = $("pz-st"), o = Z.osy[+$("pz-osa").value], sk = $("pz-sauna").value, nazev = $("pz-nazev").value.trim() || o.nazev;
+      this.disabled = true; st.textContent = "Převádím…";
+      try {
+        var pr = PR.prevezmi(Z.files, o.cesta, Z.prof, IMP.roleOfText);
+        if (!Object.keys(pr.sceny).length) throw new Error("osa nemá žádné scény, které by šly převzít");
+        var id = slug(nazev), k = 2; while (G.shows[id]) id = slug(nazev) + "-" + (k++);
+        var doc = { id: id, nazev: nazev, typ: "prevzata", sauna: sk, saunaNazev: G.sauny[sk].nazev, hudba: (pr.hudba || "").split("/").pop(), hudbaCesta: pr.hudba, delka: pr.delka, konec: pr.delka,
+          pisne: [], casti: [], dropy: [], barvyDropu: {}, verze: (PR.ascii(nazev).slice(0, 14) || "SHOW") + "1", prevod: pr, mapa: PR.vychoziMapa(pr, G.sauny[sk]), upraveno: new Date().toISOString() };
+        await G.db.doc("show/" + id).set(doc); G.shows[id] = doc;
+        var mz = pr.hudba && Z.hudby[pr.hudba.toLowerCase()];
+        if (mz) { st.textContent = "Beru hudbu ze zipu…"; var b = await mz.async("blob"); if (/\.wav$/i.test(pr.hudba)) b._hotovo = true; nastavHudbu(doc, b, pr.hudba.split("/").pop()); }
+        location.hash = "#/show/" + id + "/prevod";
+      } catch (e) { st.textContent = "Převzetí se nepovedlo: " + (e.message || e); this.disabled = false; }
+    });
+  }
+  function prevzataPage(id) {
+    var show = clone(G.shows[id]), pr = show.prevod, sauna = G.sauny[show.sauna];
+    if (!G.soubor[id] || P.id !== id) obnovHudbu(id).then(function (nova) { if (nova && location.hash === "#/show/" + id + "/prevod") route(); });
+    if (!sauna) { view.innerHTML = '<div class="card empty">Sauna této show už neexistuje. Vyber jinou v Upravit show. <a href="#/">Zpět</a></div>'; return; }
+    var mapa = Object.assign(PR.vychoziMapa(pr, sauna), show.mapa || {}), res = PR.preved(pr, sauna, mapa, show.verze), T = pr.delka || 600, alive = true;
+    var JM = { STENY: "Stěny", KAMNA: "Kamna", SPOTY: "Spoty", LAVICE: "Lavice", VODA: "Voda" };
+    var zdroje = PR.ROLE.filter(function (r) { return pr.pocty[r]; });
+    var upoz = [];
+    if (Object.keys(pr.preskoceno).length) upoz.push("Efekty z generátoru (" + Object.keys(pr.preskoceno).map(esc).join(", ") + ") se nepřevádějí, v nové show chybí.");
+    if (pr.chybi.length) upoz.push(pr.chybi.length + " scén ze show v zipu chybí (např. " + esc(pr.chybi[0]) + "), ty se vynechají.");
+    if (pr.cizi.length) upoz.push("Světla bez jasné role se vynechají: " + pr.cizi.slice(0, 6).map(esc).join(", ") + (pr.cizi.length > 6 ? "…" : "") + ".");
+    if (pr.bila) upoz.push("Původní show používá bílý kanál (" + pr.bila + "× v krocích). Převádím ho na stejně světlou barvu RGB, takže tam zůstanou skoro bílá místa.");
+    if (res.rep.prazdne) upoz.push(res.rep.prazdne + " scén nemá v nové sauně žádné světlo (jejich skupina je nastavená na Nesvítí).");
+    view.innerHTML = '<div class="row between"><div><h1 class="page">' + esc(show.nazev) + '</h1><div class="sub">Převzatá show · ' + esc(sauna.nazev) + ' · ' + mmss(T) + ' · původně ' + esc(pr.zdroj || "jiná sauna") + ', osa ' + esc(pr.osa) + '</div></div><a class="btn small" href="#/">Zpět na přehled</a></div>' +
+      '<div class="grid" style="margin-top:16px"><div class="col-main"><section class="card" style="padding:12px"><div class="stage" id="stage"><span class="hint">Táhni = otáčet · kolečko / dva prsty = přiblížit</span></div>' +
+      '<input type="range" id="scrub" min="0" max="' + T + '" step="0.1" value="0" aria-label="Čas show" style="margin-top:12px"></section>' + playerHTML(show, true) + '</div>' +
+      '<aside class="col-side"><section class="card"><h2>Sauna a světla</h2><div class="field" style="margin-top:12px"><label class="lbl" for="pv-sauna">Převést pro saunu</label><select id="pv-sauna">' +
+      Object.keys(G.sauny).filter(function (k) { return !G.sauny[k].archiv || k === show.sauna; }).map(function (k) { return '<option value="' + esc(k) + '"' + (k === show.sauna ? " selected" : "") + '>' + esc(G.sauny[k].nazev) + '</option>'; }).join("") + '</select></div>' +
+      '<p class="note" style="margin-top:12px">Každá skupina světel tvé sauny hraje to, co ve staré show hrála vybraná skupina. Světla se berou podle pořadí dokola, takže pohyb po sauně zůstane.</p>' +
+      '<div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">' + PR.ROLE.filter(function (g) { return sauna.skupiny[g]; }).map(function (g) {
+        return '<div class="row between" style="gap:8px"><span><span class="dot" style="background:' + ROLE_COL[g] + ';vertical-align:-1px"></span> ' + JM[g] + ' (' + sauna.skupiny[g].svetla.length + ')</span><select class="pv-m" data-g="' + g + '" style="width:auto" aria-label="' + JM[g] + ' hraje">' +
+          zdroje.map(function (r) { return '<option value="' + r + '"' + (mapa[g] === r ? " selected" : "") + '>jako ' + JM[r].toLowerCase() + ' (' + pr.pocty[r] + ')</option>'; }).join("") + '<option value=""' + (!mapa[g] ? " selected" : "") + '>nesvítí</option></select></div>';
+      }).join("") + '</div>' + (upoz.length ? '<div class="note" style="margin-top:12px;display:flex;flex-direction:column;gap:6px">' + upoz.map(function (u) { return '<span>' + u + '</span>'; }).join("") + '</div>' : '') + '</section>' +
+      '<section class="card"><h2>Stáhnout pro QuickDMX</h2><div class="field" style="margin-top:12px"><label class="lbl" for="pv-verze">Jméno verze v QuickDMX</label><input type="text" id="pv-verze" value="' + esc(show.verze) + '"></div>' +
+      '<p class="note" style="margin-top:8px">' + res.rep.sceny + ' scén, ' + res.rep.udalosti + ' událostí na ose, ' + res.rep.svetel + ' světel. ' + (G.soubor[id] ? 'Hudba půjde do zipu jako ' + esc(show.hudbaCesta) + '.' : 'Hudbu (' + esc(show.hudbaCesta || "") + ') načti nahoře, jinak ji do složky Music zkopíruj sám.') + '</p>' +
+      '<div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap">' + (slozkaJde() ? '<button class="btn primary" id="pv-qd" type="button">Uložit rovnou do QuickDMX</button><button class="btn" id="pv-dl" type="button">Stáhnout zip</button>' : '<button class="btn primary" id="pv-dl" type="button">Stáhnout zip</button>') + '</div><p class="note" id="pv-st" style="margin-top:8px"></p></section></aside></div>';
+    var S3 = scene3d($("stage"), sauna, { view: "roh" });
+    function uloz(fields) { saveShow(show, Object.assign({ upraveno: new Date().toISOString() }, fields)).then(function () { if (alive) route(); }); }
+    $("pv-sauna").addEventListener("change", function () { var sk = this.value; uloz({ sauna: sk, saunaNazev: G.sauny[sk].nazev, mapa: PR.vychoziMapa(pr, G.sauny[sk]) }); });
+    on(view, ".pv-m", "change", function (e, el) { var m = Object.assign({}, mapa); m[el.dataset.g] = el.value; uloz({ mapa: m }); });
+    $("scrub").addEventListener("input", function () { seek(+this.value); });
+    P.hooks.push(function (t) { if (!S3) return; S3.update(PR.stav(res.plan, t)); var sc = $("scrub"); if (sc) sc.value = t; });
+    wirePlayer(show, function () { route(); });
+    function verze() { var v = PR.ascii($("pv-verze").value); if (!v) { $("pv-verze").focus(); return null; } $("pv-verze").value = v; if (v !== show.verze) { res = PR.preved(pr, sauna, mapa, v); } return v; }
+    async function sHudbou(files, s) {
+      var mf = G.soubor[id]; if (!mf || !show.hudbaCesta) return false;
+      if (mf._hotovo) { files[show.hudbaCesta] = mf; return true; }
+      if (!window.SvetlaAnalyza) return false;
+      s.textContent = "Převádím hudbu na WAV pro QuickDMX…";
+      try { files[show.hudbaCesta] = await window.SvetlaAnalyza.wav((await window.SvetlaAnalyza.nactiSoubor(mf)).puvodni); return true; } catch (e) { return false; }
+    }
+    $("pv-dl").addEventListener("click", async function () {
+      var v = verze(), s = $("pv-st"); if (!v) return;
+      var d = window.claude ? await window.claude.use("downloads") : null; if (!d || !window.JSZip) { s.textContent = "Stahování tady není dostupné."; return; }
+      var files = Object.assign({}, res.files), mf = await sHudbou(files, s); s.textContent = "Balím…";
+      var z = new window.JSZip(); Object.keys(files).sort().forEach(function (p) { z.file(p, files[p]); });
+      try { await d.save({ filename: v + "_svetla.zip", data: await z.generateAsync({ type: "blob", compression: "DEFLATE" }) }); s.textContent = "Uloženo" + (mf ? " i s hudbou" : "") + ". Rozbal do složky projektu sauny a v QuickDMX otevři časovou osu " + v + "."; saveShow(show, { verze: nextVersion(v) }); }
+      catch (e) { s.textContent = e && e.code === "declined" ? "Stažení zrušeno." : "Stažení se nepovedlo: " + errText(e); }
+    });
+    if ($("pv-qd")) $("pv-qd").addEventListener("click", async function () {
+      var v = verze(), s = $("pv-st"); if (!v) return;
+      try {
+        var dir = await slozkaSauny(show.sauna);
+        if (!dir) { s.textContent = "Vyber složku projektu sauny v QuickDMX (Dokumenty → TheLightingController → LightShows → tvoje sauna)."; dir = await window.showDirectoryPicker({ id: "glowguss-" + String(show.sauna).replace(/[^a-z0-9]/gi, "").slice(0, 20), mode: "readwrite", startIn: "documents" }); await ulozSlozku(show.sauna, dir); }
+        var files = Object.assign({}, res.files), mf = await sHudbou(files, s), cesty = Object.keys(files).sort();
+        for (var i = 0; i < cesty.length; i++) {
+          var cast = cesty[i].split("/"), dd = dir;
+          for (var j = 0; j < cast.length - 1; j++) dd = await dd.getDirectoryHandle(cast[j], { create: true });
+          var w = await (await dd.getFileHandle(cast[cast.length - 1], { create: true })).createWritable(); await w.write(files[cesty[i]]); await w.close();
+          if (i % 10 === 0) s.textContent = "Ukládám " + (i + 1) + " / " + cesty.length + "…";
+        }
+        s.textContent = "Uloženo do „" + dir.name + "“ (" + cesty.length + " souborů" + (mf ? ", i s hudbou" : "") + "). V QuickDMX otevři časovou osu " + v + ".";
+        saveShow(show, { verze: nextVersion(v) });
+      } catch (e) { s.textContent = e && e.name === "AbortError" ? "" : "Uložení do složky se nepovedlo: " + errText(e) + ". Použij Stáhnout zip."; }
+    });
+    fire();
+    G.cleanup = function () { alive = false; pause(); if (S3) S3.dispose(); };
   }
 
   // ---------- saunas ----------
