@@ -3379,6 +3379,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       if (c.y > 1.6 * U) c.y = 1.0 * U;   // spots on the ceiling aimed at the stove: the stove itself stands on the floor below them
       return c;
     })();
+    var stoveAuto = [stoveTop.x, stoveTop.z];
+    if (sauna.kamna && isFinite(+sauna.kamna.x) && isFinite(+sauna.kamna.z)) { stoveTop.x = +sauna.kamna.x; stoveTop.z = +sauna.kamna.z; }   // the author put the stove there by hand (sauna page)
     var stoveObj = false;
     (d3.objekty || []).forEach(function (o) {
       if (!/sofa|podium|bench|box|cube/i.test(o.obj)) return;
@@ -3507,6 +3509,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     place(); draw();
     return {
       fx: fx,
+      pudorys: function () { return { room: room, auto: stoveAuto, kamna: [stoveTop.x, stoveTop.z], U: U }; },
       beams: function (on) { VIEW.beams = on; Object.keys(fx).forEach(function (id) { setRGB(fx[id], fx[id].rgb || [0, 0, 0]); }); draw(); },
       focus: function (g) { VIEW.focus = g || null; Object.keys(fx).forEach(function (id) { setRGB(fx[id], fx[id].rgb || [0, 0, 0]); }); draw(); placeLabels(); },
       labels: function (on) { lab.hidden = !on; placeLabels(); }, view: function (n) { O = Object.assign({}, V[n]); place(); draw(); },
@@ -3946,9 +3949,37 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       try { if (C.Sauna) new C.Sauna(s); } catch (e) { setStatus("Profil nejde uložit: " + e.message); return; }
       if (s0.centrum) { s = clone(s0); setStatus("Saunu centra mění jen správce centra"); render(); return; }
       if (jeSpravceCentra() && (G.centrumSauny || []).indexOf(id) >= 0) { clearTimeout(sdilejCasovac); sdilejCasovac = setTimeout(function () { sdilejSaunu(id, true); }, 3000); }
-      G.sauny[id] = clone(s); planCache.key = ""; save("sauny/" + id, { skupiny: s.skupiny, nezarazeno: s.nezarazeno || [], nazev: s.nazev, navrh: !!s.navrh, archiv: !!s.archiv, min_krok: +s.min_krok || 0 }); render();
+      G.sauny[id] = clone(s); planCache.key = ""; save("sauny/" + id, { skupiny: s.skupiny, nezarazeno: s.nezarazeno || [], nazev: s.nazev, navrh: !!s.navrh, archiv: !!s.archiv, min_krok: +s.min_krok || 0, kamna: s.kamna || null }); render();
     }
     function opts(cur) { return ROLE.map(function (g) { return '<option value="' + g + '"' + (g === cur ? " selected" : "") + '>' + (g === "STENY" ? "Hlavní (stěny)" : ROLE_CZ[g]) + '</option>'; }).join("") + '<option value="NEZ"' + (cur === "NEZ" ? " selected" : "") + '>Nezařazeno</option>'; }
+    // top view of the room: benches, lights by group colour and the stove, which can be dragged to where it really stands
+    function kamnaPlan() {
+      var box = $("kamPlan"); if (!box || !S3 || !S3.pudorys) return;
+      var P = S3.pudorys(), rw = P.room[0], rd = P.room[2], U = P.U, d3 = s.d3 || {}, k = P.kamna.slice(), ks = 1.1 * U, h = [];
+      h.push('<svg viewBox="' + (-rw / 2 - 0.2) + ' ' + (-rd / 2 - 0.2) + ' ' + (rw + 0.4) + ' ' + (rd + 0.4) + '" style="width:100%;max-height:420px;display:block;touch-action:none;background:#17120d;border-radius:10px" role="img" aria-label="Půdorys sauny s kamny">');
+      h.push('<rect x="' + (-rw / 2) + '" y="' + (-rd / 2) + '" width="' + rw + '" height="' + rd + '" fill="#2a1f15" stroke="#6b5136" stroke-width="0.04"/>');
+      (d3.objekty || []).forEach(function (o) {
+        if (!/sofa|podium|bench|box|cube/i.test(o.obj)) return;
+        if (Math.abs(o.pos[0]) > rw / 2 + 0.3 || Math.abs(o.pos[2]) > rd / 2 + 0.3) return;
+        var base = /podium/i.test(o.obj) ? [0.5, 0.4, 0.5] : [0.6, 0.45, 0.5], sc = o.scale || [1, 1, 1], sx = Math.max(0.05, sc[0] * base[0]), sz = Math.max(0.05, sc[2] * base[2]);
+        var x = o.pos[0], z = -o.pos[2], a = -((o.rot || [0, 0, 0])[1] || 0);
+        h.push('<rect x="' + (x - sx / 2) + '" y="' + (z - sz / 2) + '" width="' + sx + '" height="' + sz + '" fill="#5a4129" stroke="#8a6a46" stroke-width="0.02" transform="rotate(' + a + ' ' + x + ' ' + z + ')"/>');
+      });
+      Object.keys(s.skupiny || {}).forEach(function (g) { (s.skupiny[g].svetla || []).forEach(function (f) { ((d3.svetla || {})[f[0]] || []).forEach(function (q) {
+        h.push('<circle cx="' + q.pos[0] + '" cy="' + (-q.pos[2]) + '" r="' + (0.09 * U) + '" fill="' + (ROLE_COL[g] || "#666") + '"><title>' + esc(f[1]) + '</title></circle>'); }); }); });
+      h.push('<g id="kamG" style="cursor:grab"><rect x="' + (-ks / 2) + '" y="' + (-ks / 2) + '" width="' + ks + '" height="' + ks + '" rx="0.08" fill="#1b1c1f" stroke="#FF4D3D" stroke-width="0.06"/><circle r="' + (ks * 0.3) + '" fill="#ff5a1a" opacity=".55"/><text y="' + (ks / 2 + 0.28 * U) + '" text-anchor="middle" font-size="' + (0.24 * U) + '" fill="#FFB38A" style="pointer-events:none">Kamna</text></g></svg>');
+      box.innerHTML = h.join("");
+      var svg = box.querySelector("svg"), kg = $("kamG"), tah = false;
+      var poloz = function () { kg.setAttribute("transform", "translate(" + k[0] + " " + k[1] + ")"); };
+      var bod = function (e) { var pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; var m = pt.matrixTransform(svg.getScreenCTM().inverse());
+        return [Math.max(-rw / 2 + ks / 2, Math.min(rw / 2 - ks / 2, m.x)), Math.max(-rd / 2 + ks / 2, Math.min(rd / 2 - ks / 2, m.y))]; };
+      poloz();
+      svg.addEventListener("pointerdown", function (e) { tah = true; try { svg.setPointerCapture(e.pointerId); } catch (er) {} k = bod(e); poloz(); kg.style.cursor = "grabbing"; e.preventDefault(); });
+      svg.addEventListener("pointermove", function (e) { if (!tah) return; k = bod(e); poloz(); });
+      var pust = function () { if (!tah) return; tah = false; kg.style.cursor = "grab";
+        s.kamna = { x: Math.round(k[0] * 100) / 100, z: Math.round(k[1] * 100) / 100 }; persist(); setStatus("Kamna přesunuta", true); };
+      svg.addEventListener("pointerup", pust); svg.addEventListener("pointercancel", pust);
+    }
     function render() {
       if (S3) { S3.dispose(); S3 = null; }
       var h = ['<div class="row between"><div><h1 class="page">' + esc(s.nazev) + '</h1><div class="sub">' + countLights(s) + ' světel · ' + (used.length ? 'show: ' + esc(used.map(function (k) { return G.shows[k].nazev; }).join(", ")) : 'zatím bez show') + (s.zdroj ? ' · ze ' + esc(s.zdroj) : '') + '</div></div><a class="btn small" href="#/sauny">Všechny sauny</a></div>'];
@@ -3979,7 +4010,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       }
       var JAS = [[1, "100 %"], [0.75, "75 %"], [0.5, "50 %"], [0.35, "35 %"], [0.25, "25 %"]], MK = [[0, "bez omezení"], [0.1, "0,1 s (fialová)"], [0.15, "0,15 s (modrá)"], [0.25, "0,25 s (tyrkysová)"], [0.35, "0,35 s (zelená)"], [0.5, "0,5 s (oranžová)"], [1, "1 s (červená)"]];
       var sel = function (attr, val, list) { var v = +val || list[0][0]; return list.map(function (o) { return '<option value="' + o[0] + '"' + (Math.abs(o[0] - v) < 1e-6 ? " selected" : "") + '>' + o[1] + '</option>'; }).join(""); };
-      h.push('</section><section class="card"><h2>Jak svítí ve skutečnosti</h2><p class="note" style="margin-top:6px">Když jsou světla v sauně silnější než v náhledu, nebo nestíhají rychlé změny (některá bliknutí vynechají), nastav to tady. Platí to pro všechny show v této sauně.</p>' +
+      h.push('</section>' + (s.d3 && s.d3.svetla && Object.keys(s.d3.svetla).length ? '<section class="card"><div class="row between"><h2>Kde stojí kamna</h2>' + (s.kamna ? '<button type="button" class="btn small" id="kam-auto">Vrátit automaticky</button>' : '') + '</div><p class="note" style="margin-top:6px">Pohled shora. Když kamna v náhledu nestojí tam, kde jsou ve skutečnosti, přetáhni je myší (nebo prstem) na správné místo. Mění se jen náhled, světla zůstávají stejná.</p><div id="kamPlan" style="margin-top:10px"></div></section>' : '') + '<section class="card"><h2>Jak svítí ve skutečnosti</h2><p class="note" style="margin-top:6px">Když jsou světla v sauně silnější než v náhledu, nebo nestíhají rychlé změny (některá bliknutí vynechají), nastav to tady. Platí to pro všechny show v této sauně.</p>' +
         ROLE.filter(function (g) { return s.skupiny[g] && s.skupiny[g].svetla.length; }).map(function (g) { var G1 = s.skupiny[g], rych = !(g === "KAMNA" || G1.klidna);
           return '<div style="margin-top:10px"><b>' + (g === "STENY" ? "Hlavní světla (stěny)" : ROLE_CZ[g]) + '</b></div><div class="light"><span class="nm">Jas</span><select data-jas="' + g + '" aria-label="Jas ' + ROLE_CZ[g] + '">' + sel("jas", G1.jas, JAS) + '</select></div>' +
             (rych ? '<div class="light"><span class="nm">Nejkratší změna</span><select data-mk="' + g + '" aria-label="Nejkratší změna ' + ROLE_CZ[g] + '">' + sel("mk", G1.min_krok != null ? G1.min_krok : s.min_krok, MK) + '</select></div>' : ''); }).join("") +
@@ -4010,7 +4041,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
           catch (e) { setStatus("Nepovedlo se: " + (e.message || e)); }
         });
       }
-      if (s.d3 && s.d3.svetla && Object.keys(s.d3.svetla).length) { S3 = scene3d($("stage"), s, { view: "roh", labels: true }); if (S3) S3.byGroup(); }
+      if (s.d3 && s.d3.svetla && Object.keys(s.d3.svetla).length) { S3 = scene3d($("stage"), s, { view: "roh", labels: true }); if (S3) { S3.byGroup(); kamnaPlan(); } }
+      if ($("kam-auto")) $("kam-auto").addEventListener("click", function () { delete s.kamna; persist(); });
       on(view, "#safocus .chip", "click", function (e, b) { Array.prototype.forEach.call(view.querySelectorAll("#safocus .chip"), function (x) { x.setAttribute("aria-pressed", String(x === b)); }); if (S3) S3.focus(b.dataset.g); });
       on(view, "select[data-f]", "change", function (e, el) { move(el.dataset.f, el.value); });
       on(view, "button[data-up]", "click", function (e, b) { var a = s.skupiny.STENY.svetla, i = +b.dataset.up; var t = a[i - 1]; a[i - 1] = a[i]; a[i] = t; persist(); });
