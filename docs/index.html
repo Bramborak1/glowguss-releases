@@ -360,6 +360,55 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!j.access_token) throw err("auth", "Účet je vytvořený, ale čeká na potvrzení e-mailu. Napiš Milanovi.");
     var s = fromAuth(j, email); store(s); return s;
   }
+  // forgotten password: Supabase e-mails a link back to this page; the link returns with #access_token=...&type=recovery
+  function obnovaAdresa() { return /^https?:$/.test(location.protocol) ? zpetAdresa() : "https://glowguss.com/"; }
+  async function zapomenuteHeslo(email) {
+    email = String(email || "").trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw err("auth", "Napiš nahoru svůj e-mail a klikni znovu.");
+    try { await auth("recover?redirect_to=" + encodeURIComponent(obnovaAdresa()), { email: email }); }
+    catch (e) {
+      if (e.kod === "sit") throw e;
+      var m = String(e.message || "");
+      if (/rate limit|too many|seconds|security purposes/i.test(m)) throw err("auth", "E-mailů odešlo moc najednou. Zkus to za pár minut znovu.");
+      throw err("auth", "E-mail se nepodařilo poslat (" + m + "). Zkus to znovu, nebo napiš Milanovi.");
+    }
+  }
+  function emailZTokenu(t) {
+    try { var p = String(t).split(".")[1].replace(/-/g, "+").replace(/_/g, "/"); while (p.length % 4) p += "="; return JSON.parse(decodeURIComponent(escape(atob(p)))).email || ""; } catch (e) { return ""; }
+  }
+  var NOVE_HESLO = "glowguss-nove-heslo";
+  function dokoncitObnovu() {
+    var h = location.hash || "";
+    if (!/(^#|&)(access_token|error|error_code)=/.test(h)) return null;
+    var q = new URLSearchParams(h.slice(1));
+    history.replaceState(null, "", zpetAdresa());
+    if (q.get("error") || q.get("error_code")) {
+      if (/otp_expired|expired|invalid/i.test((q.get("error_code") || "") + " " + (q.get("error_description") || ""))) throw err("auth", "Odkaz pro nové heslo už vypršel nebo byl použitý. Klikni na „Zapomněl jsem heslo“ a pošli si nový.");
+      throw err("auth", "Odkaz z e-mailu nefungoval (" + (q.get("error_description") || q.get("error")) + "). Pošli si nový.");
+    }
+    var at = q.get("access_token");
+    if (!at) return null;
+    var s = { access_token: at, refresh_token: q.get("refresh_token"), expires_at: Date.now() + (parseInt(q.get("expires_in"), 10) || 3600) * 1000, email: emailZTokenu(at) };
+    store(s);
+    if (q.get("type") === "recovery") try { sessionStorage.setItem(NOVE_HESLO, "1"); } catch (e) {}
+    return s;
+  }
+  function cekaNoveHeslo() { var f = null; try { f = sessionStorage.getItem(NOVE_HESLO); } catch (e) {} return !!(f && load()); }
+  async function noveHeslo(heslo) {
+    if (String(heslo || "").length < 6) throw err("auth", "Heslo musí mít aspoň 6 znaků.");
+    var t = await token(), r;
+    try { r = await fetch(cfg().url + "/auth/v1/user", { method: "PUT", headers: { apikey: cfg().anon, Authorization: "Bearer " + t, "Content-Type": "application/json" }, body: JSON.stringify({ password: heslo }) }); }
+    catch (e) { throw err("sit", "Bez připojení k internetu."); }
+    var j = await r.json().catch(function () { return {}; });
+    if (!r.ok) {
+      var m = String(j.msg || j.error_description || j.message || r.status);
+      if (/different|same_password/i.test(m + " " + (j.error_code || ""))) throw err("auth", "Nové heslo musí být jiné než to staré.");
+      if (/weak|at least|characters/i.test(m)) throw err("auth", "Heslo je moc slabé, zvol delší.");
+      if (r.status === 401 || r.status === 403) { store(null); throw err("odhlasen", "Odkaz z e-mailu vypršel. Pošli si nový přes „Zapomněl jsem heslo“."); }
+      throw err("auth", "Heslo se nepodařilo uložit (" + m + ").");
+    }
+    try { sessionStorage.removeItem(NOVE_HESLO); } catch (e) {}
+  }
   async function token() {
     var s = load(); if (!s) throw err("odhlasen", "Nejsi přihlášený.");
     if (s.expires_at - Date.now() > 60000) return s.access_token;
@@ -432,7 +481,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
   // after each change: upload a few seconds later
   root.__dbZmena = function () { clearTimeout(syncCasovac); syncCasovac = setTimeout(function () { synchronizuj().catch(function () {}); }, 4000); };
-  var api = { synchronizuj: synchronizuj, ascii: ascii, sec: sec, stavV: stavV, prihlasit: prihlasitGoogle, prihlasitHeslem: prihlasitHeslem, dokoncit: dokoncitPrihlaseni, odhlasit: odhlasit, zavolej: zavolej, zarizeni: zarizeni, session: load, zapnuto: function () { return !!cfg().url; } };
+  var api = { synchronizuj: synchronizuj, ascii: ascii, sec: sec, stavV: stavV, prihlasit: prihlasitGoogle, prihlasitHeslem: prihlasitHeslem, dokoncit: dokoncitPrihlaseni, zapomenuteHeslo: zapomenuteHeslo, dokoncitObnovu: dokoncitObnovu, cekaNoveHeslo: cekaNoveHeslo, noveHeslo: noveHeslo, odhlasit: odhlasit, zavolej: zavolej, zarizeni: zarizeni, session: load, zapnuto: function () { return !!cfg().url; } };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.SvetlaKlient = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
 
@@ -1416,6 +1465,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       '<form id="lg-form" style="display:flex;flex-direction:column;gap:10px"><input type="email" id="lg-em" placeholder="E-mail" autocomplete="email" required>' +
       '<input type="password" id="lg-pw" placeholder="Heslo (aspoň 6 znaků)" autocomplete="current-password" minlength="6" required>' +
       '<div class="row" style="gap:10px"><button class="btn primary" type="submit" id="lg-in">Přihlásit</button><button class="btn" type="button" id="lg-new">Vytvořit účet</button></div>' +
+      (K.zapomenuteHeslo ? '<button type="button" id="lg-forgot" style="align-self:flex-start;background:none;border:0;padding:2px 0;color:var(--fg2);font:13px var(--f-ui);text-decoration:underline;cursor:pointer">Zapomněl jsem heslo</button>' : '') +
       '<p class="note" id="lg-st2"></p></form></div></section>';
     $("lg-go").addEventListener("click", async function () {
       var st = $("lg-st"), b = $("lg-go"); b.disabled = true; st.className = "note"; st.textContent = "Dokonči přihlášení v prohlížeči…";
@@ -1429,6 +1479,33 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     };
     $("lg-form").addEventListener("submit", function (e) { e.preventDefault(); heslem(false); });
     $("lg-new").addEventListener("click", function () { if ($("lg-form").reportValidity()) heslem(true); });
+    if ($("lg-forgot")) $("lg-forgot").addEventListener("click", async function () {
+      var st = $("lg-st2"), b = this; b.disabled = true; st.className = "note"; st.textContent = "Posílám e-mail…";
+      try { await K.zapomenuteHeslo($("lg-em").value); st.className = "okbox"; st.textContent = "Hotovo. Pokud k e-mailu " + $("lg-em").value.trim() + " existuje účet, přijde na něj odkaz pro nové heslo. Mrkni i do spamu."; }
+      catch (er) { st.className = "badbox"; st.textContent = er.message; if (!$("lg-em").value.trim()) $("lg-em").focus(); }
+      b.disabled = false;
+    });
+  }
+  // after the link from the "forgotten password" e-mail: the user is logged in and sets a new password
+  function noveHesloPage() {
+    var nav = document.querySelector("nav.main"); if (nav) nav.style.display = "none";
+    var se = K.session() || {};
+    view.innerHTML = '<section class="card" style="max-width:420px;margin:40px auto"><h1 class="page" style="font-size:26px">Nové heslo</h1>' +
+      (se.email ? '<p class="sub" style="margin:6px 0 0">Účet <b>' + esc(se.email) + '</b></p>' : '') +
+      '<form id="nh-form" style="display:flex;flex-direction:column;gap:10px;margin-top:16px">' +
+      '<input type="password" id="nh-pw" placeholder="Nové heslo (aspoň 6 znaků)" autocomplete="new-password" minlength="6" required>' +
+      '<input type="password" id="nh-pw2" placeholder="Nové heslo ještě jednou" autocomplete="new-password" minlength="6" required>' +
+      '<div class="row" style="gap:10px"><button class="btn primary" type="submit" id="nh-ok">Uložit heslo</button></div>' +
+      '<p class="note" id="nh-st"></p></form></section>';
+    setStatus("Nastav nové heslo");
+    $("nh-form").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      var st = $("nh-st"), b = $("nh-ok"), a = $("nh-pw").value, a2 = $("nh-pw2").value;
+      if (a !== a2) { st.className = "badbox"; st.textContent = "Hesla se neshodují."; return; }
+      b.disabled = true; st.className = "note"; st.textContent = "Ukládám…";
+      try { await K.noveHeslo(a); st.className = "okbox"; st.textContent = "Heslo je změněné. Načítám…"; if (nav) nav.style.display = ""; await nacti(); }
+      catch (er) { if (er.kod === "odhlasen") return loginPage(er.message); st.className = "badbox"; st.textContent = er.message; b.disabled = false; }
+    });
   }
   // one device, more saunéři: what is stored here belongs to the account that is logged in; logging out backs up and clears it
   function smazLokalniData() {
@@ -3200,6 +3277,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     G.db = db;
     var chybaPrihlaseni = null;
     if (REMOTE) {
+      if (K.dokoncitObnovu) { try { K.dokoncitObnovu(); } catch (e) { chybaPrihlaseni = e; } }
       if (K.dokoncit) { try { await K.dokoncit(); } catch (e) { chybaPrihlaseni = e; } }
       if (await hlidejVlastnika()) return;
       // shows saved on the server (other computer, cleared browser) come back before the page reads them
@@ -3216,6 +3294,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     if (REMOTE) {
       if (chybaPrihlaseni) { loginPage(chybaPrihlaseni.message); setStatus("Nepřihlášeno"); return; }
       if (!K.session()) { loginPage(); setStatus("Nepřihlášeno"); return; }
+      if (K.cekaNoveHeslo && K.cekaNoveHeslo()) { noveHesloPage(); return; }
       zkontrolujAktualizaci();
       var nr = await nactiRecept();
       if (nr.chyba) {
