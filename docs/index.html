@@ -15,7 +15,7 @@
   color-scheme:dark;
 }
 html[data-motiv="svetly"]{
-  --bg:#F3F4F7; --panel:#FFFFFF; --panel2:#ECEEF2; --line:#DEE1E7; --line2:#C8CDD6;
+  --bg:#EEF0F4; --panel:#FFFFFF; --panel2:#ECEEF2; --line:#C6CBD5; --line2:#B3BAC6;
   --fg:#16181D; --fg2:#3B414D; --muted:#5D6471; --accent:#FF8A3D; --accent-ink:#1A0F06;
   --drop:#F5B000; --ok:#127A45; --ok-bg:#DBF3E6; --bad:#C42B2B; --bad-bg:#FBE3E3; --track:#E3E6EC;
   --chip:#F7F8FA; --chip-on:#FFEBDC; --hover:#9AA1AE; --row:#E5E8ED; --beat:rgba(0,0,0,.28); --beat2:rgba(0,0,0,.6);
@@ -23,6 +23,7 @@ html[data-motiv="svetly"]{
   color-scheme:light;
 }
 .motiv svg{width:20px;height:20px}
+html[data-motiv="svetly"] .card,html[data-motiv="svetly"] nav.main,html[data-motiv="svetly"] .steps a{box-shadow:0 1px 2px rgba(20,24,32,.06),0 2px 8px rgba(20,24,32,.05)}
 html[data-motiv="svetly"] .motiv .slunce,html:not([data-motiv="svetly"]) .motiv .mesic{display:none}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:15px;line-height:1.45}
@@ -173,7 +174,7 @@ label.drop:focus-within{outline:2px solid var(--accent)}
     <div class="row" style="gap:10px;flex-wrap:nowrap"><span class="status" id="status" role="status">…</span>
     <button class="btn icon motiv" id="motiv" type="button" aria-label="Přepnout světlý a tmavý režim" title="Světlý / tmavý režim"><svg class="slunce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="mesic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button></div>
   </header>
-<script>(function(){var r=document.documentElement,b=document.getElementById("motiv");function barva(){var m=document.querySelector('meta[name="theme-color"]');if(m)m.content=r.dataset.motiv==="svetly"?"#F3F4F7":"#0E0F13";}
+<script>(function(){var r=document.documentElement,b=document.getElementById("motiv");function barva(){var m=document.querySelector('meta[name="theme-color"]');if(m)m.content=r.dataset.motiv==="svetly"?"#EEF0F4":"#0E0F13";}
 b.addEventListener("click",function(){if(r.dataset.motiv==="svetly")delete r.dataset.motiv;else r.dataset.motiv="svetly";try{localStorage.setItem("glowguss-motiv",r.dataset.motiv||"tmavy");}catch(e){}barva();});addEventListener("load",barva);})();</script>
   <main id="view"><div class="card empty">Načítám…</div></main>
 </div>
