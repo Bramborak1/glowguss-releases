@@ -1328,7 +1328,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     var loud = F.drums.map(function (d, i) { return Math.max(d, F.bass[i], F.voc[i], F.oth[i]); });
     // split at stretches without music (wind, speech, silence); parts are searched inside each music stretch only
     var hud = hudbaTady(F), ref = pct(loud.filter(function (_, i) { return hud[i]; }), 90) || pct(loud, 90), cs = [];
+    var drF = F.drums.map(function (d, i) { return d > md - 10 || F.bass[i] > mb - 10 ? 1 : 0; });
     useky(hud, bt).forEach(function (u) {
+      if (!u.m) { var nd = 0; for (var q = u.a; q < u.z; q++) nd += drF[q]; if (nd > 0.6 * (u.z - u.a)) u.m = 1; }   // a breakdown with a steady beat is still music, not speech
       if (!u.m) { tichaUseky(loud, bt, u, ref).forEach(function (c) { cs.push(c); }); return; }
       parts(sp, fr.slice(u.a, u.z), bt.slice(u.a, u.z), loud.slice(u.a, u.z), ref).forEach(function (c) { cs.push({ a: c.a + u.a, z: c.z + u.a, sila: c.sila }); });
     });
@@ -1337,7 +1339,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     onProgress && onProgress(1);
     return {
       b: b, bt: bt, tempo: Math.round(60 * FPS / P * 10) / 10,
-      drums: F.drums.map(function (d, i) { return d > md - 10 || F.bass[i] > mb - 10 ? 1 : 0; }),
+      drums: drF,
       voc: norm(F.voc), oth: norm(F.oth), bass: norm(F.bass), zvuky: zvukoveUdalosti(x, bezH),
       casti: cs.map(function (c) { var o = { od: c.a ? b[c.a] : 0, do: c.z < b.length ? b[c.z] : null, sila: c.sila }; if (c.bezHudby) o.bezHudby = c.bezHudby; return o; })
     };
