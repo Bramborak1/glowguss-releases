@@ -157,6 +157,13 @@ details.more>summary::before{content:"▸";margin-right:8px;transition:transform
 .drop:hover{border-color:var(--accent)}.drop b{font-size:18px;color:var(--fg)}.drop span{font-size:13px;color:var(--muted)}
 .drop.ok{border-style:solid;border-color:var(--ok)}
 label.drop:focus-within{outline:2px solid var(--accent)}
+/* mood buttons painted like the sauna will look; hover = short preview */
+.chip.nal{background:var(--nal);background-size:300% 100%;background-position:0 50%;border-color:transparent;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.75);font-weight:700}
+.chip.nal[aria-pressed="true"]{border-color:var(--fg);box-shadow:0 0 0 2px var(--accent)}
+.chip.nal:hover,.chip.nal:focus-visible{animation:nal-pohyb var(--nal-t) linear infinite}
+.chip.nal.nal-bici:hover,.chip.nal.nal-bici:focus-visible{animation:nal-pohyb var(--nal-t) linear infinite,nal-uder .5s ease-out infinite}
+@keyframes nal-pohyb{to{background-position:100% 50%}}
+@keyframes nal-uder{0%{filter:brightness(1.45)}100%{filter:brightness(.85)}}
 /* show folders */
 details.slozka{margin-bottom:22px}
 details.slozka>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px 12px;flex-wrap:wrap;cursor:pointer;padding:8px 10px 8px 14px;min-height:56px;background:var(--panel);border:1px solid var(--line);border-radius:14px;margin-bottom:14px}
@@ -1510,7 +1517,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   var ROLE_COL = { STENY: "#FF8A3D", KAMNA: "#FF4D3D", SPOTY: "#5AA8FF", LAVICE: "#7EE2B0", VODA: "#3DE0E0", NEZ: "#666B75" };
   var LANES = [["STĚNY", "w"], ["LAVICE", "lav"], ["KAMNA", "kam"], ["SPOTY", "spo"], ["VODA", "voda"]];
   var KLIC_SK = { w: "STENY", lav: "LAVICE", kam: "KAMNA", spo: "SPOTY", voda: "VODA" }, JMENO_SK = { STENY: "Stěny", LAVICE: "Lavice", KAMNA: "Kamna", SPOTY: "Spoty", VODA: "Voda" };
-  var CHOVANI_JMENA = [["", "Podle nálady"], ["stoji", "Stojí"], ["dech", "Pomalu dýchá"], ["bici", "Bliká na bicí"], ["strida_uder", "Střídá barvy na každý úder"], ["strida_takt", "Střídá barvy na každý takt"]];
+  var CHOVANI_JMENA = [["", "Automaticky"], ["stoji", "Stojí"], ["dech", "Pomalu dýchá"], ["bici", "Bliká na bicí"], ["strida_uder", "Střídá barvy na každý úder"], ["strida_takt", "Střídá barvy na každý takt"]];
   var TYPY = { drop: "Drop", nastup: "Nástup", zklidneni: "Zklidnění" };
   var PO_KONCI = { scena: "99-DEKUJI", fade_ms: 3000, fade_in: 300, vypnout_po_s: 65,
     barvy: { STENY: ["WARM", 0.3], KAMNA: ["AMBER", 0.5], SPOTY: ["WARM", 0.3], LAVICE: ["WARM", 0.3], VODA: ["OFF", 0] } };
@@ -1658,6 +1665,25 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   }
   function emColor(show, em, song) { var E = G.recept.emoce[em]; return E ? hex(rgbOf(show, barvyCasti(show, { emoce: em, pisen: song }).w, song)) : "#444"; }
   function partColor(show, p) { return hex(rgbOf(show, barvyCasti(show, p).w, p.pisen)); }
+  // names the user sees: what the light looks like (internal keys stay the same: saved shows, AI answers and the recipe use them)
+  var NALADA_JMENA = { "Klid": "Tiché šero", "Tajemno": "Tajemná mlha", "Smutek": "Chladné šero", "Hvězdy": "Noční nebe", "Zlom": "Ztuhne a stojí", "Rozloučení": "Pomalu hasne",
+    "UV": "UV a šero", "Jen UV": "Jen UV", "Očekávání": "Pomalu sílí", "Něha": "Jemné a teplé", "Moře": "Mořské vlny", "Les": "Zelený les",
+    "Sen": "Snové přelévání", "Západ slunce": "Západ slunce", "Vzestup": "Roste a zrychluje", "Euforie": "Párty, rychle", "Síla": "Naplno na bicí",
+    "Oheň": "Plápolající oheň", "Rituál": "Rituální rytmus", "Bouře": "Bouře s blesky" };   // no colour words: every song gets its own colour variant, the button shows it
+  var NALADA_SILNE = { "Bouře": 1 };   // flashes on the drums, so it belongs with the strong ones even though the walls are dim
+  // mood button painted like the sauna will look; on hover it plays a short preview: colours move at the mood's speed, strong moods pulse on a beat
+  function emStyl(show, e, song) {
+    var E = G.recept.emoce[e] || {}, c = [emColor(show, e, song)];
+    (E.w || []).slice(1, 3).forEach(function (x) { if (G.recept.paleta[x]) c.push(hex(G.recept.paleta[x])); });
+    if (E.jenuv) c = ["#1a0b2e", "#3b1670"]; else if (E.uv) c = ["#2a1450", "#4b1d8f"];
+    if (c.length === 1) c.push(c[0]);
+    var g = "linear-gradient(110deg," + c.concat([c[0]]).join(",") + ")", t = E.move >= 99 ? 0 : E.move <= 4 ? 1.6 : E.move <= 8 ? 3.2 : 6;
+    return ' class="chip nal' + (E.hit >= 0.3 ? ' nal-bici' : '') + '" style="--nal:' + g + ';--nal-t:' + (t || 0) + 's' + (t ? '' : ';--nal-stoji:1') + '"';
+  }
+  function emJm(e) { return NALADA_JMENA[e] || e; }
+  function emDots(show, e, song) { var E = G.recept.emoce[e] || {}, d = [emColor(show, e, song)];
+    (E.w || []).slice(1, 3).forEach(function (c) { if (G.recept.paleta[c]) d.push(hex(G.recept.paleta[c])); });
+    return d.map(function (c) { return '<span class="dot" style="background:' + c + '"></span>'; }).join(""); }
   function emDesc(em) {
     var E = G.recept.emoce[em]; if (!E) return "";
     if (E.popis) { var J = G.recept.barvyJmena || {}; return E.popis.replace(/\b[A-Z]{3,}\b/g, function (k) { return k === "OFF" ? "zhasnuté" : J[k] || k; }).replace(/\//g, " / "); }
@@ -2586,9 +2612,9 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
           h.push('<div class="mblok" data-m="' + i + '" style="left:' + pct(m.t) + '%;width:' + sir(d) + '%;background:' + (m.barva && G.recept.paleta[m.barva] ? hex(G.recept.paleta[m.barva]) : "#9AA0AE") + '" title="' + esc(mmss1(m.t) + " " + (MOMENT_JMENA[m.typ] || m.typ) + ", " + d + " s · táhni pro posun, pravý okraj mění délku") + '"></div>'); });
         h.push('</div>');
       }
-      h.push((showParts ? '' : '<div hidden>') + '<span class="lbl l">' + (simple ? 'Nálada' : 'Emoce') + '</span><div class="parts">');
+      h.push((showParts ? '' : '<div hidden>') + '<span class="lbl l">' + (simple ? 'Nálada' : 'Nálada části') + '</span><div class="parts">');
       var pt = partsT(show);
-      pt.forEach(function (x) { h.push('<button type="button" class="part' + (x.i === st.sel ? " sel" : "") + '" data-i="' + x.i + '" style="left:' + pct(x.a) + '%;width:calc(' + sir(x.b - x.a) + '% - 2px);background:' + partColor(show, x.p) + '" title="' + esc(mmss(x.a) + "–" + mmss(x.b) + " " + x.p.emoce) + '" aria-label="' + esc(x.p.od + " " + x.p.emoce) + '">' + ((x.b - x.a) / (V.b - V.a) >= 0.045 ? esc(x.p.emoce) : '') + '</button>'); });
+      pt.forEach(function (x) { h.push('<button type="button" class="part' + (x.i === st.sel ? " sel" : "") + '" data-i="' + x.i + '" style="left:' + pct(x.a) + '%;width:calc(' + sir(x.b - x.a) + '% - 2px);background:' + partColor(show, x.p) + '" title="' + esc(mmss(x.a) + "–" + mmss(x.b) + " " + emJm(x.p.emoce)) + '" aria-label="' + esc(x.p.od + " " + emJm(x.p.emoce)) + '">' + ((x.b - x.a) / (V.b - V.a) >= 0.045 ? esc(emJm(x.p.emoce)) : '') + '</button>'); });
       h.push('<div class="vodit" id="vodit" hidden><span></span></div></div>' + (showParts ? '' : '</div>'));
       if (simple) { $("tl").innerHTML = h.join(""); wireTl(); return; }
       h.push('<div style="grid-column:1/-1;height:1px;background:var(--line);margin:4px 0"></div>');
@@ -2717,7 +2743,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       if (!$("partCard")) return;
       var pt = partsT(show), x = pt[st.sel]; if (!x) { st.sel = 0; x = pt[0]; }
       var p = x.p, emos = Object.keys(G.recept.emoce), h = ['<div style="display:flex;flex-direction:column;gap:16px">'];
-      h.push('<div><span class="sub" style="font-family:var(--f-num)">' + mmss(x.a) + '–' + mmss(x.b) + ' · Píseň ' + p.pisen + ' · část ' + (x.i + 1) + ' z ' + pt.length + '</span><h2 style="font-size:26px;font-weight:800;margin-top:4px">' + esc(p.emoce) + '</h2>' + (simple ? '' : '<p class="note" style="margin-top:4px">' + esc(emDesc(p.emoce)) + '</p>') + '</div>');
+      h.push('<div><span class="sub" style="font-family:var(--f-num)">' + mmss(x.a) + '–' + mmss(x.b) + ' · Píseň ' + p.pisen + ' · část ' + (x.i + 1) + ' z ' + pt.length + '</span><h2 style="font-size:26px;font-weight:800;margin-top:4px">' + esc(emJm(p.emoce)) + '</h2>' + (simple ? '' : '<p class="note" style="margin-top:4px">' + esc(emDesc(p.emoce)) + '</p>') + '</div>');
       if (!simple) h.push('<div class="pcols"><div class="pcol">');
       var jednotlivaHTML = function (gk, kamG, lst) {
         var F = svetlaSkupiny(show, gk), R0 = G.recept, sv = p.svetla || {}; if (F.length < 2) return '';
@@ -2742,13 +2768,14 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         var gk = st.grp, R0 = G.recept, u0 = (p.upravy || {})[gk] || {}, bar0 = (p.skupiny || {})[gk] || "", kamG = gk === "KAMNA";
         var lst = kamG ? R0.teple : Object.keys(R0.barvyJmena).filter(function (c) { return c !== "OFF"; });
         h.push('<div style="border:2px solid #FF8A3D;border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:12px"><div class="row between"><h3 style="margin:0">' + JMENO_SK[gk] + ' v této části</h3><button type="button" class="btn small" id="sk-x">Zavřít</button></div>' +
-          '<div class="field"><span class="lbl">Barva' + (bar0 ? ': ' + esc(R0.barvyJmena[bar0] || bar0) : '') + '</span><div class="row" id="sk-b" style="flex-wrap:wrap;gap:8px;align-items:center"><button type="button" class="chip sk-sw" data-c="" aria-pressed="' + !bar0 + '">Podle nálady</button>' +
+          '<div class="field"><span class="lbl">Barva' + (bar0 ? ': ' + esc(R0.barvyJmena[bar0] || bar0) : '') + '</span><div class="row" id="sk-b" style="flex-wrap:wrap;gap:8px;align-items:center"><button type="button" class="chip sk-sw" data-c="" aria-pressed="' + !bar0 + '">Automaticky</button>' +
             lst.map(function (c) { return '<button type="button" class="sk-sw sw" data-c="' + c + '" aria-pressed="' + (bar0 === c) + '" title="' + esc(R0.barvyJmena[c] || c) + '" aria-label="' + esc(R0.barvyJmena[c] || c) + '" style="background:' + hex(R0.paleta[c]) + '"></button>'; }).join("") + '</div></div>' +
-          '<div class="field"><span class="lbl">Jas</span><div class="sila" id="sk-j" role="group" style="display:flex;flex-wrap:wrap;gap:6px">' + [["", "Podle nálady"], ["0", "Vypnuto"], ["0.2", "20 %"], ["0.4", "40 %"], ["0.6", "60 %"], ["0.8", "80 %"], ["1", "100 %"]].map(function (o) {
+          '<div class="field"><span class="lbl">Jas</span><div class="sila" id="sk-j" role="group" style="display:flex;flex-wrap:wrap;gap:6px">' + [["", "Automaticky"], ["0", "Vypnuto"], ["0.2", "20 %"], ["0.4", "40 %"], ["0.6", "60 %"], ["0.8", "80 %"], ["1", "100 %"]].map(function (o) {
             var on = o[0] === "" ? u0.jas == null : u0.jas != null && +o[0] === +u0.jas; return '<button type="button" data-j="' + o[0] + '" aria-pressed="' + on + '" style="white-space:nowrap;width:auto;padding:0 10px">' + o[1].replace(" ", "&nbsp;") + '</button>'; }).join("") + '</div></div>' +
-          '<div class="field"><label class="lbl" for="sk-c">Chování</label><select id="sk-c">' + CHOVANI_JMENA.filter(function (o) { return !(kamG && (o[0] === "bici" || o[0].indexOf("strida") === 0)); }).map(function (o) { return '<option value="' + o[0] + '"' + ((u0.chovani || "") === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select></div>' +
+          '<p class="note" style="margin-top:-4px">Automaticky = barvu, jas i pohyb určí nálada části. Vybráním to pro tuhle skupinu nastavíš napevno.</p>' +
+          '<div class="field"><label class="lbl" for="sk-c">Co světlo dělá</label><select id="sk-c">' + CHOVANI_JMENA.filter(function (o) { return !(kamG && (o[0] === "bici" || o[0].indexOf("strida") === 0)); }).map(function (o) { return '<option value="' + o[0] + '"' + ((u0.chovani || "") === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select></div>' +
           (kamG ? '<p class="note">Kamna jen v teplých barvách, nikdy neblikají.</p>' : '') + jednotlivaHTML(gk, kamG, lst) +
-          ((bar0 || u0.jas != null || u0.chovani || svetlaSkupiny(show, gk).some(function (f) { return (p.svetla || {})[f[0]]; })) ? '<button type="button" class="btn small" id="sk-r">Vrátit celou skupinu na „podle nálady“</button>' : '') + '</div>');
+          ((bar0 || u0.jas != null || u0.chovani || svetlaSkupiny(show, gk).some(function (f) { return (p.svetla || {})[f[0]]; })) ? '<button type="button" class="btn small" id="sk-r">Vrátit celou skupinu na „automaticky“</button>' : '') + '</div>');
       }
       var hranaHTML = function (k, jm) {
         if (k <= 0 || k >= pt.length) return '';
@@ -2763,15 +2790,15 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         : '<p class="note">Aby šla část přehrát, načti hudbu v kroku Hudba.</p>');
       if (simple) h.push('<div class="row"><button type="button" class="btn small" id="pprev"' + (x.i ? '' : ' disabled') + '>‹ Předchozí část</button><button type="button" class="btn small" id="pnext"' + (x.i + 1 < pt.length ? '' : ' disabled') + '>Další část ›</button></div>');
       if (!simple) h.push('</div><div class="pcol">');
-      h.push('<div class="field"><span class="lbl">' + (simple ? 'Nálada' : 'Emoce') + '</span>');
-      var lvE = function (e) { var E = G.recept.emoce[e] || {}; return E.uv ? 0 : +((E.pruhy || {}).w || [0, 0])[1] || 0; };
-      [["Klidné", 0, 0.2], ["Střední", 0.2, 0.35], ["Silné", 0.35, 9]].forEach(function (g) {
+      h.push('<div class="field"><span class="lbl">' + (simple ? 'Nálada' : 'Nálada části') + '</span>');
+      var lvE = function (e) { var E = G.recept.emoce[e] || {}; return E.uv ? 0 : NALADA_SILNE[e] ? 9 : +((E.pruhy || {}).w || [0, 0])[1] || 0; };
+      [["Klidné (pomalé, bez úderů)", 0, 0.2], ["Střední", 0.2, 0.35], ["Silné (na bicí)", 0.35, 99]].forEach(function (g) {
         var ee = emos.filter(function (e) { var v = lvE(e); return v >= g[1] && v < g[2]; }); if (!ee.length) return;
         h.push('<span class="note" style="display:block;margin:8px 0 4px">' + g[0] + '</span><div class="chips">');
-        ee.forEach(function (e) { h.push('<button type="button" class="chip" data-em="' + esc(e) + '" aria-pressed="' + (e === p.emoce) + '"><span class="dot" style="background:' + emColor(show, e, p.pisen) + '"></span>' + esc(e) + '</button>'); });
+        ee.forEach(function (e) { h.push('<button type="button" data-em="' + esc(e) + '" aria-pressed="' + (e === p.emoce) + '" title="' + esc(emDesc(e)) + '"' + emStyl(show, e, p.pisen) + '>' + esc(emJm(e)) + '</button>'); });
         h.push('</div>');
       });
-      h.push('<p class="note" style="margin-top:6px">Tečka je barva stěn v téhle písni. Každá píseň má svůj odstín, aby se show neopakovala.</p></div>');
+      h.push('<p class="note" style="margin-top:6px">Tečky jsou barvy stěn v téhle písni. Každá píseň má svůj odstín, aby se show neopakovala.</p></div>');
       h.push('<div class="field"><span class="lbl" id="silaL">Jas této části</span><div class="sila" role="group" aria-labelledby="silaL">');
       for (var n = 1; n <= 5; n++) h.push('<button type="button" data-s="' + n + '" aria-pressed="' + ((+p.sila || 3) === n) + '" style="white-space:nowrap;width:auto;padding:0 10px">' + (n * 20) + '&nbsp;%</button>');
       h.push('</div></div>');
@@ -2780,11 +2807,12 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       var R = G.recept, upr = !!(p.barva || p.pohyb || p.bici || p.stridani || (p.skupiny && Object.keys(p.skupiny).length) || (p.upravy && Object.keys(p.upravy).length) || (p.svetla && Object.keys(p.svetla).length));
       if (R.rodiny && R.pohyby) {
         h.push('<details class="more"' + (upr || st.doladit ? ' open' : '') + ' id="dolad"><summary>Doladit barvy a pohyb' + (upr ? ' · upraveno' : '') + '</summary><div style="display:flex;flex-direction:column;gap:14px;margin-top:12px">');
-        h.push('<div class="field"><span class="lbl">Barva celé části</span><div class="chips"><button type="button" class="chip dl-b" data-b="" aria-pressed="' + !p.barva + '">Podle nálady</button>');
+        h.push('<div class="field"><span class="lbl">Barevný tón části</span><div class="chips"><button type="button" class="chip dl-b" data-b="" aria-pressed="' + !p.barva + '">Automaticky</button>');
         Object.keys(R.rodiny).forEach(function (k) { var f = R.rodiny[k]; h.push('<button type="button" class="chip dl-b" data-b="' + k + '" aria-pressed="' + (p.barva === k) + '"><span class="dot" style="background:' + hex(R.paleta[f.w[0]]) + '"></span>' + esc(f.nazev) + '</button>'); });
-        h.push('</div></div><div class="row" style="gap:12px;flex-wrap:wrap"><div class="field" style="flex:1 1 140px"><label class="lbl" for="dl-p">Pohyb barvy</label><select id="dl-p"><option value="">Automaticky</option>');
+        h.push('</div><p class="note">Ne jedna pevná barva: stěny, lavice, spoty a voda dostanou odstíny vybraného tónu a ty se dál hýbou podle Pohybu barvy. Kamna zůstanou teplá.</p></div>');
+        h.push('<div class="row" style="gap:12px;flex-wrap:wrap"><div class="field" style="flex:1 1 140px"><label class="lbl" for="dl-p">Pohyb barvy</label><select id="dl-p"><option value="">Automaticky</option>');
         Object.keys(R.pohyby).forEach(function (k) { h.push('<option value="' + k + '"' + (p.pohyb === k ? ' selected' : '') + '>' + esc(R.pohyby[k]) + '</option>'); });
-        h.push('</select></div><div class="field" style="flex:1 1 140px"><label class="lbl" for="dl-h">Reakce na bicí</label><select id="dl-h">' + [["", "Podle nálady"], ["bez", "Bez reakce"], ["jemne", "Jemně"], ["naplno", "Naplno"]].map(function (o) { return '<option value="' + o[0] + '"' + ((p.bici || "") === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select></div></div>');
+        h.push('</select></div><div class="field" style="flex:1 1 140px"><label class="lbl" for="dl-h">Reakce na bicí</label><select id="dl-h">' + [["", "Automaticky"], ["bez", "Bez reakce"], ["jemne", "Jemně"], ["naplno", "Naplno"]].map(function (o) { return '<option value="' + o[0] + '"' + ((p.bici || "") === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select></div></div>');
         var SB = p.stridaniBarvy || [];
         h.push('<div class="field"><label class="lbl" for="dl-st">Střídání barev (celá sauna skočí na další barvu, vždy na takt)</label><select id="dl-st">' + [["", "Vypnuto"], [2, "každé 2 s"], [4, "každé 4 s"], [8, "každých 8 s"], [16, "každých 16 s"]].map(function (o) { return '<option value="' + o[0] + '"' + (String(p.stridani || "") === String(o[0]) ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select>' +
           (p.stridani ? '<div class="row" id="dl-sb" style="flex-wrap:wrap;gap:8px;margin-top:8px;align-items:center">' + Object.keys(R.barvyJmena || {}).filter(function (c) { return c !== "OFF"; }).map(function (c) { var ix = SB.indexOf(c);
@@ -2794,7 +2822,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         h.push('<details class="more"' + (skup ? ' open' : '') + '><summary>Jiná barva pro jednotlivá světla' + (skup ? ' · upraveno' : '') + '</summary><div class="field" style="margin-top:10px"><div style="display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center">');
         [["STENY", "Stěny"], ["LAVICE", "Lavice"], ["SPOTY", "Spoty"], ["VODA", "Voda"], ["KAMNA", "Kamna"]].filter(function (g) { return maG(g[0]); }).forEach(function (g) {
           var cur = (p.skupiny || {})[g[0]] || "", lst = g[0] === "KAMNA" ? R.teple : Object.keys(R.barvyJmena);
-          h.push('<label for="dl-g-' + g[0] + '" class="note">' + g[1] + '</label><select id="dl-g-' + g[0] + '" class="dl-g" data-g="' + g[0] + '"><option value="">Podle nálady</option>' +
+          h.push('<label for="dl-g-' + g[0] + '" class="note">' + g[1] + '</label><select id="dl-g-' + g[0] + '" class="dl-g" data-g="' + g[0] + '"><option value="">Automaticky</option>' +
             lst.map(function (c) { return '<option value="' + c + '"' + (cur === c ? ' selected' : '') + '>' + esc(R.barvyJmena[c] || c) + '</option>'; }).join("") + '</select>');
         });
         h.push('</div><p class="note" style="margin-top:6px">Kamna jen v teplých barvách a vždy jen pomalu dýchají.</p></div></details>' + (upr ? '<button type="button" class="btn small" id="dl-reset">Zrušit doladění</button>' : '') + '</div></details>');
@@ -3036,7 +3064,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       '<section class="card"><div class="row between"><h2>Momenty příběhu</h2><button class="btn small" id="mo-add">+ Přidat moment</button></div>' +
       '<p class="note" style="margin-top:6px">Krátký efekt na přesný čas, přes náladu části: náraz, zhasnutí, jiskry, tma a restart, přísvit postavy. Kamna nikdy neblikají, jen pomalu ztlumí.</p><div id="mo-list" style="display:flex;flex-direction:column;gap:8px;margin-top:10px"></div></section></div>' +
       '<aside class="col-side"><section class="card"><h2>Nálady v receptu</h2><div id="ai-cat" style="display:flex;flex-direction:column;gap:10px;margin-top:12px"></div></section></aside></div>';
-    $("ai-cat").innerHTML = Object.keys(G.recept.emoce).map(function (e) { return '<div><div class="row" style="gap:8px"><span class="dot" style="background:' + emColor(show, e, 1) + '"></span><b>' + esc(e) + '</b></div><p class="note">' + esc(emDesc(e)) + '</p></div>'; }).join("");
+    $("ai-cat").innerHTML = Object.keys(G.recept.emoce).map(function (e) { return '<div><div class="row" style="gap:8px"><span class="dot" style="background:' + emColor(show, e, 1) + '"></span><b>' + esc(emJm(e)) + '</b></div><p class="note">' + esc(emDesc(e)) + '</p></div>'; }).join("");
     $("ai-prani").value = show.scenar || "";
     $("ai-prani").addEventListener("input", function () { var v = this.value; clearTimeout(ulozT); ulozT = setTimeout(function () { saveShow(show, { scenar: v }); }, 600); });
     $("ai-soubor").addEventListener("change", function () {
@@ -3080,7 +3108,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
           }
           var x = pt[n.cast]; if (!x) return "";
           var bj = function (b) { return '<span class="dot" style="background:' + hex(G.recept.paleta[b]) + '"></span>' + esc(G.recept.barvyJmena[b] || b); };
-          var chg = (n.emoce !== x.p.emoce ? esc(x.p.emoce) + ' → <b>' + esc(n.emoce) + '</b>' : esc(x.p.emoce)) + (n.sila && n.sila !== +x.p.sila ? ' · síla ' + x.p.sila + ' → <b>' + n.sila + '</b>' : '') +
+          var chg = (n.emoce !== x.p.emoce ? esc(emJm(x.p.emoce)) + ' → <b>' + esc(emJm(n.emoce)) + '</b>' : esc(emJm(x.p.emoce))) + (n.sila && n.sila !== +x.p.sila ? ' · síla ' + x.p.sila + ' → <b>' + n.sila + '</b>' : '') +
             (n.pohyb ? ' · ' + esc((G.recept.pohyby || {})[n.pohyb] || n.pohyb) : '') + (n.stridani ? ' · střídání barev každé ' + n.stridani + ' s' + (n.stridaniBarvy ? ' (' + n.stridaniBarvy.map(function (c) { return (G.recept.barvyJmena || {})[c] || c; }).join(" → ") + ')' : '') : '') +
             ((n.scena && Object.keys(n.scena).length) ? '<br><span class="note">' + [["STENY", "stěny"], ["LAVICE", "lavice"], ["SPOTY", "spoty"], ["VODA", "voda"], ["KAMNA", "kamna"]].filter(function (g) { return n.scena[g[0]]; }).map(function (g) { return g[1] + ' ' + bj(n.scena[g[0]]); }).join(' · ') + '</span>' : '');
           return '<div class="prop' + (n.hotovo ? " done" : "") + '"><div class="row between"><span class="sub" style="font-family:var(--f-num)">' + mmss(x.a) + '–' + mmss(x.b) + ' · píseň ' + x.p.pisen + '</span>' + (n.hotovo ? '<span class="badge' + (n.hotovo === "ano" ? " ok" : "") + '">' + (n.hotovo === "ano" ? "přijato" : "necháno") + '</span>' : '') + '</div>' +
@@ -3418,7 +3446,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       function (e) { if (!alive) return; setStatus("Náhled se nepovedl"); var w = document.createElement("div"); w.className = "badbox"; w.style.cssText = "position:absolute;left:16px;right:16px;top:16px"; w.textContent = "Náhled nejde vyrobit: " + serverChyba(e); $("stage").appendChild(w); });
     on(body, "#views button", "click", function (e, b) { Array.prototype.forEach.call(body.querySelectorAll("#views button"), function (x) { x.setAttribute("aria-pressed", String(x === b)); }); if (S3) S3.view(b.dataset.v); });
     var pt = partsT(show), jumps = pt.map(function (x) { return [x.a, x.p.emoce, "emo"]; }).concat(show.dropy.filter(function (d) { return d.typ === "drop"; }).map(function (d) { return [d.beat_s - 1.5, "Drop " + fmt(d.beat_s, true), "drop"]; })).sort(function (a, b) { return a[0] - b[0]; });
-    $("jump").innerHTML = jumps.map(function (j, i) { return '<div class="drow"><span class="' + (j[2] === "drop" ? "dmark" : "dot") + '" style="position:static;margin:0 6px;' + (j[2] === "emo" ? "background:" + emColor(show, j[1], songAt(show, j[0])) : "") + '"></span><span class="t">' + fmt(Math.max(0, j[0]), false) + '</span><span class="m">' + esc(j[1]) + '</span><button class="mini" data-j="' + i + '" aria-label="Skočit"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 2l7 4-7 4z" fill="currentColor"/></svg></button></div>'; }).join("");
+    $("jump").innerHTML = jumps.map(function (j, i) { return '<div class="drow"><span class="' + (j[2] === "drop" ? "dmark" : "dot") + '" style="position:static;margin:0 6px;' + (j[2] === "emo" ? "background:" + emColor(show, j[1], songAt(show, j[0])) : "") + '"></span><span class="t">' + fmt(Math.max(0, j[0]), false) + '</span><span class="m">' + esc(j[2] === "emo" ? emJm(j[1]) : j[1]) + '</span><button class="mini" data-j="' + i + '" aria-label="Skočit"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 2l7 4-7 4z" fill="currentColor"/></svg></button></div>'; }).join("");
     on(body, "#jump .mini", "click", function (e, b) { seek(Math.max(0, jumps[+b.dataset.j][0])); if (!isPlaying()) play(); });
     function drama() {   // how well the lights follow the music, measured on the generated scenes
       var el = $("drama"); if (!el || !window.SvetlaDramaturg || !res) return;
