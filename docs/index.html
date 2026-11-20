@@ -157,6 +157,22 @@ details.more>summary::before{content:"▸";margin-right:8px;transition:transform
 .drop:hover{border-color:var(--accent)}.drop b{font-size:18px;color:var(--fg)}.drop span{font-size:13px;color:var(--muted)}
 .drop.ok{border-style:solid;border-color:var(--ok)}
 label.drop:focus-within{outline:2px solid var(--accent)}
+/* show folders */
+details.slozka{margin-bottom:22px}
+details.slozka>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px 12px;flex-wrap:wrap;cursor:pointer;padding:8px 10px 8px 14px;min-height:56px;background:var(--panel);border:1px solid var(--line);border-radius:14px;margin-bottom:14px}
+details.slozka>summary::-webkit-details-marker{display:none}
+details.slozka:not([open])>summary{margin-bottom:0}
+.sl-nm{display:flex;align-items:center;gap:10px;font-size:16px;min-width:0}
+.sl-nm::before{content:"▸";color:var(--muted);transition:transform .15s}details.slozka[open] .sl-nm::before{transform:rotate(90deg)}
+.sl-nm svg,#sl-nova svg{color:var(--accent);flex:none}
+.sl-nm b{overflow-wrap:anywhere}
+.sl-ren{width:auto!important;min-width:180px;padding:6px 10px!important}
+.sl-ostatni{font-size:16px;font-weight:700;margin:6px 0 14px;color:var(--fg2)}
+.sl-vyber{display:flex;flex-direction:column;gap:2px;max-height:min(420px,50vh);overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px}
+.sl-show{display:flex;align-items:center;gap:10px;min-height:42px;padding:0 8px;border-radius:8px;cursor:pointer}
+.sl-show:hover{background:var(--panel2)}
+.sl-show input{width:18px;height:18px;flex:none;accent-color:var(--accent)}
+.sl-new{margin-top:6px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -1724,13 +1740,24 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   window.addEventListener("hashchange", route);
 
   // ---------- home ----------
-  function homePage() {
-    var ids = Object.keys(G.shows), sa = Object.keys(G.sauny).filter(function (k) { return !G.sauny[k].archiv; });
-    var h = ['<div class="row between" style="margin-bottom:16px"><h1 class="page">Show</h1></div><div class="cards">'];
-    ids.forEach(function (id) {
-      if (G.shows[id].typ === "prevzata") { h.push(prevzataKarta(id)); return; }
+  var IKONA_SLOZKA = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2.2h8.4A1.5 1.5 0 0 1 21 8.7v9.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>';
+  // folders = just a name on each show (show.slozka); a folder exists while it holds a show, so it syncs and backs up with the shows
+  function slozky() { var o = {}; Object.keys(G.shows).forEach(function (id) { var n = G.shows[id].slozka; if (n) o[n] = 1; }); return Object.keys(o).sort(function (a, b) { return a.localeCompare(b, "cs"); }); }
+  function podleNazvu(a, b) { return String(G.shows[a].nazev || a).localeCompare(String(G.shows[b].nazev || b), "cs"); }
+  function zavreneSlozky() { try { return JSON.parse(localStorage.getItem("glowguss-slozky-zavrene") || "[]"); } catch (e) { return []; } }
+  function slozkaVolba(id) {
+    var s = G.shows[id];
+    return '<div class="field"><label class="lbl" for="e-f-' + esc(id) + '">Složka</label><select class="sl-sel" data-id="' + esc(id) + '" id="e-f-' + esc(id) + '"><option value="">Bez složky</option>' +
+      slozky().map(function (n) { return '<option value="' + esc(n) + '"' + (n === s.slozka ? " selected" : "") + '>' + esc(n) + '</option>'; }).join("") + '<option value="__nova">Nová složka…</option></select>' +
+      '<input type="text" class="sl-new" data-id="' + esc(id) + '" maxlength="40" placeholder="Název nové složky, pak Enter" hidden></div>';
+  }
+  async function doSlozky(ids, n) {
+    for (var i = 0; i < ids.length; i++) { var id = ids[i]; if (!G.shows[id]) continue; await G.db.doc("show/" + id).update({ slozka: n || "" }); G.shows[id].slozka = n || ""; }
+  }
+  function showKarta(id) {
+      if (G.shows[id].typ === "prevzata") return prevzataKarta(id);
       var s = G.shows[id], r = !!G.rozbor[id];
-      h.push('<section class="card"><div class="row between"><h2>' + esc(s.nazev) + '</h2>' + (r ? '<span class="badge ok">hudba rozebraná</span>' : '<span class="badge">čeká na rozbor hudby</span>') + '</div>' +
+      return ('<section class="card"><div class="row between"><h2>' + esc(s.nazev) + '</h2>' + (r ? '<span class="badge ok">hudba rozebraná</span>' : '<span class="badge">čeká na rozbor hudby</span>') + '</div>' +
         '<p class="sub" style="margin:6px 0 0">' + esc((G.sauny[s.sauna] || {}).nazev || s.saunaNazev || s.sauna) + ' · ' + (s.pisne || []).length + ' písně · ' + mmss(s.delka || s.konec || 0) + '</p>' +
                 '<p class="sub" style="margin:10px 0 0">Upraveno ' + esc(when(s.upraveno)) + '</p>' +
         '<div class="row" style="margin-top:14px"><a class="btn primary" href="#/show/' + esc(id) + '/krok1">Pokračovat</a></div>' +
@@ -1739,8 +1766,28 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         '<div class="field"><label class="lbl" for="e-s-' + esc(id) + '">Sauna</label><select id="e-s-' + esc(id) + '">' + Object.keys(G.sauny).filter(function (k) { return !G.sauny[k].archiv || k === s.sauna; }).map(function (k) { return '<option value="' + esc(k) + '"' + (k === s.sauna ? " selected" : "") + '>' + esc(G.sauny[k].nazev) + '</option>'; }).join("") + '</select></div>' +
         '<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn small" data-act="save" data-id="' + esc(id) + '" type="button">Uložit</button><button class="btn small" data-act="copy" data-id="' + esc(id) + '" type="button">Vytvořit kopii</button>' +
         '<button class="btn small" data-act="send" data-id="' + esc(id) + '" type="button">Uložit show do souboru</button><button class="btn small" data-act="del" data-id="' + esc(id) + '" type="button" style="color:var(--bad)">Smazat</button></div>' +
+        slozkaVolba(id) +
         '<p class="note">Kopie se hodí, když chceš stejnou hudbu a nálady pro jinou saunu. Soubor se show pošleš jinému saunerovi, ten si ho načte v Záloze.</p></div></details></section>');
+  }
+  function homePage() {
+    var ids = Object.keys(G.shows), sa = Object.keys(G.sauny).filter(function (k) { return !G.sauny[k].archiv; });
+    var sl = slozky(), zavrene = zavreneSlozky();
+    var h = ['<div class="row between" style="margin-bottom:16px"><h1 class="page">Show</h1>' + (ids.length ? '<button class="btn" id="sl-nova" type="button" aria-expanded="false">' + IKONA_SLOZKA + 'Nová složka</button>' : '') + '</div>'];
+    if (ids.length) h.push('<section class="card" id="sl-panel" hidden style="margin-bottom:18px;max-width:640px"><h2>Nová složka</h2><div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">' +
+      '<div class="field"><label class="lbl" for="sl-nazev">Název složky</label><input type="text" id="sl-nazev" maxlength="40" placeholder="např. Halloween, Soutěže 2027"></div>' +
+      '<div class="field"><span class="lbl">Které show do ní dát</span><div class="sl-vyber">' + ids.slice().sort(podleNazvu).map(function (id) { var s = G.shows[id];
+        return '<label class="sl-show"><input type="checkbox" value="' + esc(id) + '"><span>' + esc(s.nazev) + (s.slozka ? ' <span class="sub">(teď ve složce ' + esc(s.slozka) + ')</span>' : '') + '</span></label>'; }).join("") + '</div></div>' +
+      '<div class="row" style="gap:8px"><button class="btn primary" id="sl-ok" type="button">Vytvořit složku</button><button class="btn" id="sl-zrus" type="button">Zrušit</button></div>' +
+      '<p class="note">Show do složky přesuneš i později: Upravit show → Složka.</p></div></section>');
+    sl.forEach(function (n) {
+      var v = ids.filter(function (id) { return G.shows[id].slozka === n; }).sort(podleNazvu);
+      h.push('<details class="slozka"' + (zavrene.indexOf(n) < 0 ? ' open' : '') + ' data-sl="' + esc(n) + '"><summary><span class="sl-nm">' + IKONA_SLOZKA + '<b>' + esc(n) + '</b><span class="sub">' + v.length + ' show</span></span>' +
+        '<span class="row" style="gap:6px"><button class="btn small" type="button" data-sl-act="ren" data-sl="' + esc(n) + '">Přejmenovat</button><button class="btn small" type="button" data-sl-act="del" data-sl="' + esc(n) + '">Zrušit složku</button></span></summary>' +
+        '<div class="cards">' + v.map(showKarta).join("") + '</div></details>');
     });
+    if (sl.length) h.push('<h2 class="sl-ostatni">Ostatní</h2>');
+    h.push('<div class="cards">');
+    ids.filter(function (id) { return !G.shows[id].slozka; }).forEach(function (id) { h.push(showKarta(id)); });
     h.push('<section class="card"><h2>Nová show</h2><div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">' +
       '<div class="field"><label class="lbl" for="n-nazev">Název</label><input type="text" id="n-nazev" placeholder="např. Relax"></div>' +
       '<div class="field"><label class="lbl" for="n-sauna">Sauna</label><select id="n-sauna">' + sa.map(function (k) { return '<option value="' + esc(k) + '">' + esc(G.sauny[k].nazev) + '</option>'; }).join("") + '</select></div>' +
@@ -1753,6 +1800,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     h.push('</div>');
     view.innerHTML = h.join("");
     wireManage(); wirePrevzit();
+    wireSlozky();
     $("n-ok").addEventListener("click", function () {
       var nazev = $("n-nazev").value.trim(); if (!nazev) { $("n-nazev").focus(); setStatus("Zadej název show"); return; }
       var id = slug(nazev), k = 2; while (G.shows[id]) id = slug(nazev) + "-" + (k++);
@@ -1762,6 +1810,57 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       this.disabled = true;
       G.db.doc("show/" + id).set(doc).then(function () { G.shows[id] = doc; location.hash = "#/show/" + id + "/krok1"; })
         .catch(function (e) { setStatus("Show se nepodařilo založit: " + errText(e)); $("n-ok").disabled = false; });
+    });
+  }
+
+  function wireSlozky() {
+    var panel = $("sl-panel"), nb = $("sl-nova");
+    if (nb) nb.addEventListener("click", function () { panel.hidden = !panel.hidden; nb.setAttribute("aria-expanded", String(!panel.hidden)); if (!panel.hidden) $("sl-nazev").focus(); });
+    if ($("sl-zrus")) $("sl-zrus").addEventListener("click", function () { panel.hidden = true; nb.setAttribute("aria-expanded", "false"); });
+    if ($("sl-ok")) $("sl-ok").addEventListener("click", async function () {
+      var n = $("sl-nazev").value.trim().replace(/\s+/g, " "); if (!n) { $("sl-nazev").focus(); setStatus("Zadej název složky"); return; }
+      var vyb = Array.prototype.map.call(panel.querySelectorAll(".sl-show input:checked"), function (x) { return x.value; });
+      if (!vyb.length) { setStatus("Zaškrtni aspoň jednu show, prázdná složka se neuloží"); return; }
+      this.disabled = true; await doSlozky(vyb, n); setStatus("Složka „" + n + "“ vytvořena", true); route();
+    });
+    on(view, "details.slozka", "toggle", function (e, d) {
+      var z = zavreneSlozky().filter(function (x) { return x !== d.dataset.sl; }); if (!d.open) z.push(d.dataset.sl);
+      try { localStorage.setItem("glowguss-slozky-zavrene", JSON.stringify(z)); } catch (x) {}
+    });
+    on(view, "[data-sl-act]", "click", async function (e, b) {
+      e.preventDefault(); e.stopPropagation();
+      var n = b.dataset.sl, v = Object.keys(G.shows).filter(function (id) { return G.shows[id].slozka === n; });
+      if (b.dataset.slAct === "ren") {
+        var sum = b.closest("summary"), nm = sum.querySelector(".sl-nm b");
+        if (!nm) return;
+        var inp = document.createElement("input"); inp.type = "text"; inp.className = "sl-ren"; inp.value = n; inp.maxLength = 40; inp.setAttribute("aria-label", "Nový název složky");
+        nm.replaceWith(inp); inp.focus(); inp.select();
+        inp.addEventListener("click", function (x) { x.preventDefault(); x.stopPropagation(); });
+        inp.addEventListener("keydown", function (x) { x.stopPropagation(); if (x.key === "Escape") { inp.value = n; inp.blur(); } if (x.key === "Enter") { x.preventDefault(); inp.blur(); } });
+        inp.addEventListener("keyup", function (x) { x.preventDefault(); });
+        inp.addEventListener("blur", async function () {
+          var nn = inp.value.trim().replace(/\s+/g, " ");
+          if (nn && nn !== n) {
+            await doSlozky(v, nn);
+            var z = zavreneSlozky(); if (z.indexOf(n) >= 0) { z = z.map(function (x) { return x === n ? nn : x; }); try { localStorage.setItem("glowguss-slozky-zavrene", JSON.stringify(z)); } catch (x) {} }
+            setStatus("Složka přejmenována", true);
+          }
+          route();
+        });
+      } else {
+        if (!(await potvrd("Zrušit složku „" + n + "“? Show v ní se nesmažou, jen se přesunou mezi ostatní.", "Zrušit složku"))) return;
+        await doSlozky(v, ""); setStatus("Složka zrušena, show jsou v Ostatních", true); route();
+      }
+    });
+    on(view, ".sl-sel", "change", async function (e, s) {
+      var id = s.dataset.id, inp = view.querySelector('.sl-new[data-id="' + id + '"]');
+      if (s.value === "__nova") { inp.hidden = false; inp.focus(); return; }
+      inp.hidden = true; await doSlozky([id], s.value); setStatus(s.value ? "Show přesunuta do složky „" + s.value + "“" : "Show vyndána ze složky", true); route();
+    });
+    on(view, ".sl-new", "keydown", async function (e, inp) {
+      if (e.key !== "Enter") return; e.preventDefault();
+      var n = inp.value.trim().replace(/\s+/g, " "); if (!n) return;
+      await doSlozky([inp.dataset.id], n); setStatus("Show přesunuta do nové složky „" + n + "“", true); route();
     });
   }
 
@@ -3478,7 +3577,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       '<p class="sub" style="margin:10px 0 0">Upraveno ' + esc(when(s.upraveno)) + '</p>' +
       '<div class="row" style="margin-top:14px"><a class="btn primary" href="#/show/' + esc(id) + '/prevod">Otevřít</a></div>' +
       '<details class="more" style="margin-top:12px"><summary>Upravit show</summary><div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px">' +
-      '<button class="btn small" data-act="send" data-id="' + esc(id) + '" type="button">Uložit show do souboru</button><button class="btn small" data-act="del" data-id="' + esc(id) + '" type="button" style="color:#f87171">Smazat</button></div></details></section>';
+      '<button class="btn small" data-act="send" data-id="' + esc(id) + '" type="button">Uložit show do souboru</button><button class="btn small" data-act="del" data-id="' + esc(id) + '" type="button" style="color:#f87171">Smazat</button></div>' + '<div style="margin-top:10px">' + slozkaVolba(id) + '</div></details></section>';
   }
   function prevzitKarta() {
     return '<section class="card"><h2>Převzít show z QuickDMX</h2><p class="sub" style="margin:6px 0 0">Máš show hotovou v QuickDMX pro jinou saunu? Vyber složku projektu (tu, ve které jsou Live, Music a scenes). V okně si pak zvolíš jednu show a program ji převede na světla tvé sauny. Časy zůstanou přesně stejné.</p>' +
