@@ -168,6 +168,8 @@ label.drop:focus-within{outline:2px solid var(--accent)}
 .nal-dech .nal-lampy{animation:nal-dech 5s ease-in-out infinite}
 .nal-jemne .nal-lampy i{animation:nal-barvy var(--nal-t) linear infinite,nal-uder-jemne .5s ease-out infinite}
 .nal-bici .nal-lampy i{animation:nal-barvy var(--nal-t) linear infinite,nal-uder .5s ease-out infinite}
+.nal-tep .nal-lampy{animation:nal-tep 1.1s ease-out infinite}
+@keyframes nal-tep{0%{filter:brightness(1.6)}12%{filter:brightness(.6)}22%{filter:brightness(1.35)}40%,100%{filter:brightness(.35)}}
 .nal-uv .nal-lampy i{box-shadow:0 0 10px 3px var(--c1)}
 @keyframes nal-barvy{0%,100%{background:var(--c1);box-shadow:0 0 8px 1px var(--c1)}33%{background:var(--c2);box-shadow:0 0 8px 1px var(--c2)}66%{background:var(--c3);box-shadow:0 0 8px 1px var(--c3)}}
 @keyframes nal-dech{0%,100%{opacity:calc(var(--nal-jas) * .55)}50%{opacity:var(--nal-jas)}}
@@ -1710,16 +1712,19 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     "UV": "UV a šero", "Jen UV": "Jen UV", "Očekávání": "Pomalu sílí", "Něha": "Jemné a teplé", "Moře": "Mořské vlny", "Les": "Zelený les",
     "Sen": "Snové přelévání", "Západ slunce": "Západ slunce", "Vzestup": "Roste a zrychluje", "Euforie": "Párty, rychle", "Síla": "Naplno na bicí",
     "Oheň": "Plápolající oheň", "Rituál": "Rituální rytmus", "Bouře": "Bouře s blesky" };   // no colour words: every song gets its own colour variant, the button shows it
-  var NALADA_SILNE = { "Bouře": 1 };   // flashes on the drums, so it belongs with the strong ones even though the walls are dim
+  var NALADA_SILNE = { "Bouře": 1, "Tep srdce": 1, "Kolotoč": 1 };   // flashes on the drums, so it belongs with the strong ones even though the walls are dim
   // mood button painted like the sauna will look; on hover it plays a short preview: colours move at the mood's speed, strong moods pulse on a beat
   function emStyl(show, e, song) {   // returns the attributes + the inner "mini sauna": a row of lamps that plays the mood live
     var E = G.recept.emoce[e] || {}, c = [emColor(show, e, song)];
     (E.w || []).slice(1, 3).forEach(function (x) { if (G.recept.paleta[x]) c.push(hex(G.recept.paleta[x])); });
     if (E.jenuv) c = ["#5a1fb0"]; else if (E.uv) c = ["#5a1fb0", "#3b1670"];
     while (c.length < 3) c.push(c[c.length - 1]);
-    var t = E.move >= 99 ? 0 : E.move <= 4 ? 2 : E.move <= 8 ? 4 : 8, jas = E.wl ? Math.max(0.45, Math.min(1, 0.35 + (+E.wl[1] || 0) * 1.6)) : 0.8;
+    var popis = String(E.popis || ""), Zv = E.zive || (E.move != null ? { rychlost: E.move >= 99 ? 0 : E.move <= 4 ? 3 : E.move <= 8 ? 2 : 1, bici: E.hit >= 0.3 ? 2 : E.hit > 0 ? 1 : 0, vzor: E.vzor }
+      : { rychlost: /stojí|zhasne/.test(popis) ? 0 : 1, bici: /údery/.test(popis) ? 1 : 0 });   // older server: guess from the description
+    var t = [0, 8, 4, 2][Zv.rychlost] || 0, wl = E.wl ? +E.wl[1] : E.pruhy && E.pruhy.w ? +E.pruhy.w[1] : 0.3, jas = Math.max(0.45, Math.min(1, 0.35 + (wl || 0) * 1.6));
+    E = { hit: Zv.bici >= 2 ? 0.4 : Zv.bici ? 0.1 : 0, uv: E.uv, jenuv: E.jenuv, w: E.w, tep: Zv.vzor === "tep" };
     var lamp = ""; for (var i = 0; i < 6; i++) lamp += '<i style="animation-delay:' + (-(t || 1) * i / 6).toFixed(2) + 's' + (E.hit > 0 ? ',' + (-0.08 * i).toFixed(2) + 's' : '') + '"></i>';
-    return { a: ' class="chip nal' + (t ? '' : ' nal-stoji') + (E.hit >= 0.3 ? ' nal-bici' : E.hit > 0 ? ' nal-jemne' : ' nal-dech') + (E.uv ? ' nal-uv' : '') + '" style="--c1:' + c[0] + ';--c2:' + c[1] + ';--c3:' + c[2] + ';--nal-t:' + (t || 1) + 's;--nal-jas:' + jas.toFixed(2) + '"',
+    return { a: ' class="chip nal' + (t ? '' : ' nal-stoji') + (E.tep ? ' nal-tep' : E.hit >= 0.3 ? ' nal-bici' : E.hit > 0 ? ' nal-jemne' : ' nal-dech') + (E.uv ? ' nal-uv' : '') + '" style="--c1:' + c[0] + ';--c2:' + c[1] + ';--c3:' + c[2] + ';--nal-t:' + (t || 1) + 's;--nal-jas:' + jas.toFixed(2) + '"',
       lampy: '<span class="nal-lampy" aria-hidden="true">' + lamp + '</span>' };
   }
 
