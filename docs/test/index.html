@@ -3406,6 +3406,11 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         '<textarea id="ai-zadani" rows="6" readonly hidden style="margin-top:10px"></textarea></div>' +
       '<p class="sub" id="ai-state" style="margin-top:10px"></p></section>' +
       '<div id="ai-out" style="display:flex;flex-direction:column;gap:12px"></div>' +
+      (REMOTE && kredityViditelne() ? '<section class="card" id="ai-dol"><h2>Doladit s AI</h2><p class="note" style="margin-top:6px">Napiš, co se ti nelíbí. AI vezme show tak, jak ji máš teď, a navrhne jen změny. Každou zase přijmeš nebo necháš.</p>' +
+        '<div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap"><select id="ai-dol-druh"><option value="chat">Doladit celou show · 1 Glowcoin</option><option value="cast">Přepracovat jednu část · 3 Glowcoiny</option><option value="barvy">Nová barevná varianta · 2 Glowcoiny</option></select>' +
+        '<select id="ai-dol-cast" hidden></select></div>' +
+        '<textarea id="ai-dol-pokyn" rows="3" style="margin-top:8px" placeholder="např. 2. píseň ať je sytě rudá a zlatá, ne stejná jako první. První píseň víc do jantarové."></textarea>' +
+        '<div class="row" style="margin-top:8px;gap:10px"><button class="btn primary" id="ai-dol-go">Doladit</button><span class="sub" id="ai-dol-st"></span></div></section>' : '') +
       '<section class="card"><div class="row between" style="flex-wrap:wrap;gap:8px"><h2>Momenty příběhu</h2><button class="btn small" id="mo-add">+ Přidat moment</button></div>' +
       '<div id="mo-list" style="display:flex;flex-direction:column;gap:8px;margin-top:10px"></div></section></div>' +
       '<aside class="col-side"><section class="card"><h2>Nálady v receptu</h2><div id="ai-cat" style="display:flex;flex-direction:column;gap:10px;margin-top:12px"></div></section></aside></div>';
@@ -3550,7 +3555,33 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       st.busy = false; $("ai-go").disabled = false; $("ai-stop").hidden = true;
     });
     $("ai-stop").addEventListener("click", function () { if (st.ctl) st.ctl.abort(); });
-    if ($("ai-gg-go")) $("ai-zdarma").hidden = true;   // with Glowguss AI the free copy-paste route is gone (Milan 2026-11-21)
+    if ($("ai-gg-go")) $("ai-zdarma").hidden = true;
+    function zadaniDoladit(druh, pokyn, ci) {
+      var pt = partsT(show), stav = pt.map(function (x) { var o = { cast: x.i, od: mmss(x.a), do: mmss(x.b), pisen: x.p.pisen, emoce: x.p.emoce, sila: +x.p.sila || 0 };
+        if (x.p.pohyb) o.pohyb = x.p.pohyb; if (x.p.skupiny && Object.keys(x.p.skupiny).length) o.scena = x.p.skupiny; if (x.p.stridani) { o.stridani = x.p.stridani; o.stridani_barvy = x.p.stridaniBarvy; } return o; });
+      var c = pt[ci];
+      var ukol = druh === "cast" ? "Autor chce přepracovat JEN část " + ci + (c ? " (" + mmss(c.a) + "–" + mmss(c.b) + ", píseň " + c.p.pisen + ")" : "") + ". Pokyn: " + (pokyn || "udělej ji lépe podle příběhu") + "\nDo navrhy dej jen tuto část (a případně momenty v jejím čase). Ostatní části nepiš."
+        : druh === "barvy" ? "Autor chce NOVOU BAREVNOU VARIANTU celé show: nálady, síla a pohyb zůstávají, ale barevné scény budou jiné, pořád podle příběhu a se stejnými pravidly." + (pokyn ? " Přání: " + pokyn : "") + "\nDo navrhy dej každou část s novou scénou (steny, lavice, spoty, voda, kamna). Momenty nepiš."
+        : "Autor chce DOLADIT show podle pokynu: " + pokyn + "\nZměň jen to, čeho se pokyn týká, a do navrhy dej jen části, které měníš. Ostatní nech být.";
+      return zadani() + "\n\nAKTUÁLNÍ STAV SHOW (tohle už autor má, vycházej z toho):\n" + JSON.stringify(stav) + "\n\nÚKOL: " + ukol + "\nOdpověz stejným JSON formátem jako výše, bez dalšího textu.";
+    }
+    if ($("ai-dol")) {
+      var dolCast = function () { var sel = $("ai-dol-cast"), pt = partsT(show); sel.innerHTML = pt.map(function (x) { return '<option value="' + x.i + '">' + mmss(x.a) + '–' + mmss(x.b) + ' · píseň ' + x.p.pisen + ' · ' + esc(emJm(x.p.emoce)) + '</option>'; }).join(""); };
+      $("ai-dol-druh").addEventListener("change", function () { var c = this.value === "cast"; $("ai-dol-cast").hidden = !c; if (c) dolCast(); });
+      $("ai-dol-go").addEventListener("click", async function () {
+        var b = this, druh = $("ai-dol-druh").value, pokyn = $("ai-dol-pokyn").value.trim(), el = $("ai-dol-st");
+        if (st.busy) return;
+        if (!pokyn && druh !== "barvy") { el.textContent = "Napiš, co má AI změnit."; el.style.color = "var(--bad, #e66)"; return; }
+        st.busy = true; b.disabled = true; el.style.color = ""; el.textContent = "AI dolaďuje (obvykle do minuty)…";
+        try {
+          var r = await K.zavolej({ akce: "ai-navrh", druh: druh, zadani: zadaniDoladit(druh, pokyn, +$("ai-dol-cast").value || 0), nazev: show.nazev });
+          if (r.kredity) glowcoinLista(r.kredity);
+          prijmi(ctiOdpoved(r.odpoved)); el.textContent = st.navrhy.length ? "Hotovo, návrhy jsou výš. Strhlo se " + gcSlovo(r.cena || GC_CENIK[druh] || 1) + "." : "AI by nic neměnila.";
+          if (st.navrhy.length) $("ai-out").scrollIntoView({ behavior: "smooth", block: "start" });
+        } catch (e) { el.textContent = e.message || String(e); el.style.color = "var(--bad, #e66)"; obnovGlowcoiny(); }
+        st.busy = false; b.disabled = false;
+      });
+    }   // with Glowguss AI the free copy-paste route is gone (Milan 2026-11-21)
     if ($("ai-gg-go")) $("ai-gg-go").addEventListener("click", async function () {
       var b = this; if (st.busy) return;
       if (!$("ai-prani").value.trim()) { stav("Nejdřív napiš nahoru scénář nebo příběh show.", true); return; }
