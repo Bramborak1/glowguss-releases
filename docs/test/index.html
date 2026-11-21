@@ -1151,8 +1151,51 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   // ---------- downbeats: phase of 4 where bass hits and harmony changes line up ----------
-  function downbeatPhase(beats, on) {
-    var nb = beats.length, L = on.L, nbands = L.length / on.odf.length, sc = [0, 0, 0, 0];
+  // accent of every beat: onset strength right on the beat plus the bass hit, both scaled to their spread
+  function akcenty(beats, on) {
+    var a = [], l = [];
+    beats.forEach(function (f) { var mo = 0, ml = 0; for (var q = f - 2; q <= f + 2; q++) if (q >= 0 && q < on.odf.length) { mo = Math.max(mo, on.odf[q]); ml = Math.max(ml, on.low[q]); } a.push(mo); l.push(ml); });
+    var sa = pct(a, 90) || 1, sl = pct(l, 90) || 1;
+    return a.map(function (v, i) { return v / sa + 0.5 * l[i] / sl; });
+  }
+  // meter: 3 beats in a bar (waltz, jazz in 3) or 4. Accents repeat every 3 or every 4 beats; judged in a window of
+  // 24 beats around each beat. The song's main meter wins; the other one only in long clear stretches (32+ beats)
+  function silnaFaze(ak, M) {   // in 3 the downbeat is simply the strongest of the three beats
+    var sc = []; for (var k = 0; k < M; k++) sc.push(0);
+    ak.forEach(function (v, i) { sc[i % M] += v; });
+    var ph = 0; for (k = 1; k < M; k++) if (sc[k] > sc[ph]) ph = k; return ph;
+  }
+  // bars of 3: the beat tracker sometimes slips a beat (speech, a break), so the phase is checked again every 16 bars
+  // and moves only when another phase is clearly stronger there
+  function naTri(ak, i0, j0, bt) {
+    var C = 48, k = 0;
+    for (var a = i0; a < j0; a += C) {
+      var z = Math.min(j0, a + C), sc = [0, 0, 0];
+      for (var i = a; i < z; i++) sc[(i - a) % 3] += ak[i];
+      var best = 0; for (var q = 1; q < 3; q++) if (sc[q] > sc[best]) best = q;
+      if (a === i0) k = (3 - best) % 3;   // k = position in bar of the window's first beat
+      else if (sc[best] > sc[(3 - k) % 3] * 1.15 && z - a >= 24) k = (3 - best) % 3;   // (3 - k) % 3 = where the downbeat falls now
+      for (i = a; i < z; i++) { bt[i] = k; k = (k + 1) % 3; }
+    }
+  }
+  function metrum(ak) {
+    var n = ak.length, W = 12, m = new Int8Array(n), sc = new Float64Array(n), sm = new Float64Array(n), i, k;
+    function kor(a, z, lag) { var xs = [], ys = []; for (var i = a; i + lag < z; i++) { xs.push(ak[i]); ys.push(ak[i + lag]); }
+      if (xs.length < 6) return 0; var mx = xs.reduce(function (s, v) { return s + v; }, 0) / xs.length, my = ys.reduce(function (s, v) { return s + v; }, 0) / ys.length, sxy = 0, sx = 0, sy = 0;
+      for (i = 0; i < xs.length; i++) { sxy += (xs[i] - mx) * (ys[i] - my); sx += (xs[i] - mx) * (xs[i] - mx); sy += (ys[i] - my) * (ys[i] - my); }
+      return sxy / (Math.sqrt(sx * sy) || 1); }
+    for (i = 0; i < n; i++) { var a = Math.max(0, i - W), z = Math.min(n, i + W); sc[i] = (kor(a, z, 3) + kor(a, z, 6)) / 2 - (kor(a, z, 4) + kor(a, z, 8)) / 2; }
+    var tot = 0; for (i = 0; i < n; i++) { var s = 0, c = 0; for (k = Math.max(0, i - 8); k <= Math.min(n - 1, i + 8); k++) { s += sc[k]; c++; } sm[i] = s / c; tot += sm[i]; }
+    var base = n && tot / n > 0.15 ? 3 : 4, other = 7 - base;
+    for (i = 0; i < n; i++) m[i] = base === 4 ? (sm[i] > 0.25 ? 3 : 4) : (sm[i] < -0.35 ? 4 : 3);
+    function runs() { var r = []; for (var i = 0; i < n;) { var j = i; while (j < n && m[j] === m[i]) j++; r.push([i, j, m[i]]); i = j; } return r; }
+    runs().forEach(function (u) { if (u[2] === other && u[1] - u[0] < 32) for (var q = u[0]; q < u[1]; q++) m[q] = base; });
+    var R = runs(); R.forEach(function (u, x) { if (u[2] === base && x > 0 && x < R.length - 1 && u[1] - u[0] < 48) for (var q = u[0]; q < u[1]; q++) m[q] = other; });
+    return m;
+  }
+  function downbeatPhase(beats, on, M) {
+    M = M || 4;
+    var nb = beats.length, L = on.L, nbands = L.length / on.odf.length, sc = []; for (var m0 = 0; m0 < M; m0++) sc.push(0);
     function vec(i) {   // mean log band energy over one beat
       var a = beats[i], z = Math.max(a + 1, beats[i + 1] || a + 1), v = new Float64Array(nbands);
       for (var f = a; f < z; f++) for (var b = 0; b < nbands; b++) v[b] += L[f * nbands + b];
@@ -1162,9 +1205,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     for (i = 1; i < nb; i++) {
       var d = 0; for (var b = 0; b < nbands; b++) { var x = vs[i][b] - vs[i - 1][b]; d += x * x; }
       var lowHit = 0; for (var f = beats[i] - 2; f <= beats[i] + 2; f++) if (f >= 0 && f < on.low.length) lowHit = Math.max(lowHit, on.low[f]);
-      sc[i % 4] += Math.sqrt(d) + 0.5 * lowHit;
+      sc[i % M] += Math.sqrt(d) + 0.5 * lowHit;
     }
-    var ph = 0; for (i = 1; i < 4; i++) if (sc[i] > sc[ph]) ph = i;
+    var ph = 0; for (i = 1; i < M; i++) if (sc[i] > sc[ph]) ph = i;
     return ph;
   }
 
@@ -1316,13 +1359,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
   function analyzuj(x, onProgress, ext) {
     var sp = spectrogram(x, onProgress); onProgress && onProgress(0.45);
-    var on, P, fr, bt;
+    var on, P, fr, bt, ak0 = null;
     if (ext && ext.beats && ext.beats.length >= 8) { var z = zVnejsich(ext); fr = z.fr; bt = z.bt; P = z.P; onProgress && onProgress(0.6); }
     else {
       on = onsets(sp); P = tempoPeriod(on.odf); onProgress && onProgress(0.5);
       fr = trackBeats(on.odf, P); onProgress && onProgress(0.6);
       if (fr.length < 8) throw new Error("V nahrávce jsem nenašel rytmus. Je to celá skladba?");
-      var ph = downbeatPhase(fr, on); bt = fr.map(function (_, i) { return ((i - ph) % 4 + 4) % 4; });
+      ak0 = akcenty(fr, on); var mt = metrum(ak0);
+      if (mt.indexOf(3) < 0) { var ph = downbeatPhase(fr, on); bt = fr.map(function (_, i) { return ((i - ph) % 4 + 4) % 4; }); }
+      else { bt = new Array(fr.length);   // stretches in 3 and in 4, each with its own downbeat phase
+        for (var i0 = 0; i0 < fr.length;) { var j0 = i0; while (j0 < fr.length && mt[j0] === mt[i0]) j0++;
+          var M = mt[i0], ph2 = M === 4 ? downbeatPhase(fr.slice(i0, Math.min(fr.length, j0 + 1)), on, M) : silnaFaze(ak0.slice(i0, j0), M);
+          if (M === 4) for (var q = i0; q < j0; q++) bt[q] = ((q - i0 - ph2) % M + M) % M;
+          else naTri(ak0, i0, j0, bt);
+          i0 = j0; } }
     }
     var F = features(sp, fr); onProgress && onProgress(0.9);
     var md = median(F.drums), mb = median(F.bass);
@@ -1340,7 +1390,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     onProgress && onProgress(1);
     return {
       b: b, bt: bt, tempo: Math.round(60 * FPS / P * 10) / 10,
-      drums: drF,
+      drums: drF, ak: ak0 ? norm(ak0, 5, 99).map(r2) : undefined,
       voc: norm(F.voc), oth: norm(F.oth), bass: norm(F.bass), zvuky: zvukoveUdalosti(x, bezH),
       casti: cs.map(function (c) { var o = { od: c.a ? b[c.a] : 0, do: c.z < b.length ? b[c.z] : null, sila: c.sila }; if (c.bezHudby) o.bezHudby = c.bezHudby; return o; })
     };
@@ -2694,7 +2744,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
             }
             var r = A.analyzuj(kus, null, ext); if (ext) r.beatThis = true;
             var off = function (t) { return Math.round((t + z) * 100) / 100; };
-            rp.push({ cislo: k + 1, zacatek: z, b: r.b.map(off), bt: r.bt, drums: r.drums, voc: r.voc, oth: r.oth, bass: r.bass, zvuky: (r.zvuky || []).map(function (q) { return { od: off(q.od), do: off(q["do"]) }; }) });
+            rp.push({ cislo: k + 1, zacatek: z, b: r.b.map(off), bt: r.bt, drums: r.drums, voc: r.voc, oth: r.oth, bass: r.bass, ak: r.ak, zvuky: (r.zvuky || []).map(function (q) { return { od: off(q.od), do: off(q["do"]) }; }) });
             tempa.push(r.tempo); nb += r.b.length; if (r.beatThis) bts++;
             var n = r.casti.length;
             r.casti.forEach(function (c, i) {
@@ -3212,8 +3262,19 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var mean = function (a) { var v = idx.map(function (i) { return a[i] || 0; }); return v.length ? v.reduce(function (s, q) { return s + q; }, 0) / v.length : 0; };
     var d = []; for (var i = 1; i < idx.length; i++) d.push(ps.b[idx[i]] - ps.b[idx[i - 1]]); d.sort(function (a, b) { return a - b; });
     var bpm = d.length ? Math.round(60 / d[d.length >> 1]) : 0;
-    return { bpm: bpm, bici: Math.round(mean(ps.drums) * 100), zpev: Math.round(mean(ps.voc) * 100), nastroje: Math.round(mean(ps.oth) * 100), basa: Math.round(mean(ps.bass) * 100),
+    var tk = 0; idx.forEach(function (i) { tk = Math.max(tk, (ps.bt[i] || 0) + 1); });
+    return { bpm: bpm, takt: tk === 3 ? "3/4" : "4/4", bici: Math.round(mean(ps.drums) * 100), zpev: Math.round(mean(ps.voc) * 100), nastroje: Math.round(mean(ps.oth) * 100), basa: Math.round(mean(ps.bass) * 100),
       dropy: show.dropy.filter(function (q) { return q.typ === "drop" && q.beat_s >= x.a && q.beat_s < x.b; }).length };
+  }
+  // the AI never hears the music, its times are guesses: a moment goes onto the strongest beat within one beat of it
+  function naSilnyBeat(show, t) {
+    var r = G.rozbor[show.id]; if (!r || !r.pisne) return t;
+    var best = t, bs = -Infinity;
+    r.pisne.forEach(function (ps) { (ps.b || []).forEach(function (bt, i) {
+      var d = Math.abs(bt - t), krok = i + 1 < ps.b.length ? ps.b[i + 1] - bt : 0.6; if (d > Math.min(0.8, Math.max(0.35, krok))) return;
+      var sila = ps.ak ? ps.ak[i] || 0 : 0.5 * (ps.drums[i] || 0) + 0.5 * (ps.bass[i] || 0) + (ps.bt[i] === 0 ? 0.3 : 0);
+      var sc = sila - 0.5 * d; if (sc > bs) { bs = sc; best = bt; } }); });
+    return best;
   }
   var MOMENT_JMENA = { zablesk: "Záblesk", tma: "Tma (kamna dál svítí)", zhasnuti: "Zhasnutí se škytnutím", jiskry: "Jiskry", nastup: "Nástup světla", prisvit: "Přísvit jednou barvou" };
   var MOMENT_POPIS = { zablesk: "krátký záblesk v barvě (náraz, kouzlo)", tma: "skoro tma, kamna dál dýchají (vypnutí)", zhasnuti: "světlo klesá, dvakrát škytne a skoro zhasne (něco nevyjde)", jiskry: "rychlé jiskry na pár světlech (zkrat, kouzlo)", nastup: "z tmy plynule nahoru (restart, příchod)", prisvit: "všechno jednou tlumenou barvou (postava, kouzlo)" };
@@ -3488,7 +3549,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     }
     function zadani() {
       var emos = Object.keys(G.recept.emoce).filter(function (e) { return e !== "UV" && e !== "Jen UV"; }), pt = partsT(show), scen = $("ai-prani").value.trim(), bary = Object.keys(G.recept.barvyJmena || {}).filter(function (b) { return b !== "OFF"; });
-      var data = pt.map(function (x) { var s = partStats(show, x); return { cast: x.i, od: mmss(x.a), do: mmss(x.b), pisen: x.p.pisen, emoce: x.p.emoce, sila: +x.p.sila || 0, slysim: x.p.slysim || "", svetlo: x.p.svetlo || "", tempo_bpm: s.bpm, bici_pct: s.bici, zpev_pct: s.zpev, nastroje_pct: s.nastroje, basa_pct: s.basa, dropu: s.dropy }; });
+      var data = pt.map(function (x) { var s = partStats(show, x); return { cast: x.i, od: mmss(x.a), do: mmss(x.b), pisen: x.p.pisen, emoce: x.p.emoce, sila: +x.p.sila || 0, slysim: x.p.slysim || "", svetlo: x.p.svetlo || "", tempo_bpm: s.bpm, takt: s.takt, bici_pct: s.bici, zpev_pct: s.zpev, nastroje_pct: s.nastroje, basa_pct: s.basa, dropu: s.dropy }; });
       return "Jsi světelný designér saunových ceremonií (saunový ceremoniál = aufguss se světlem a hudbou). Show: " + show.nazev + ". Skladby: " + show.pisne.map(function (p) { return p.cislo + ". " + p.nazev; }).join(", ") + ".\n" +
         "Každá část show má jednu náladu z tohoto seznamu (nic jiného nepoužívej):\n" + emos.map(function (e) { return "- " + e + ": " + emDesc(e).replace(/; každá skladba dostane vlastní barevnou variantu a pohyb podle hudby$/, ""); }).join("\n") +
         "\n\nNálada určuje jen energii a rytmus. BARVY urči ty: ke každé části napiš celou scénu jako v divadle, jednu jasnou barevnou myšlenku: steny, lavice, spoty, voda a kamna (kamna jen teplé: " + (G.recept.teple || []).join(", ") + "). Méně barev je víc: klidné scény klidně celé jednou barvou, silné scény nejvýš dvě barvy proti sobě (stěny proti středu). Bez pestrobarevného míchání. Barvy jen z: " + bary.join(", ") + " (OFF = zhasnuto, ale nikdy všechno). Bílá neexistuje." +
@@ -3525,9 +3586,10 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       var T = show.delka || show.konec || 1e9;
       ((r && r.momenty) || []).forEach(function (m) {
         var t = typeof m.cas === "number" ? m.cas : secOf(String(m.cas || "")); if (t == null || t < 0 || t > T || !MOMENT_JMENA[m.typ]) return;
+        t = naSilnyBeat(show, t);
         var dl = +m.delka > 0 ? Math.min(20, Math.round(+m.delka * 10) / 10) : 0;
         if ((show.momenty || []).some(function (q) { return Math.abs(q.t - t) < 0.3 && q.typ === m.typ && (q.delka || 0) === dl && (q.barva || null) === (okB(m.barva) || null); })) return;
-        var mo = { t: Math.round(t * 10) / 10, typ: m.typ }; if (okB(m.barva)) mo.barva = okB(m.barva); if (dl) mo.delka = dl;
+        var mo = { t: Math.round(t * 100) / 100, typ: m.typ }; if (okB(m.barva)) mo.barva = okB(m.barva); if (dl) mo.delka = dl;
         st.navrhy.push({ moment: mo, proc: String(m.proc || "") });
       });
       render();
