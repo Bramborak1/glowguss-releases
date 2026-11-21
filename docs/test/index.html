@@ -3094,6 +3094,13 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         h.push('</div><p class="note" style="margin-top:6px">Kamna jen v teplých barvách a vždy jen pomalu dýchají.</p></div></details>' + (upr ? '<button type="button" class="btn small" id="dl-reset">Zrušit doladění</button>' : '') + '</div></details>');
       }
       h.push(simple ? '<details class="more"><summary>Poznámka a rozdělení části</summary><div style="display:flex;flex-direction:column;gap:16px;margin-top:12px">' : '');
+      // bars: hidden unless the lights miss the beats (a waltz read as 4, a song that changes its meter…)
+      var tkDet = taktCasti(show, x), tkM = +p.takt || tkDet, tkU = !!(p.takt || p.posun);
+      h.push('<details class="more" id="takt-box"' + (tkU ? ' open' : '') + '><summary>Světla nesedí na doby?' + (tkU ? ' · upraveno' : '') + '</summary><div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">' +
+        '<div class="row" style="gap:10px;flex-wrap:wrap;align-items:flex-end"><div class="field" style="flex:1 1 160px"><label class="lbl" for="f-takt">Kolik dob má takt</label><select id="f-takt">' +
+        [["", "Automaticky (" + tkDet + " doby)"], ["3", "3 doby (valčík)"], ["4", "4 doby"], ["2", "2 doby"], ["5", "5 dob"], ["6", "6 dob"], ["7", "7 dob"]].map(function (o) { return '<option value="' + o[0] + '"' + (String(p.takt || "") === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select></div>' +
+        '<button type="button" class="btn small" id="f-posun">Posunout o dobu' + (p.posun ? ' (' + p.posun + ')' : '') + '</button>' + (tkU ? '<button type="button" class="btn small" id="f-takt-r">Zpět na automaticky</button>' : '') + '</div>' +
+        '<p class="note">Když světla v této části bliknou o dobu dřív nebo později než silný úder, posuň je o dobu. U valčíku nebo když se v písni mění rytmus nastav počet dob. Platí jen pro tuto část.</p></div></details>');
       var pz = [p.pozn, p.slysim, p.svetlo].filter(function (x) { return x; }).join("\n");
       h.push('<div class="field"><label class="lbl" for="f-pozn">Poznámka</label><textarea id="f-pozn" placeholder="Jen pro tebe, světla neovlivní">' + esc(pz) + '</textarea></div>');
       h.push('<div class="row"><button type="button" class="btn" id="split">Rozdělit v místě přehrávání</button><button type="button" class="btn" id="merge"' + (x.i + 1 < pt.length ? "" : " disabled") + '>Spojit s další</button></div>');
@@ -3127,6 +3134,9 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         var Em = G.recept.emoce[p.emoce] || {}; if ((Em.zive && Em.zive.vzor) || Em.vzor) delete p.pohyb;   // a mood with its own movement (heartbeat, carousel…) replaces an older movement choice, e.g. one the AI made
         saveCasti(); renderTimeline(); renderPart(); });
       on($("partCard"), ".sila button", "click", function (e, b) { p.sila = +b.dataset.s; saveCasti(); renderTimeline(); renderPart(); });
+      $("f-takt").addEventListener("change", function () { if (this.value) p.takt = +this.value; else delete p.takt; delete p.posun; saveCasti(); renderTimeline(); renderPart(); });
+      $("f-posun").addEventListener("click", function () { var M = +p.takt || taktCasti(show, x); p.posun = ((+p.posun || 0) + 1) % M; if (!p.posun) delete p.posun; saveCasti(); renderTimeline(); renderPart(); });
+      if ($("f-takt-r")) $("f-takt-r").addEventListener("click", function () { delete p.takt; delete p.posun; saveCasti(); renderTimeline(); renderPart(); });
       $("f-pozn").addEventListener("input", function () { p.pozn = this.value; p.slysim = ""; p.svetlo = ""; saveCasti(); });
       if ($("dolad")) {
         $("dolad").addEventListener("toggle", function () { st.doladit = this.open; });
@@ -3255,6 +3265,11 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     } catch (e) { return null; }
   }
 
+  function taktCasti(show, x) {   // beats in a bar the analysis found in this part
+    var r = G.rozbor[show.id], ps = r && (r.pisne.filter(function (q) { return q.cislo === x.p.pisen; })[0] || r.pisne[0]), m = 0;
+    if (ps) ps.b.forEach(function (t, i) { if (t >= x.a && t < x.b) m = Math.max(m, (ps.bt[i] || 0) + 1); });
+    return m >= 2 ? m : 4;
+  }
   // ----- tab: AI suggestions -----
   function partStats(show, x) {
     var r = G.rozbor[show.id], ps = r.pisne.filter(function (p) { return p.cislo === x.p.pisen; })[0] || r.pisne[0];
@@ -3263,7 +3278,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var d = []; for (var i = 1; i < idx.length; i++) d.push(ps.b[idx[i]] - ps.b[idx[i - 1]]); d.sort(function (a, b) { return a - b; });
     var bpm = d.length ? Math.round(60 / d[d.length >> 1]) : 0;
     var tk = 0; idx.forEach(function (i) { tk = Math.max(tk, (ps.bt[i] || 0) + 1); });
-    return { bpm: bpm, takt: tk === 3 ? "3/4" : "4/4", bici: Math.round(mean(ps.drums) * 100), zpev: Math.round(mean(ps.voc) * 100), nastroje: Math.round(mean(ps.oth) * 100), basa: Math.round(mean(ps.bass) * 100),
+    if (+x.p.takt) tk = +x.p.takt;
+    return { bpm: bpm, takt: tk + "/4", bici: Math.round(mean(ps.drums) * 100), zpev: Math.round(mean(ps.voc) * 100), nastroje: Math.round(mean(ps.oth) * 100), basa: Math.round(mean(ps.bass) * 100),
       dropy: show.dropy.filter(function (q) { return q.typ === "drop" && q.beat_s >= x.a && q.beat_s < x.b; }).length };
   }
   // the AI never hears the music, its times are guesses: a moment goes onto the strongest beat within one beat of it
@@ -3404,12 +3420,14 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     if (k === "emoce") return ["Tady nastavíš všechno najednou: nálady částí, dropy a momenty.", [
       ["Jak změním náladu části?", "Klikni na část v časové ose a vyber jí náladu. Barva bloku je barva stěn."],
       ["Co je drop?", "Místo, kde má celá sauna bouchnout naplno. Pusť hudbu a ťukni mezerníkem, ťuk se přichytí na nejbližší beat."],
-      ["Jak posunu nebo prodloužím část?", "Táhni část nebo její okraj. Všechno se přichytí na skutečné beaty. Přiblížíš tlačítky +/− nebo Ctrl a kolečkem."], GLOWY_PRAVIDLA]];
+      ["Jak posunu nebo prodloužím část?", "Táhni část nebo její okraj. Všechno se přichytí na skutečné beaty. Přiblížíš tlačítky +/− nebo Ctrl a kolečkem."],
+      ["Světla blikají vedle silného úderu", "Klikni na tu část a rozbal „Světla nesedí na doby?“. Zkus Posunout o dobu, u valčíku nastav 3 doby. Platí jen pro tu část."], GLOWY_PRAVIDLA]];
     if (k === "3d") return ["Tady vidíš, jak bude sauna svítit.", [["Jak saunou otočím?", "Táhni myší (na mobilu prstem)."], ["Proč to ve skutečnosti svítí jinak?", "Každá sauna svítí trochu jinak. V Saunách u své sauny nastav „Jak svítí ve skutečnosti“ a náhled se srovná."]]];
     if (k === "balicek") return ["Tady stáhneš hotová světla pro QuickDMX.", [
       ["Co se zipem udělám?", "Rozbal ho do složky projektu sauny tak, aby se sloučily složky scenes, Live a Music. V QuickDMX otevři Live → Timeline a vyber časovou osu s názvem verze."], GLOWY_PRAVIDLA]];
     if (/^krok\d$/.test(k)) { var K = KROKY[+k.slice(4) - 1] || KROKY[0]; return [K.d, [
       ["Jak postupovat?", "Projdi kroky nahoře: Hudba, Nálada, Náhled, Stáhnout. Kdykoli se můžeš vrátit zpět."],
+      ["Světla blikají vedle silného úderu", "V kroku Nálada klikni na tu část a rozbal „Světla nesedí na doby?“. Zkus Posunout o dobu, u valčíku nastav 3 doby."],
       ["Mám scénář nebo příběh", "V kroku Nálada klikni na „Ať nálady navrhne AI“. Vložíš příběh a AI navrhne nálady za tebe."],
       ["Chci víc možností", "Pokročilý režim (Emoce a dropy, AI návrh, 3D náhled, Balíček) ukáže všechno najednou."], GLOWY_PRAVIDLA]]; }
     if (h[0] === "sauny" || h[0] === "sauna") return ["Tady máš své sauny a jejich světla.", [
