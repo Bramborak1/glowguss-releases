@@ -3355,8 +3355,27 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       ".glowy .gf{transform-box:fill-box;transform-origin:50% 100%;animation:glF 1.7s ease-in-out infinite}" +
       ".glowy .gi{transform-box:fill-box;transform-origin:50% 100%;animation:glI 1.1s ease-in-out infinite}" +
       ".glowy .ge{transform-box:fill-box;transform-origin:50% 50%;animation:glE 4.2s infinite}" +
-      ".glowy .ga{transform-box:fill-box;transform-origin:0% 100%;animation:glA 1.3s ease-in-out infinite}" +
-      ".glowy .gt{transform-box:fill-box;transform-origin:50% 0%;animation:glT 1.3s ease-in-out infinite}" +
+      "@keyframes glA2{0%,14%,100%{transform:rotate(-6deg)}3.5%,10.5%{transform:rotate(16deg)}7%{transform:rotate(-6deg)}}" +
+      "@keyframes glT2{0%,14%,100%{transform:rotate(0)}2%,9%{transform:rotate(14deg)}5.5%,12.5%{transform:rotate(-16deg)}}" +
+      "@keyframes glS{0%{transform:translate(0,0);opacity:0}15%{opacity:1}100%{transform:translate(var(--sx,3px),16px);opacity:0}}" +
+      "@keyframes glK{to{transform:rotate(360deg)}}" +
+      "@keyframes glQ{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}" +
+      "@keyframes glN{0%{transform:translate(0,0);opacity:0}20%{opacity:1}100%{transform:translate(-8px,-26px);opacity:0}}" +
+      "@keyframes glP{0%,100%{transform:translateY(0)}50%{transform:translateY(2px)}}" +
+      "@keyframes glR{0%,100%{transform:translateX(0)}50%{transform:translateX(5px)}}" +
+      ".glowy .ga{transform-box:fill-box;transform-origin:0% 100%;animation:glA2 11s ease-in-out infinite}" +
+      ".glowy .gt{transform-box:fill-box;transform-origin:50% 0%;animation:glT2 11s ease-in-out infinite}" +
+      ".glowy-btn:hover .glowy .ga{animation:glA 1.3s ease-in-out infinite}.glowy-btn:hover .glowy .gt{animation:glT 1.3s ease-in-out infinite}" +
+      ".glowy .gs{transform-box:fill-box;animation:glS 1.6s ease-in infinite}" +
+      ".glowy .gk{transform-box:fill-box;transform-origin:50% 50%;animation:glK 2.4s linear infinite}" +
+      ".glowy .gq{transform-box:fill-box;transform-origin:50% 100%;animation:glQ .64s ease-in-out infinite}" +
+      ".glowy .gn{transform-box:fill-box;animation:glN 2.6s ease-out infinite}" +
+      ".glowy .gp{animation:glP .32s ease-in-out infinite}" +
+      ".glowy .gr{animation:glR 1.28s ease-in-out infinite}" +
+      "@keyframes glH{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}" +
+      "@keyframes glZ{0%,100%{opacity:0}10%,30%{opacity:1}}" +
+      ".glowy .gh{animation:glH .32s ease-in-out infinite}" +
+      ".glowy .gz{animation:glZ .9s steps(1) infinite}" +
       ".glowy .gb{animation:glB 2.2s ease-in-out infinite}" +
       ".glowy-btn:hover .glowy .gf{animation-duration:.8s}" +
       "@media (prefers-reduced-motion:reduce){.glowy *{animation:none!important}}";
@@ -3405,6 +3424,45 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         // head
         '<g transform="translate(18 1)">' + glowyHlava(i) + '</g>' +
       '</g></svg>';
+  }
+  // Glowy at work while the AI designs: sweating like in a sauna, hammering the keyboard, steam rising off his head
+  function glowyPracuje(h) {
+    glowyStyl(); var i = "gl" + (++glN), kl = "";
+    var barvy = ["#7B2FF7", "#E0338A", "#FF8A3D", "#FFD27A"];
+    for (var r = 0; r < 3; r++) for (var q = 0; q < 10; q++) {
+      var x = 42 + q * 8.6 + r * 2.2, y = 98 + r * 6, d = ((q * 7 + r * 13) % 17) / 17 * 0.9;
+      kl += '<rect x="' + x.toFixed(1) + '" y="' + y + '" width="7" height="4.6" rx="1.2" fill="#3A2E48"/>' +
+        ((q * 3 + r) % 4 === 0 ? '<rect class="gz" x="' + x.toFixed(1) + '" y="' + y + '" width="7" height="4.6" rx="1.2" fill="' + barvy[(q + r) % 4] + '" style="animation-delay:' + d.toFixed(2) + 's"/>' : '');
+    }
+    var kap = function (x, y, d, sx) { return '<path class="gs" d="M' + x + ' ' + y + 'q2 3 0 4.4q-2-1.4 0-4.4z" fill="#7FD3FF" style="animation-delay:' + d + 's;--sx:' + sx + 'px"/>'; };
+    var para = function (x, d) { return '<path class="gn" d="M' + x + ' 12q-4-4 0-8q4-4 0-8" stroke="#fff" stroke-width="2" fill="none" opacity=".5" stroke-linecap="round" style="animation-delay:' + d + 's"/>'; };
+    var ruka = function (x0, x1, cls, d) { return '<g class="' + cls + '" style="animation-delay:' + d + 's"><path d="M' + x0 + ' 80q' + ((x1 - x0) / 2) + ' 4 ' + (x1 - x0) + ' 18" stroke="url(#' + i + 'k)" stroke-width="6" fill="none" stroke-linecap="round"/><circle cx="' + x1 + '" cy="98" r="4" fill="#E0338A"/></g>'; };
+    return '<svg class="glowy" width="' + Math.round(h * 1.4) + '" height="' + h + '" viewBox="0 0 168 120" aria-hidden="true" style="flex:none;display:block;overflow:visible">' + glowyDefs(i) +
+      '<circle cx="84" cy="46" r="44" fill="url(#' + i + 'g)"/>' +
+      '<g class="gp">' +
+        '<path d="M66 82c0-7 8-11 18-11s18 4 18 11v14H66z" fill="url(#' + i + 'k)"/>' +
+        // towel round the neck (sauna!)
+        '<path d="M72 74q12 8 24 0l2 5q-14 9-28 0z" fill="#FFE2B8"/><path d="M73 77q11 7 22 0" stroke="#FF8A3D" stroke-width="1.6" fill="none"/>' +
+        '<g transform="translate(52 12)">' + glowyHlava(i) + kap(16, 30, 0, -5) + kap(47, 28, 0.6, 5) + kap(30, 22, 1.1, -1) + kap(40, 34, 0.35, 3) + '</g>' +
+        para(70, 0) + para(98, 1.1) +
+      '</g>' +
+      // keyboard
+      '<path d="M34 94h100l8 24H26z" fill="#2A2036" stroke="#4A3C5C"/>' + kl +
+      // arms hammering the keys, one after the other
+      ruka(69, 58, "gh", 0) + ruka(99, 110, "gh", 0.16) +
+      '</svg>';
+  }
+  var GLOWY_PRACE = ["Poslouchám tvou hudbu…", "Hledám silné údery…", "Čtu tvůj příběh…", "Míchám barvy…", "Ťukám jak o život…", "Ladím nálady k jednotlivým částem…", "Potím se jak v sauně, ale bude to stát za to…", "Kontroluju, ať nic nesvítí bíle…", "Ještě chvilku, dolaďuju detaily…"];
+  function glowyPrace(za, prvni) {   // shows working Glowy after element za, returns a stop function
+    var box = document.createElement("div"); box.className = "glowy-prace";
+    box.style.cssText = "display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:12px;padding:12px 16px;border-radius:16px;background:rgba(123,47,247,.08);border:1px solid rgba(224,51,138,.25)";
+    box.innerHTML = glowyPracuje(140) + '<div style="flex:1 1 180px"><b class="gl-t" style="display:block;font-size:16px"></b><span class="sub">Glowy na tom pracuje s tebou. Můžeš zatím zůstat tady.</span></div>';
+    za.parentNode.insertBefore(box, za.nextSibling);
+    var fab = document.getElementById("glowy-fab"); if (fab) fab.style.visibility = "hidden";
+    var t = box.querySelector(".gl-t"), n = 0, msgs = [prvni].concat(GLOWY_PRACE);
+    t.textContent = msgs[0];
+    var iv = setInterval(function () { n = (n + 1) % msgs.length || 1; t.textContent = msgs[n]; }, 4500);
+    return function () { clearInterval(iv); if (box.parentNode) box.parentNode.removeChild(box); var f = document.getElementById("glowy-fab"); if (f) f.style.visibility = ""; };
   }
   // help Glowy gives on each screen: [intro, [[question, answer], ...]]
   var GLOWY_PRAVIDLA = ["Může se světlům něco pokazit?", "Ne. Program vždycky hlídá pravidla: nikdy bílá ani skoro bílá, kamna a střed jen pomalu dýchají, údery přesně na beat. Když kontrola něco najde, zip se nevyrobí."];
@@ -3653,25 +3711,27 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         if (st.busy) return;
         if (!pokyn && druh !== "barvy") { el.textContent = "Napiš, co má AI změnit."; el.style.color = "var(--bad, #e66)"; return; }
         st.busy = true; b.disabled = true; el.style.color = ""; el.textContent = "AI dolaďuje (obvykle do minuty)…";
+        var konec = glowyPrace(b.parentNode, "Jdu na to, dolaďuju podle tebe…");
         try {
           var r = await K.zavolej({ akce: "ai-navrh", druh: druh, zadani: zadaniDoladit(druh, pokyn, +$("ai-dol-cast").value || 0), spolecne: zadani().length, nazev: show.nazev });
           if (r.kredity) glowcoinLista(r.kredity);
           prijmi(ctiOdpoved(r.odpoved)); el.textContent = st.navrhy.length ? "Hotovo, návrhy jsou výš. Strhlo se " + gcSlovo(r.cena || GC_CENIK[druh] || 1) + "." : "AI by nic neměnila.";
           if (st.navrhy.length) $("ai-out").scrollIntoView({ behavior: "smooth", block: "start" });
         } catch (e) { el.textContent = e.message || String(e); el.style.color = "var(--bad, #e66)"; obnovGlowcoiny(); }
-        st.busy = false; b.disabled = false;
+        konec(); st.busy = false; b.disabled = false;
       });
     }   // with Glowguss AI the free copy-paste route is gone (Milan 2026-11-21)
     if ($("ai-gg-go")) $("ai-gg-go").addEventListener("click", async function () {
       var b = this; if (st.busy) return;
       if (!$("ai-prani").value.trim()) { stav("Nejdřív napiš nahoru scénář nebo příběh show.", true); return; }
       st.busy = true; b.disabled = true; stav("Glowguss AI přemýšlí nad tvým příběhem (obvykle 1 až 2 minuty)…");
+      var konec = glowyPrace($("ai-state"), "Vyhrnuju rukávy a jdu na to…");
       try {
         var r = await K.zavolej({ akce: "ai-navrh", zadani: zadani(), nazev: show.nazev });
         if (r.kredity) glowcoinLista(r.kredity);
         prijmi(ctiOdpoved(r.odpoved)); stav(st.navrhy.length ? "Hotovo. Strhlo se 10 Glowcoinů." : "AI by nic neměnila. Strhlo se 10 Glowcoinů.");
       } catch (e) { stav(e.message || String(e), true); obnovGlowcoiny(); }
-      st.busy = false; b.disabled = false;
+      konec(); st.busy = false; b.disabled = false;
     });
     return { refresh: render, dispose: function () { clearTimeout(ulozT); if (st.ctl) st.ctl.abort(); } };
   }
