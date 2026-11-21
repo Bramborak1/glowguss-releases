@@ -2083,7 +2083,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       '<p class="note" style="margin-top:8px">' + esc(G.centrum ? "Licenci prodlužuje centrum." : kontaktText()) + '</p><p class="note" style="margin-top:6px">Po odhlášení se tvoje show zálohují na server a z tohohle zařízení zmizí, takže je další saunér neuvidí. Po přihlášení se vrátí. Hudbu pak jen znovu vybereš.</p><div class="row" style="margin-top:14px"><button class="btn" id="ac-out" type="button">Odhlásit</button></div></section></div>';
     $("ac-out").addEventListener("click", odhlasitSe);
     if (REMOTE) { if (kredityViditelne()) kredityKarta(); centrumKarta(); zarizeniKarta(view); uceniKarta(); }
-    if (G.spravce) { spravaLicenci(); spravaCenter(); }
+    if (G.spravce) { spravaLicenci(); hlidaniKarta(); spravaCenter(); }
   }
 
   // ---------- AI credits: 1 credit per AI generation; for now visible only to the owner (and on a device with localStorage glowguss-kredity = ano) until AI runs in the app ----------
@@ -2285,6 +2285,25 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     }
     if (stav0 && stav0.zarizeni) vykresli(stav0);
     else K.zavolej({ akce: "zarizeni-seznam" }).then(vykresli).catch(function (e) { var el = $("zr"); if (el) el.textContent = "Seznam se nepodařilo načíst: " + (e.message || e); });
+  }
+  // the owner: accounts that look shared or that abuse the free trial (last 30 days)
+  function hlidaniKarta() {
+    var box = document.createElement("section"); box.className = "card"; box.style.marginTop = "16px";
+    box.innerHTML = '<div class="row between"><h2>Hlídání sdílení</h2><button class="btn small" id="hl-obnov" type="button">Obnovit</button></div><p class="note" style="margin-top:6px">Účty, které za posledních 30 dní vypadají jako sdílené nebo zkoušely obejít zkušební verzi. Čím vyšší skóre, tím podezřelejší. Program si u každého přístupu pamatuje zařízení, zkrácenou IP adresu (síť) a hodinu, 90 dní.</p><div id="hl" style="margin-top:12px">Načítám…</div>';
+    view.appendChild(box);
+    async function nacist() {
+      var el = $("hl"); if (!el) return;
+      try {
+        var r = await K.zavolej({ akce: "spravce-podezreni" }), U = r.ucty || [];
+        el.innerHTML = (U.length ? '<div style="display:flex;flex-direction:column;gap:10px">' + U.map(function (u) {
+          var st = u.skore >= 5 ? ["vysoké", "var(--bad)"] : u.skore >= 3 ? ["střední", "#FF8A3D"] : ["nízké", "var(--fg2,#9aa0aa)"];
+          return '<div style="border:1px solid var(--line,#2a2d36);border-left:4px solid ' + st[1] + ';border-radius:12px;padding:10px 12px"><div class="row between" style="gap:8px;flex-wrap:wrap"><b style="overflow-wrap:anywhere">' + esc(u.email) + '</b><span class="badge" style="color:' + st[1] + '">skóre ' + u.skore + ' · ' + st[0] + '</span></div>' +
+            '<ul style="margin:6px 0 0 18px;padding:0">' + u.duvody.map(function (d) { return '<li>' + esc(d) + '</li>'; }).join("") + '</ul>' +
+            '<div class="sub" style="margin-top:6px">' + (u.zkusebni ? "zkušební verze · " : "") + u.zarizeni + ' zař. · ' + u.site + (u.site === 1 ? ' síť' : u.site < 5 ? ' sítě' : ' sítí') + (u.zeme.length ? ' · ' + esc(u.zeme.join(", ")) : '') + (u.mesta.length ? ' · ' + esc(u.mesta.join(", ")) : '') + (u.naposledy ? ' · naposledy ' + new Date(u.naposledy).toLocaleDateString("cs-CZ") : '') + '</div></div>';
+        }).join("") + '</div>' : '<p class="sub">Nic podezřelého. Sledováno účtů: ' + (r.sledovano || 0) + '.</p>');
+      } catch (e) { el.textContent = "Přehled se nepodařilo načíst: " + (e.message || e); }
+    }
+    $("hl-obnov").addEventListener("click", nacist); nacist();
   }
   async function spravaLicenci() {
     var box = document.createElement("section"); box.className = "card"; box.style.marginTop = "16px";
