@@ -886,8 +886,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
   function ascii(s) {
     var TR = { "Á": "A", "Č": "C", "Ď": "D", "É": "E", "Ě": "E", "Í": "I", "Ň": "N", "Ó": "O", "Ř": "R", "Š": "S", "Ť": "T", "Ú": "U", "Ů": "U", "Ý": "Y", "Ž": "Z" };
-    return String(s || "").toUpperCase().split("").map(function (c) { return TR[c] || c; }).join("").replace(/[^A-Z0-9_-]+/g, "");
+    return String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ß/g, "ss").replace(/[łŁ]/g, function (c) { return c === "ł" ? "l" : "L"; }).toUpperCase().split("").map(function (c) { return TR[c] || c; }).join("").replace(/[^A-Z0-9_-]+/g, "");
   }
+  function cistaCesta(s) { return String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ß/g, "ss").replace(/[łŁ]/g, function (c) { return c === "ł" ? "l" : "L"; }).replace(/[^A-Za-z0-9_.\/-]+/g, "_").replace(/_+/g, "_"); }   // QuickDMX reads only ASCII file names
   function osyOf(pr) { return pr.osy || [{ nazev: (pr.osa || "").replace(/\.tml$/i, ""), hudba: pr.hudba, delka: pr.delka, udalosti: pr.udalosti || [] }]; }   // v1 = one timeline
   function casText(x) { return Math.floor(x / 3600) + ":" + ("0" + Math.floor(x % 3600 / 60)).slice(-2) + ":" + ("0" + (x % 60).toFixed(1)).slice(-4); }
   var FX_DEF = [["ReversePan", "0"], ["ReverseTilt", "0"], ["OffsetPan", "0"], ["OffsetTilt", "0"], ["ZoomPan", "0"], ["ZoomTilt", "0"], ["ExplodeIndex", "0"]];
@@ -919,7 +920,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         fx.forEach(function (x) { var c = st[1][kdo[x[0]].z]; if (!c) return; v[x[0]] = hodnoty(sauna, kdo[x[0]].g, x[2], c); f[x[0]] = c[4] === 1; });
         return [st[0], v, f];
       });
-      var cesta = verze + "/" + p.replace(/\\/g, "/");
+      var cesta = verze + "/" + cistaCesta(p.replace(/\\/g, "/"));
       files["scenes/" + cesta] = scexText(fx, sauna, steps); nove[p] = cesta; rep.sceny++;
       plan.items[p] = { fx: fx.map(function (x) { return [x[0], x[2], kdo[x[0]].g]; }), steps: steps.map(function (s) { return [s[0] * 10, s[1], s[2]]; }) };
     });
@@ -952,7 +953,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         'TimeLine_1 = V I D E O   P I C T U R E   T I M E L I N E', 'TimeLine_2 = A U D I O   T I M E L I N E'];
       for (var k = 0; k < 8; k++) L.push('TimeLine_' + (k + 3) + ' = L I G H T   S C E N E   T I M E L I N E   #   ' + (k + 1));
       var n = 0, ev = function (lines) { L.push("[Event_" + (n++) + "]"); lines.forEach(function (x) { L.push(x); }); }, lanes = {};
-      if (o.hudba) ev(["TimeLineIndex = 2", "StartTime = 0:00:00.0", "Path = " + o.hudba, "Length = " + casText(o.delka)]);
+      if (o.hudba) ev(["TimeLineIndex = 2", "StartTime = 0:00:00.0", "Path = " + cistaCesta(o.hudba), "Length = " + casText(o.delka)]);
       o.udalosti.forEach(function (u) {
         var p = u.p === "OFF" ? "OFF" : nove[u.p]; if (!p) return;
         ev(["TimeLineIndex = " + u.l, "StartTime = " + u.t, "Path = " + p].concat((u.x || []).map(function (x) { return x[0] + " = " + x[1]; })));
@@ -1558,6 +1559,10 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   function mmss(s) { var m = Math.floor(s / 60), r = Math.round(s - m * 60); if (r === 60) { m++; r = 0; } return m + ":" + (r < 10 ? "0" : "") + r; }
   function hex(rgb) { return "#" + rgb.map(function (v) { v = Math.max(0, Math.min(255, Math.round(v))); return (v < 16 ? "0" : "") + v.toString(16); }).join(""); }
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
+  // QuickDMX can't read diacritics in file names (shows them as _): every path we write is plain ASCII
+  function bezDiak(s) { return String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ß/g, "ss").replace(/[łŁ]/g, function (c) { return c === "ł" ? "l" : "L"; }); }
+  function cistaCesta(s) { return bezDiak(s).replace(/[^A-Za-z0-9_.\/-]+/g, "_").replace(/_+/g, "_"); }
+  function hudbaCesta(show) { return cistaCesta(show.hudbaCesta || "Music/" + (show.hudba || "show.wav")); }
   function slug(s) { return C.ascii(String(s || "")).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "x"; }
   function when(iso) { if (!iso) return ""; var d = new Date(iso); return isNaN(d) ? "" : d.toLocaleString("cs-CZ", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }); }
   function setStatus(t, ok) { var s = $("status"); s.textContent = t; s.className = "status" + (ok ? " ok" : ""); }
@@ -1643,7 +1648,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       [0.5, 1, 2, 4].map(function (r) { return '<option value="' + r + '"' + (r === P.rate ? " selected" : "") + '>' + r + '×</option>'; }).join("") + '</select></label>' +
       '<label class="sub" style="display:flex;align-items:center;gap:6px">Hlasitost <input type="range" id="pl-vol" min="0" max="1" step="0.05" value="' + P.audio.volume + '" style="width:110px" aria-label="Hlasitost poslechu"></label>' +
       '</div><p class="note" style="margin-top:10px">' + (P.has ? "Hudba hraje jen v tvém zařízení, nikam se nenahrává." :
-        (silentOk ? "Bez hudby jede náhled podle hodin, nemusíš nic poslouchat. Pro ťukání dropů načti celou stopu show (" + esc(show.hudbaCesta || show.hudba || "") + ")." : "Načti celou stopu show (" + esc(show.hudbaCesta || show.hudba || "") + "). Hraje jen v tvém zařízení.")) + '</p></section>';
+        (silentOk ? "Bez hudby jede náhled podle hodin, nemusíš nic poslouchat. Pro ťukání dropů načti celou stopu show (" + esc(hudbaCesta(show) || show.hudba || "") + ")." : "Načti celou stopu show (" + esc(hudbaCesta(show) || show.hudba || "") + "). Hraje jen v tvém zařízení.")) + '</p></section>';
   }
   function wirePlayer(show, onLoaded) {
     var T = show.konec || show.delka || 600;
@@ -1769,7 +1774,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     if (!s) throw new Error("Show nemá saunu „" + show.sauna + "“.");
     if (!r) throw new Error("Hudba této show ještě není rozebraná (beaty a stopy).");
     var sh = clone(show); sh.verze = verze || show.verze || (C.ascii(show.nazev).toUpperCase().replace(/[^A-Z0-9]+/g, "") + "1");
-    sh.konec = show.konec || show.delka; sh.poKonci = show.poKonci || PO_KONCI; sh.hudbaCesta = show.hudbaCesta || "Music/" + (show.hudba || "show.wav");
+    sh.konec = show.konec || show.delka; sh.poKonci = show.poKonci || PO_KONCI; sh.hudbaCesta = hudbaCesta(show);
     return { sauna: s, show: sh, rozbor: r, recept: G.recept };
   }
   var planCache = { key: "", res: null };
@@ -1890,7 +1895,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       if (!jenHlavni("novou show zakládáš")) return;
       var nazev = $("n-nazev").value.trim(); if (!nazev) { $("n-nazev").focus(); setStatus("Zadej název show"); return; }
       var id = slug(nazev), k = 2; while (G.shows[id]) id = slug(nazev) + "-" + (k++);
-      var sk = $("n-sauna").value, hud = $("n-hudba").value.trim() || (C.ascii(nazev).toUpperCase().replace(/[^A-Z0-9]+/g, "_") + ".wav");
+      var sk = $("n-sauna").value, hud = cistaCesta($("n-hudba").value.trim()) || (C.ascii(nazev).toUpperCase().replace(/[^A-Z0-9]+/g, "_") + ".wav");
       var doc = { id: id, nazev: nazev, sauna: sk, saunaNazev: G.sauny[sk].nazev, hudba: hud, hudbaCesta: "Music/" + hud, delka: 0, konec: 0, pisne: [], casti: [], dropy: [], barvyDropu: {},
         nabehy: [], poKonci: PO_KONCI, verze: C.ascii(nazev).toUpperCase().replace(/[^A-Z0-9]+/g, "").slice(0, 16) + "1", upraveno: new Date().toISOString() };
       this.disabled = true;
@@ -2507,7 +2512,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var tot = 0; (G.rozbor[show.id].pisne || []).forEach(function (p) { tot += p.b.length; });
     body.innerHTML = '<section class="card" style="max-width:720px"><input type="file" id="m-file" accept="audio/*" class="vh"' + ((show.mix || []).length > 1 ? " multiple" : "") + '>' +
       '<label for="m-file" class="drop' + (P.has ? ' ok' : '') + '"><svg width="34" height="34" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 12V3l8-1.5V10" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="4" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="10.5" r="2" fill="currentColor"/></svg>' +
-      '<b>' + (P.has ? "Načteno: " + esc(P.name) : ((show.mix || []).length > 1 ? "Vybrat skladby show" : "Vybrat skladbu")) + '</b><span>' + (P.has ? "Klikni pro jiný soubor" : "celá stopa show, " + esc((show.hudbaCesta || show.hudba || "").split("/").pop())) + '</span></label>' +
+      '<b>' + (P.has ? "Načteno: " + esc(P.name) : ((show.mix || []).length > 1 ? "Vybrat skladby show" : "Vybrat skladbu")) + '</b><span>' + (P.has ? "Klikni pro jiný soubor" : "celá stopa show, " + esc((hudbaCesta(show) || show.hudba || "").split("/").pop())) + '</span></label>' +
       (P.has ? '<div class="row" style="margin-top:14px"><button class="btn icon primary" id="pl-play"></button><span class="time" id="pl-time"></span></div>' : '') +
       '<div class="okbox" style="margin-top:14px">Hudba je už rozebraná: ' + show.pisne.map(function (p) { return p.cislo + '. ' + esc(p.nazev); }).join(", ") + ' · ' + mmss(show.delka || 0) + ' · ' + tot + ' beatů.</div>' +
       '<details class="more" style="margin-top:12px"><summary>Jiná hudba</summary><p class="note">Rozebere novou hudbu a nastaví nové části. Tvoje nálady a dropy u této show se smažou.</p><button class="btn" id="m-new" type="button">Rozebrat jinou hudbu</button></details></section>';
@@ -3899,7 +3904,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       '<p class="note" style="margin-top:8px">Nové jméno = stará verze v QuickDMX zůstane, můžeš přepínat a porovnat.</p>') + '<div id="p-out" style="margin-top:14px;display:flex;flex-direction:column;gap:12px"></div></section></div>' +
       '<aside class="col-side"><section class="card"><h2>Jak to dostat do sauny</h2><ol class="note" style="padding-left:18px;margin:10px 0 0;display:flex;flex-direction:column;gap:6px">' +
       (slozkaJde() ? '<li><b>Nejjednodušší:</b> „Uložit rovnou do QuickDMX“ a jednou vyber složku projektu sauny. Další body pak odpadají.</li>' : '') + '<li>Stáhni zip.</li><li>Rozbal ho do složky projektu sauny (u VF „AQP VF“) tak, aby se složky <b>scenes</b> a <b>Live</b> sloučily s existujícími. Nic se nepřepíše, verze má vlastní složku.</li>' +
-      '<li>' + (G.soubor[show.id] ? 'Hudba je v zipu jako ' + esc(show.hudbaCesta || "") + '.' : 'Hudba (' + esc(show.hudbaCesta || "") + ') v zipu bude, když ji v kroku 1 načteš. Jinak ji do složky Music zkopíruj sám.') + '</li><li>V QuickDMX otevři Live → Timeline a vyber časovou osu s novým jménem verze.</li></ol></section></aside></div>';
+      '<li>' + (G.soubor[show.id] ? 'Hudba je v zipu jako ' + esc(hudbaCesta(show) || "") + '.' : 'Hudba (' + esc(hudbaCesta(show) || "") + ') v zipu bude, když ji v kroku 1 načteš. Jinak ji do složky Music zkopíruj sám.') + '</li><li>V QuickDMX otevři Live → Timeline a vyber časovou osu s novým jménem verze.</li></ol></section></aside></div>';
     var dl = window.claude ? window.claude.use("downloads") : Promise.resolve(null);
     $("p-go").addEventListener("click", function () {
       var v = C.ascii($("p-verze").value.trim()).toUpperCase().replace(/[^A-Z0-9_-]+/g, ""); if (!v) { $("p-verze").focus(); return; }
@@ -3941,7 +3946,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
           await ulozSlozku(show.sauna, dir);
         }
         var files = Object.assign({}, last.r.files), n = 0, mf = G.soubor[show.id];
-        if (mf && window.SvetlaAnalyza) { s.textContent = "Převádím hudbu na WAV pro QuickDMX…"; try { files[show.hudbaCesta] = mf._hotovo ? mf : await window.SvetlaAnalyza.wav((await window.SvetlaAnalyza.nactiSoubor(mf)).puvodni); } catch (e) { mf = null; } }
+        if (mf && window.SvetlaAnalyza) { s.textContent = "Převádím hudbu na WAV pro QuickDMX…"; try { files[hudbaCesta(show)] = mf._hotovo ? mf : await window.SvetlaAnalyza.wav((await window.SvetlaAnalyza.nactiSoubor(mf)).puvodni); } catch (e) { mf = null; } }
         var cesty = Object.keys(files).sort();
         for (var i = 0; i < cesty.length; i++) {
           var cast = cesty[i].split("/"), d = dir;
@@ -3963,7 +3968,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       var mf = G.soubor[show.id];
       if (mf && window.SvetlaAnalyza) {
         s.textContent = "Převádím hudbu na WAV pro QuickDMX…";
-        try { z.file(show.hudbaCesta, mf._hotovo ? mf : await window.SvetlaAnalyza.wav((await window.SvetlaAnalyza.nactiSoubor(mf)).puvodni)); }
+        try { z.file(hudbaCesta(show), mf._hotovo ? mf : await window.SvetlaAnalyza.wav((await window.SvetlaAnalyza.nactiSoubor(mf)).puvodni)); }
         catch (e) { mf = null; }
         s.textContent = "Balím…";
       }
@@ -4038,7 +4043,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         var pr = PR.prevezmi(Z.files, v === "t" ? { osy: [], tlacitka: true } : { osy: [Z.osy[+v.slice(1)].cesta] }, Z.prof, IMP.roleOfText);
         if (!Object.keys(pr.sceny).length && !Object.keys(pr.gen || {}).length) throw new Error("show nemá žádné scény, které by šly převzít");
         var id = slug(nazev), k = 2; while (G.shows[id]) id = slug(nazev) + "-" + (k++);
-        var doc = { id: id, nazev: nazev, typ: "prevzata", sauna: sk, saunaNazev: G.sauny[sk].nazev, hudba: (pr.hudba || "").split("/").pop(), hudbaCesta: pr.hudba, delka: pr.delka, konec: pr.delka,
+        var doc = { id: id, nazev: nazev, typ: "prevzata", sauna: sk, saunaNazev: G.sauny[sk].nazev, hudba: cistaCesta((pr.hudba || "").split("/").pop()), hudbaCesta: pr.hudba ? cistaCesta(pr.hudba) : "", delka: pr.delka, konec: pr.delka,
           pisne: [], casti: [], dropy: [], barvyDropu: {}, verze: (PR.ascii(nazev).slice(0, 14) || "SHOW") + "1", prevod: pr, mapa: PR.vychoziMapa(pr, G.sauny[sk]), upraveno: new Date().toISOString() };
         await G.db.doc("show/" + id).set(doc); G.shows[id] = doc;
         var mz = pr.hudba && Z.hudby[pr.hudba.toLowerCase()];
@@ -4102,7 +4107,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       }).join("") + '</div>' + (upoz.length ? '<div class="note" style="margin-top:12px;display:flex;flex-direction:column;gap:6px">' + upoz.map(function (u) { return '<span>' + u + '</span>'; }).join("") + '</div>' : '') + '</section>' +
       '<section class="card"><h2>Stáhnout pro QuickDMX</h2><div class="field" style="margin-top:12px"><label class="lbl" for="pv-verze">Jméno verze v QuickDMX</label><input type="text" id="pv-verze" value="' + esc(show.verze) + '"></div>' +
       '<p class="note" style="margin-top:8px">' + res.rep.sceny + ' scén' + (res.rep.generatory ? ', ' + res.rep.generatory + ' efektů z generátoru' : '') + (osa ? ', ' + res.rep.udalosti + ' událostí na ose' : '') + (str.length ? ', ' + res.rep.tlacitka + ' tlačítek' : '') + ', ' + res.rep.svetel + ' světel. ' +
-      (osa ? (G.soubor[id] ? 'Hudba půjde do zipu jako ' + esc(show.hudbaCesta) + '.' : 'Hudbu (' + esc(show.hudbaCesta || "") + ') načti v přehrávači, jinak ji do složky Music zkopíruj sám.') : '') +
+      (osa ? (G.soubor[id] ? 'Hudba půjde do zipu jako ' + esc(hudbaCesta(show)) + '.' : 'Hudbu (' + esc(hudbaCesta(show) || "") + ') načti v přehrávači, jinak ji do složky Music zkopíruj sám.') : '') +
       (str.length ? ' Tlačítka se do QuickDMX přidají jen přes „Uložit rovnou do QuickDMX“ (doplní je do tvého live.ini, předtím ho zazálohuje).' : '') + '</p>' +
       '<div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap">' + (slozkaJde() ? '<button class="btn primary" id="pv-qd" type="button">Uložit rovnou do QuickDMX</button><button class="btn" id="pv-dl" type="button">Stáhnout zip</button>' : '<button class="btn primary" id="pv-dl" type="button">Stáhnout zip</button>') + '</div><p class="note" id="pv-st" style="margin-top:8px"></p></section></aside></div>';
     var S3 = scene3d($("stage"), sauna, { view: "roh" }), rucne = null;   // rucne: a Live button being previewed {p, t0}
@@ -4126,11 +4131,11 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     });
     function verze() { var v = PR.ascii($("pv-verze").value); if (!v) { $("pv-verze").focus(); return null; } $("pv-verze").value = v; return v; }
     async function sHudbou(files, s) {
-      var mf = G.soubor[id]; if (!osa || !mf || !show.hudbaCesta) return false;
-      if (mf._hotovo) { files[show.hudbaCesta] = mf; return true; }
+      var mf = G.soubor[id]; if (!osa || !mf || !hudbaCesta(show)) return false;
+      if (mf._hotovo) { files[hudbaCesta(show)] = mf; return true; }
       if (!window.SvetlaAnalyza) return false;
       s.textContent = "Převádím hudbu na WAV pro QuickDMX…";
-      try { files[show.hudbaCesta] = await window.SvetlaAnalyza.wav((await window.SvetlaAnalyza.nactiSoubor(mf)).puvodni); return true; } catch (e) { return false; }
+      try { files[hudbaCesta(show)] = await window.SvetlaAnalyza.wav((await window.SvetlaAnalyza.nactiSoubor(mf)).puvodni); return true; } catch (e) { return false; }
     }
     $("pv-dl").addEventListener("click", async function () {
       var v = verze(), s = $("pv-st"); if (!v) return;
