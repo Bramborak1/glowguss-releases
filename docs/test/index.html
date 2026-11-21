@@ -3333,13 +3333,13 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   var GLOWY_PRAVIDLA = ["Může se světlům něco pokazit?", "Ne. Program vždycky hlídá pravidla: nikdy bílá ani skoro bílá, kamna a střed jen pomalu dýchají, údery přesně na beat. Když kontrola něco najde, zip se nevyrobí."];
   function glowyRady(h) {
     var k = h[0] === "show" ? (h[2] || "krok1") : "";
-    if (k === "ai") return ["Napiš mi příběh své show a já ti ke každé části hudby navrhnu náladu světel.", [
+    if (k === "ai") return ["Napiš mi příběh své show a já ti ke každé části hudby navrhnu náladu světel.", [].concat([
       ["Co sem mám napsat?", "Scénář show: příběh, časy, kdo kdy mluví a co se má stát. Stačí pár řádků, třeba „0:00 mlha, Aladin bloudí. 1:30 první kolo, radost. Konec dojemný.“ Hotový text můžeš načíst i ze souboru."],
       ["Co z toho AI udělá?", "Spojí tvůj příběh s rozborem hudby (kde hrají bicí, kde je řeč nebo ticho) a ke každé části navrhne náladu a sílu, s krátkým důvodem. Každý návrh přijmeš nebo necháš."],
       ["Co je Glowguss AI?", "Tlačítko Navrhnout přes Glowguss AI pošle tvůj scénář i rozbor hudby rovnou AI, bez kopírování. Stojí 10 Glowcoinů. Když se něco technicky pokazí, Glowcoiny se vrátí."],
       ["Jak to funguje zdarma přes Claude?", "1. Klikni na Zkopírovat zadání a vlož ho do Claude (stačí verze zdarma). 2. Celou odpověď od Claude zkopíruj zpátky sem. 3. Klikni na Ukázat návrhy. Do druhého pole patří odpověď od Claude, ne tvůj scénář."],
       ["Co jsou momenty příběhu?", "Krátké efekty na přesný čas přes náladu části: náraz, zhasnutí, jiskry, tma a restart, přísvit postavy. Kamna nikdy neblikají, jen pomalu ztlumí. AI je navrhne podle scénáře, nebo je přidáš ručně."],
-      ["Může AI rozbít světla?", "Nemůže. Pravidla světel hlídá generátor vždycky a AI je obejít nemůže."]]];
+      ["Může AI rozbít světla?", "Nemůže. Pravidla světel hlídá generátor vždycky a AI je obejít nemůže."]]).filter(function (x) { return !(REMOTE && kredityViditelne() && /zdarma/.test(x[0])); })];
     if (k === "emoce") return ["Tady nastavíš všechno najednou: nálady částí, dropy a momenty.", [
       ["Jak změním náladu části?", "Klikni na část v časové ose a vyber jí náladu. Barva bloku je barva stěn."],
       ["Co je drop?", "Místo, kde má celá sauna bouchnout naplno. Pusť hudbu a ťukni mezerníkem, ťuk se přichytí na nejbližší beat."],
@@ -3550,6 +3550,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       st.busy = false; $("ai-go").disabled = false; $("ai-stop").hidden = true;
     });
     $("ai-stop").addEventListener("click", function () { if (st.ctl) st.ctl.abort(); });
+    if ($("ai-gg-go")) $("ai-zdarma").hidden = true;   // with Glowguss AI the free copy-paste route is gone (Milan 2026-11-21)
     if ($("ai-gg-go")) $("ai-gg-go").addEventListener("click", async function () {
       var b = this; if (st.busy) return;
       if (!$("ai-prani").value.trim()) { stav("Nejdřív napiš nahoru scénář nebo příběh show.", true); return; }
