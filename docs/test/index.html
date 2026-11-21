@@ -411,17 +411,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw err("auth", "Zadej platný e-mail.");
     if (String(heslo || "").length < 6) throw err("auth", "Heslo musí mít aspoň 6 znaků.");
     var j;
-    try { j = await auth(novy ? "signup" : "token?grant_type=password", { email: email, password: heslo }); }
+    try { j = await auth(novy ? "signup?redirect_to=" + encodeURIComponent(obnovaAdresa()) : "token?grant_type=password", { email: email, password: heslo }); }
     catch (e) {
       if (e.kod === "sit") throw e;
       var m = String(e.message || "");
       if (/invalid login credentials/i.test(m)) throw err("auth", "Špatný e-mail nebo heslo. Nemáš ještě účet? Dej „Vytvořit účet“.");
       if (/already registered|already exists/i.test(m)) throw err("auth", "Účet s tímto e-mailem už existuje, dej „Přihlásit“.");
-      if (/not confirmed/i.test(m)) throw err("auth", "E-mail ještě není potvrzený. Napiš Milanovi.");
+      if (/not confirmed/i.test(m)) throw err("auth", "E-mail ještě není potvrzený. Klikni na odkaz v e-mailu, který ti přišel při registraci (zkontroluj i spam), a pak se přihlas.");
       if (/signups? not allowed|disabled/i.test(m)) throw err("auth", "Registrace e-mailem je teď vypnutá. Napiš Milanovi.");
       throw err("auth", "Přihlášení se nepovedlo (" + m + ").");
     }
-    if (!j.access_token) throw err("auth", "Účet je vytvořený, ale čeká na potvrzení e-mailu. Napiš Milanovi.");
+    if (!j.access_token) throw err("auth", "Účet je vytvořený. Poslali jsme ti e-mail s odkazem: klikni na něj (zkontroluj i spam) a pak se tady přihlas.");
     var s = fromAuth(j, email); store(s); return s;
   }
   // forgotten password: Supabase e-mails a link back to this page; the link returns with #access_token=...&type=recovery
@@ -447,7 +447,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     var q = new URLSearchParams(h.slice(1));
     history.replaceState(null, "", zpetAdresa());
     if (q.get("error") || q.get("error_code")) {
-      if (/otp_expired|expired|invalid/i.test((q.get("error_code") || "") + " " + (q.get("error_description") || ""))) throw err("auth", "Odkaz pro nové heslo už vypršel nebo byl použitý. Klikni na „Zapomněl jsem heslo“ a pošli si nový.");
+      if (/otp_expired|expired|invalid/i.test((q.get("error_code") || "") + " " + (q.get("error_description") || ""))) throw err("auth", "Odkaz z e-mailu už vypršel nebo byl použitý. Zkus se přihlásit. Pro nové heslo klikni na „Zapomněl jsem heslo“ a pošli si nový odkaz.");
       throw err("auth", "Odkaz z e-mailu nefungoval (" + (q.get("error_description") || q.get("error")) + "). Pošli si nový.");
     }
     var at = q.get("access_token");
@@ -1886,6 +1886,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     wireManage(); wirePrevzit();
     wireSlozky();
     $("n-ok").addEventListener("click", function () {
+      if (!jenHlavni("novou show zakládáš")) return;
       var nazev = $("n-nazev").value.trim(); if (!nazev) { $("n-nazev").focus(); setStatus("Zadej název show"); return; }
       var id = slug(nazev), k = 2; while (G.shows[id]) id = slug(nazev) + "-" + (k++);
       var sk = $("n-sauna").value, hud = $("n-hudba").value.trim() || (C.ascii(nazev).toUpperCase().replace(/[^A-Z0-9]+/g, "_") + ".wav");
@@ -2255,17 +2256,26 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   // devices on this licence (max 2); removing one blocks adding a new one for 48 h
   function zarizeniKarta(parent, stav0) {
     var box = document.createElement("section"); box.className = "card"; box.style.marginTop = "16px";
-    box.innerHTML = '<h2>Zařízení</h2><p class="note" style="margin-top:6px">Licence funguje nejvýš na 2 zařízeních (prohlížeč nebo program). Po odebrání zařízení jde nové přidat až za 48 hodin.</p><div id="zr" style="margin-top:12px">Načítám…</div>';
+    box.innerHTML = '<h2>Zařízení</h2><p class="note" style="margin-top:6px">Licence funguje na 1 hlavním a 2 vedlejších zařízeních (prohlížeč nebo program). Na hlavním děláš všechno, na vedlejším upravuješ, přehráváš a stahuješ show z hlavního (novou show, hudbu a saunu tam nepřidáš). Hlavní jde změnit jednou za 48 hodin. Po odebrání zařízení jde nové přidat až za 48 hodin.</p><div id="zr" style="margin-top:12px">Načítám…</div>';
     parent.appendChild(box);
     var kdy = function (d) { return new Date(d).toLocaleString("cs-CZ", { day: "numeric", month: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }); };
     function vykresli(st) {
       var el = $("zr"); if (!el) return;
       var ja = K.zarizeni().id, Z = st.zarizeni || [];
       el.innerHTML = (Z.length ? '<div style="display:flex;flex-direction:column;gap:8px">' + Z.map(function (z, i) {
-        return '<div style="border:1px solid var(--line,#2a2d36);border-radius:12px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center"><div style="flex:1 1 200px;min-width:0"><b>' + esc(z.popis || "Zařízení") + '</b>' + (z.id === ja ? ' <span class="note">(tohle)</span>' : '') +
-          '<div class="sub">Přidáno ' + kdy(z.pridano) + ' · naposledy ' + kdy(z.naposledy) + '</div></div><button class="btn small zr-x" data-i="' + i + '" type="button" style="color:var(--bad)">Odebrat</button></div>';
+        var hl = "hlavni" in z ? (z.hlavni ? '<span class="badge ok">hlavní</span>' : '<span class="badge">vedlejší</span>') : '';
+        return '<div style="border:1px solid var(--line,#2a2d36);border-radius:12px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center"><div style="flex:1 1 200px;min-width:0"><b>' + esc(z.popis || "Zařízení") + '</b>' + (z.id === ja ? ' <span class="note">(tohle)</span>' : '') + ' ' + hl +
+          '<div class="sub">Přidáno ' + kdy(z.pridano) + ' · naposledy ' + kdy(z.naposledy) + '</div></div>' +
+          (z.id === ja && "hlavni" in z && !z.hlavni ? '<button class="btn small primary zr-h" type="button">Udělat hlavním</button>' : '') + '<button class="btn small zr-x" data-i="' + i + '" type="button" style="color:var(--bad)">Odebrat</button></div>';
       }).join("") + '</div>' : '<p class="sub">Zatím žádné zařízení.</p>') +
+        (st.zmena_hlavniho_od ? '<p class="note" style="margin-top:10px">Hlavní zařízení jde znovu změnit až ' + kdy(st.zmena_hlavniho_od) + '.</p>' : '') +
         (st.pridat_od ? '<p class="note" style="margin-top:10px">Nové zařízení jde přidat až ' + kdy(st.pridat_od) + '.</p>' : '');
+      on(el, ".zr-h", "click", async function (e, b) {
+        if (!(await potvrd("Udělat tohle zařízení hlavním? Dosavadní hlavní bude vedlejší a další změna půjde až za 48 hodin.", "Udělat hlavním"))) return;
+        b.disabled = true;
+        try { var r = await K.zavolej({ akce: "zarizeni-hlavni" }); G.vedlejsi = false; stavovaLista(); vykresli(r); setStatus("Tohle je teď hlavní zařízení", true); }
+        catch (er) { setStatus("Nepovedlo se: " + (er.message || er)); b.disabled = false; }
+      });
       on(el, ".zr-x", "click", async function (e, b) {
         var z = Z[+b.dataset.i], tohle = z.id === ja;
         if (!(await potvrd("Odebrat " + (z.popis || "zařízení") + "? Nové zařízení pak půjde přidat až za 48 hodin." + (tohle ? " Tohle zařízení přestane fungovat a znovu se přidá taky až za 48 hodin." : ""), "Odebrat"))) return;
@@ -2288,7 +2298,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         el.innerHTML = '<div style="display:flex;flex-direction:column;gap:10px">' + U.map(function (u, i) {
           var plati = u.plati_do && new Date(u.plati_do) > new Date();
           return '<div style="border:1px solid var(--line,#2a2d36);border-radius:12px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center">' +
-            '<div style="flex:1 1 220px;min-width:0"><b style="overflow-wrap:anywhere">' + esc(u.email || u.id) + '</b><div class="sub">' + (u.plati_do ? (plati ? "Platí do " : "Vypršelo ") + new Date(u.plati_do).toLocaleDateString("cs-CZ") : u.centrum ? "Bez vlastního předplatného" : "Bez předplatného") + (u.centrum ? " · centrum " + esc(u.centrum.nazev) + " do " + new Date(u.centrum.plati_do).toLocaleDateString("cs-CZ") : "") + (u.naposledy ? " · naposledy " + new Date(u.naposledy).toLocaleDateString("cs-CZ") : "") + " · zařízení " + (u.zarizeni || 0) + "/2" + (u.kredity ? " · kredity " + u.kredity.vlastni + " vlastních" + (u.plati_do && plati ? ", v licenci použito " + u.kredity.mesic + "/" + (r.kredity_mesicne || 0) + " tento měsíc" : "") : "") + '</div></div>' +
+            '<div style="flex:1 1 220px;min-width:0"><b style="overflow-wrap:anywhere">' + esc(u.email || u.id) + '</b><div class="sub">' + (u.plati_do ? (plati ? "Platí do " : "Vypršelo ") + new Date(u.plati_do).toLocaleDateString("cs-CZ") : u.centrum ? "Bez vlastního předplatného" : "Bez předplatného") + (u.centrum ? " · centrum " + esc(u.centrum.nazev) + " do " + new Date(u.centrum.plati_do).toLocaleDateString("cs-CZ") : "") + (u.naposledy ? " · naposledy " + new Date(u.naposledy).toLocaleDateString("cs-CZ") : "") + (u.zkusebni ? " · zkušební verze" : "") + " · zařízení " + (u.zarizeni || 0) + "/3" + (u.stejne_zarizeni && u.stejne_zarizeni.length ? " · ⚠ stejné zařízení jako " + esc(u.stejne_zarizeni.join(", ")) : "") + (u.kredity ? " · kredity " + u.kredity.vlastni + " vlastních" + (u.plati_do && plati ? ", v licenci použito " + u.kredity.mesic + "/" + (r.kredity_mesicne || 0) + " tento měsíc" : "") : "") + '</div></div>' +
             '<input type="text" class="sl-pz" data-i="' + i + '" value="' + esc(u.poznamka || "") + '" placeholder="poznámka (sauna, platba)" style="flex:1 1 160px">' +
             '<input type="date" class="sl-d" data-i="' + i + '" value="' + (u.plati_do ? dnes(u.plati_do) : "") + '" style="width:150px">' +
             '<div class="row" style="gap:6px"><button class="btn small sl-m" data-i="' + i + '" data-m="1" type="button">+1 měsíc</button><button class="btn small sl-m" data-i="' + i + '" data-m="12" type="button">+1 rok</button><button class="btn small sl-s" data-i="' + i + '" type="button">Uložit</button><button class="btn small sl-x" data-i="' + i + '" type="button" style="color:var(--bad)">Zrušit</button>' + '<button class="btn small sl-z" data-i="' + i + '" type="button">Uvolnit zařízení</button>' + '</div>' +
@@ -2332,9 +2342,26 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       });
     } catch (e) {}
   }
+  // secondary device: works only with shows whose music went through the main device (no new show, music or sauna here)
+  function jenHlavni(co) {
+    if (!G.vedlejsi) return true;
+    setStatus("Tohle je vedlejší zařízení: " + co + " jen na hlavním zařízení. Hlavní si nastavíš v Účtu → Zařízení.");
+    return false;
+  }
+  function stavovaLista() {
+    var old = $("uc-bar"); if (old) old.remove();
+    if (!G.vedlejsi && !G.zkusebni) return;
+    var bar = document.createElement("div"); bar.id = "uc-bar"; bar.setAttribute("role", "status");
+    bar.style.cssText = "display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--banner);border:1px solid var(--line2);border-radius:12px;padding:10px 14px;margin:0 0 14px";
+    var t = [];
+    if (G.zkusebni) t.push("<b>Zkušební verze</b> do " + esc(new Date(G.zkusebni["do"]).toLocaleDateString("cs-CZ")) + ". Vyzkoušej všechno, stáhnout jde " + (G.zkusebni.show ? "jen show „" + esc((G.shows[G.zkusebni.show] || {}).nazev || G.zkusebni.show) + "“" : "jedna hotová show") + ".");
+    if (G.vedlejsi) t.push("<b>Vedlejší zařízení:</b> show z hlavního zařízení tu upravíš, přehraješ i stáhneš. Novou show, hudbu a saunu přidáš jen na hlavním.");
+    bar.innerHTML = '<span style="flex:1 1 260px">' + t.join("<br>") + '</span>' + (G.vedlejsi ? '<a class="btn small" href="#/ucet">Zařízení</a>' : '');
+    view.parentNode.insertBefore(bar, view);
+  }
   async function nactiRecept() {   // public part of the recipe (moods, colours) from the server, cached for offline editing
     var KEY = "svetla-recept-verejny";
-    try { var j = await K.zavolej({ akce: "recept" }); try { localStorage.setItem(KEY, JSON.stringify(j.recept)); } catch (e) {} G.spravce = !!j.spravce; return { recept: j.recept }; }
+    try { var j = await K.zavolej({ akce: "recept" }); try { localStorage.setItem(KEY, JSON.stringify(j.recept)); } catch (e) {} G.spravce = !!j.spravce; G.vedlejsi = j.hlavni === false; G.zkusebni = j.zkusebni || null; return { recept: j.recept }; }
     catch (e) {
       var c = null; try { c = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (x) {}
       if (c && e.kod === "sit") return { recept: c, offline: true };
@@ -2588,6 +2615,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         var z0 = secOf(list[i].zacTxt) || 0, k0 = secOf(list[i].konecTxt); if (k0 != null && k0 <= z0 + 1) { st.className = "badbox"; st.textContent = "U skladby " + (i + 1) + " je konec dřív než začátek."; return; }
       }
       for (i = 0; i < list.length; i++) if (list[i].konecTxt.trim() && secOf(list[i].konecTxt) == null) { st.className = "badbox"; st.textContent = "U skladby " + (i + 1) + " nerozumím konci „" + list[i].konecTxt + "“. Napiš třeba 3:20, nebo nech prázdné."; return; }
+      if (G.vedlejsi) { st.className = "badbox"; st.textContent = "Tohle je vedlejší zařízení: hudbu nahraješ a rozebereš jen na hlavním zařízení (Účet → Zařízení)."; return; }
       btn.disabled = true; body.querySelector("label.drop").style.pointerEvents = "none";
       st.className = "note"; st.textContent = "Načítám a spojuji skladby…";
       setTimeout(async function () {
@@ -2628,6 +2656,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
           var fields = { pisne: d.pisne.map(function (p, i) { return { cislo: i + 1, nazev: p.nazev, zacatek: p.zacatek, konec: p.konec }; }), casti: casti, dropy: [], navrzeneDropy: nu && nu.dropy && nu.dropy.length ? nu.dropy : null, delka: delka, konec: delka, nabehy: [],
             mix: polozky.map(function (p) { return { soubor: p.file.name, od: p.od || 0, konec: p.konec, fade: p.fade, fadeIn: p.fadeIn || 0 }; }) };
           await G.db.doc("rozbor/" + show.id).set(rozbor); G.rozbor[show.id] = rozbor; delete G.beaty[show.id];
+          if (REMOTE) K.zavolej({ akce: "hudba", rozbor: rozbor }).catch(function () {});   // the main device vouches for this music, so secondary devices can work with the show
           await saveShow(show, fields);
           nastavHudbu(show, m.blob, d.pisne.length > 1 ? d.pisne.length + " skladby" : list[0].file.name);
           setStatus("Hudba rozebraná: " + nb + " beatů, " + tempa.join(" / ") + " BPM", true); route();
@@ -3830,6 +3859,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     if (!$("pz-dir")) return;
     var st = $("pz-st");
     async function otevri(polozky) {
+      if (!jenHlavni("převzít show z QuickDMX jde")) return;
       st.textContent = "Čtu projekt…";
       try { var Z = await nactiProjekt(polozky); st.textContent = ""; oknoVyberu(Z); }
       catch (e) { st.textContent = "Projekt se nepodařilo přečíst: " + (e.message || e); }
@@ -3967,6 +3997,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     view.innerHTML = h.join("");
     $("s-zip").addEventListener("change", async function () {
       var f = this.files && this.files[0]; if (!f) return; var stt = $("s-state");
+      if (G.vedlejsi) { stt.textContent = "Tohle je vedlejší zařízení: saunu přidáš jen na hlavním zařízení (Účet → Zařízení)."; this.value = ""; return; }
       if (!window.JSZip) { stt.textContent = "Knihovna pro zip se nenačetla, obnov stránku."; return; }
       stt.textContent = "Čtu zip…";
       try {
@@ -4184,6 +4215,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       }
       G.recept = nr.recept;
       await nactiCentrum();
+      stavovaLista();
       var nav = document.querySelector("nav.main");
       if (nav && !$("nav-ucet")) { var a = document.createElement("a"); a.href = "#/ucet"; a.id = "nav-ucet"; a.textContent = "Účet"; nav.appendChild(a); }
       if (nr.offline) setTimeout(function () { setStatus("Offline: úpravy fungují, náhled a stažení až s internetem"); }, 0);
