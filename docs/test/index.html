@@ -2087,6 +2087,34 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   }
 
   // ---------- AI credits: 1 credit per AI generation; for now visible only to the owner (and on a device with localStorage glowguss-kredity = ano) until AI runs in the app ----------
+  // Glowcoin: the app's credit, a coin with the Glowguss mark
+  var gcN = 0;
+  function glowcoin(px) {
+    var i = "gc" + (++gcN);
+    return '<svg width="' + px + '" height="' + px + '" viewBox="0 0 64 64" aria-hidden="true" style="flex:none;vertical-align:middle"><defs>' +
+      '<linearGradient id="' + i + 'r" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE29A"/><stop offset=".45" stop-color="#FF8A3D"/><stop offset="1" stop-color="#E0338A"/></linearGradient>' +
+      '<radialGradient id="' + i + 'f" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#2A2230"/><stop offset="1" stop-color="#121218"/></radialGradient>' +
+      '<linearGradient id="' + i + 'a" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#FF8A3D"/><stop offset="1" stop-color="#FFD27A"/></linearGradient>' +
+      '<linearGradient id="' + i + 'b" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#7B2FF7"/><stop offset="1" stop-color="#E0338A"/></linearGradient></defs>' +
+      '<circle cx="32" cy="32" r="29" fill="url(#' + i + 'f)" stroke="url(#' + i + 'r)" stroke-width="5"/><circle cx="32" cy="32" r="22.5" fill="none" stroke="url(#' + i + 'r)" stroke-width="1.2" opacity=".55"/>' +
+      '<g transform="translate(11.5 7.2) scale(.66)"><path d="M48 25A18 18 0 1 0 52 38H37" fill="none" stroke="url(#' + i + 'b)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M41 31A9 9 0 1 0 43 38H34" fill="none" stroke="url(#' + i + 'a)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/></g></svg>';
+  }
+  function gcSlovo(n) { n = +n || 0; return n + (n === 1 ? " Glowcoin" : n >= 2 && n <= 4 ? " Glowcoiny" : " Glowcoinů"); }
+  function glowcoinLista(k) {   // balance next to the logo in the header; click -> account
+    var p = $("gc-pill");
+    if (!k) { if (p) p.remove(); return; }
+    if (!p) {
+      var brand = document.querySelector("header.top .brand"); if (!brand) return;
+      var w = brand.parentNode.classList.contains("gc-wrap") ? brand.parentNode : null;
+      if (!w) { w = document.createElement("div"); w.className = "gc-wrap"; w.style.cssText = "display:flex;align-items:center;gap:14px;flex-wrap:wrap"; brand.parentNode.insertBefore(w, brand); w.appendChild(brand); }
+      p = document.createElement("a"); p.id = "gc-pill"; p.href = "#/ucet";
+      p.style.cssText = "display:inline-flex;align-items:center;gap:8px;padding:5px 12px 5px 6px;border-radius:999px;border:1.5px solid rgba(255,160,70,.55);background:linear-gradient(90deg,rgba(255,138,61,.12),rgba(224,51,138,.08));text-decoration:none;color:var(--fg);font-weight:700";
+      w.appendChild(p);
+    }
+    p.title = gcSlovo(k.celkem) + " k dispozici. 1 Glowcoin = 1 AI návrh světel.";
+    p.innerHTML = glowcoin(28) + '<span style="font-family:var(--f-num);font-size:15px">' + k.celkem + '</span><span class="sub" style="font-weight:500">' + gcSlovo(k.celkem).replace(/^\d+ /, "") + '</span>';
+  }
+  async function obnovGlowcoiny() { if (!kredityViditelne()) return; try { var r = await K.zavolej({ akce: "kredity" }); glowcoinLista(r.kredity); return r; } catch (e) { return null; } }
   function kredityViditelne() { var f = null; try { f = localStorage.getItem("glowguss-kredity"); } catch (e) {} return !!(G.spravce || f === "ano"); }
   var KR_DRUH = { dobiti: "dobití", prideleni: "přiděleno", cerpani: "AI návrh", vraceni: "vráceno", oprava: "oprava" };
   var KR_ZDROJ = { mesic: "v ceně licence", vlastni: "vlastní", centrum: "balík centra", centrum_mesic: "měsíční centra" };
@@ -2099,31 +2127,31 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   }
   function kredityKarta() {
     var box = document.createElement("section"); box.className = "card"; box.style.marginTop = "16px"; box.id = "kr-card";
-    box.innerHTML = '<h2>Kredity na AI návrhy</h2><div id="kr" style="margin-top:10px">Načítám…</div>';
+    box.innerHTML = '<h2>' + glowcoin(26) + ' Glowcoiny</h2><div id="kr" style="margin-top:10px">Načítám…</div>';
     view.appendChild(box);
     K.zavolej({ akce: "kredity" }).then(function (r) {
-      var k = r.kredity, el = $("kr"); if (!el) return;
+      var k = r.kredity, el = $("kr"); glowcoinLista(k); if (!el) return;
       var radky = [];
       if (k.mesic.celkem) radky.push(['V ceně licence tento měsíc', k.mesic.zbyva + ' z ' + k.mesic.celkem]);
       radky.push(['Dokoupené a přidělené', String(k.vlastni)]);
       if (k.centrum) radky.push(['Z centra ' + esc(k.centrum.nazev), (k.centrum.mesic.celkem ? k.centrum.mesic.zbyva + ' měsíčních + ' : '') + k.centrum.balik + ' v balíku']);
-      el.innerHTML = '<div class="row" style="gap:10px;align-items:baseline"><b style="font-size:32px;font-family:var(--f-num)">' + k.celkem + '</b><span class="sub">' + (k.celkem === 1 ? "návrh k dispozici" : k.celkem >= 2 && k.celkem <= 4 ? "návrhy k dispozici" : "návrhů k dispozici") + '</span></div>' +
+      el.innerHTML = '<div class="row" style="gap:10px;align-items:baseline"><b style="font-size:32px;font-family:var(--f-num)">' + k.celkem + '</b><span class="sub">' + gcSlovo(k.celkem) + " k dispozici (1 Glowcoin = 1 AI návrh)" + '</span></div>' +
         '<div style="display:flex;flex-direction:column;gap:4px;margin-top:8px">' + radky.map(function (x) { return '<div class="row between"><span class="sub">' + x[0] + '</span><b style="font-family:var(--f-num)">' + x[1] + '</b></div>'; }).join("") + '</div>' +
-        '<p class="note" style="margin-top:10px">Každý AI návrh světel stojí 1 kredit, i když se výsledek nepovede podle představ. Při technické chybě se kredit vrátí. Nejdřív se berou kredity v ceně licence (nevyčerpané na konci měsíce propadají), pak dokoupené' + (k.centrum ? ', nakonec kredity centra' : '') + '.</p>' +
+        '<p class="note" style="margin-top:10px">Glowcoiny platíš AI návrhy světel: každý návrh stojí 1 Glowcoin, i když se výsledek nepovede podle představ. Při technické chybě se Glowcoin vrátí. Nejdřív se berou Glowcoiny v ceně licence (nevyčerpané na konci měsíce propadají), pak dokoupené' + (k.centrum ? ', nakonec Glowcoiny centra' : '') + '.</p>' +
         kredityHistorie(k.historie);
-    }).catch(function (e) { var el = $("kr"); if (el) el.textContent = "Kredity se nepodařilo načíst: " + (e.message || e); });
+    }).catch(function (e) { var el = $("kr"); if (el) el.textContent = "Glowcoiny se nepodařilo načíst: " + (e.message || e); });
   }
   // the centre manager: pool, monthly credits, sharing, assigning to one saunér
   function centrumKredityHtml(kr, Cl) {
     if (!kr || !kredityViditelne()) return "";
-    return '<h3 style="margin:18px 0 8px">Kredity na AI návrhy</h3>' +
+    return '<h3 style="margin:18px 0 8px">Glowcoiny centra</h3>' +
       '<div class="row" style="gap:10px;align-items:baseline"><b style="font-size:28px;font-family:var(--f-num)">' + kr.balik + '</b><span class="sub">v balíku centra' + (kr.mesic.celkem ? ' · tento měsíc ještě ' + kr.mesic.zbyva + ' z ' + kr.mesic.celkem + ' v ceně licence' : '') + '</span></div>' +
-      '<label class="row" style="gap:10px;margin-top:10px;align-items:flex-start;cursor:pointer"><input type="checkbox" id="cen-kr-sd"' + (kr.sdilet ? " checked" : "") + ' style="margin-top:3px"><span>Saunéři můžou čerpat ze společného balíku<br><span class="note">Vypnuto = saunéři mají jen kredity, které jim přidělíš (třeba na přípravu na soutěž).</span></span></label>' +
+      '<label class="row" style="gap:10px;margin-top:10px;align-items:flex-start;cursor:pointer"><input type="checkbox" id="cen-kr-sd"' + (kr.sdilet ? " checked" : "") + ' style="margin-top:3px"><span>Saunéři můžou čerpat ze společného balíku<br><span class="note">Vypnuto = saunéři mají jen Glowcoiny, které jim přidělíš (třeba na přípravu na soutěž).</span></span></label>' +
       '<div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">' + Cl.map(function (m, i) { var x = (kr.clenove || {})[m.email] || { vlastni: 0, z_centra: 0, prideleno: 0 };
         return '<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><span style="flex:1 1 200px;min-width:0;overflow-wrap:anywhere">' + esc(m.email) + '<br><span class="sub">vlastní ' + x.vlastni + ' · tento měsíc z centra ' + x.z_centra + (x.prideleno ? ' · přiděleno ' + x.prideleno : '') + '</span></span>' +
           (m.prihlasen ? '<input type="number" class="cen-kr-n" data-i="' + i + '" min="1" placeholder="počet" style="width:90px"><button class="btn small cen-kr-p" data-i="' + i + '" type="button">Přidělit</button>' : '<span class="note">přidělit půjde po prvním přihlášení</span>') + '</div>';
       }).join("") + '</div>' +
-      '<p class="note" style="margin-top:8px">Přidělené kredity se přesunou z balíku centra saunérovi. Kredity do balíku zatím přidává Milan.</p>' + kredityHistorie(kr.historie, true);
+      '<p class="note" style="margin-top:8px">Přidělené Glowcoiny se přesunou z balíku centra saunérovi. Glowcoiny do balíku zatím přidává Milan.</p>' + kredityHistorie(kr.historie, true);
   }
   // ---------- sauna centre: the centre pays for its saunéři and shares its saunas (read-only copies here) ----------
   async function nactiCentrum(r0) {
@@ -2184,10 +2212,10 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       if (!sp) return;
       var hotovo = function (r) { G.centrum = r.centrum || G.centrum; G.centrumClenove = r.clenove || G.centrumClenove; if (r.kredity !== undefined) G.centrumKredity = r.kredity; vykresli(); };
       if ($("cen-kr-sd")) $("cen-kr-sd").addEventListener("change", async function () { var el = this;
-        try { hotovo(await K.zavolej({ akce: "centrum-kredity-sdilet", sdilet: el.checked })); setStatus(el.checked ? "Saunéři čerpají ze společného balíku" : "Saunéři mají jen přidělené kredity", true); } catch (er) { setStatus("Nepovedlo se: " + (er.message || er)); vykresli(); } });
+        try { hotovo(await K.zavolej({ akce: "centrum-kredity-sdilet", sdilet: el.checked })); setStatus(el.checked ? "Saunéři čerpají ze společného balíku" : "Saunéři mají jen přidělené Glowcoiny", true); } catch (er) { setStatus("Nepovedlo se: " + (er.message || er)); vykresli(); } });
       on(box, ".cen-kr-p", "click", async function (e, b) { var m = Cl[+b.dataset.i], n = Math.round(+box.querySelector('.cen-kr-n[data-i="' + b.dataset.i + '"]').value);
-        if (!(n >= 1)) { setStatus("Zadej počet kreditů"); return; } b.disabled = true;
-        try { hotovo(await K.zavolej({ akce: "centrum-kredit-pridelit", email: m.email, pocet: n })); setStatus("Přiděleno " + n + " kreditů: " + m.email, true); } catch (er) { setStatus("Nepovedlo se: " + (er.message || er)); b.disabled = false; } });
+        if (!(n >= 1)) { setStatus("Zadej počet Glowcoinů"); return; } b.disabled = true;
+        try { hotovo(await K.zavolej({ akce: "centrum-kredit-pridelit", email: m.email, pocet: n })); setStatus("Přiděleno " + n + " Glowcoinů: " + m.email, true); } catch (er) { setStatus("Nepovedlo se: " + (er.message || er)); b.disabled = false; } });
       if ($("cen-add")) $("cen-add").addEventListener("submit", async function (e) {
         e.preventDefault(); var b = this.querySelector("button"); b.disabled = true;
         try { hotovo(await K.zavolej({ akce: "centrum-clen", email: $("cen-em").value, role: $("cen-r").value })); setStatus("Saunér přidán", true); }
@@ -2215,10 +2243,10 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         var radek = function (c, i) {
           var n = c ? "" : "new", v = c || { nazev: "", plati_do: new Date(Date.now() + 182 * 864e5).toISOString(), mist: 5, poznamka: "", spravci: [] };
           return '<div class="sc-r" data-i="' + (c ? i : -1) + '" style="border:1px solid var(--line,#2a2d36);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px">' +
-            (c ? '<div class="sub">' + (new Date(c.plati_do) > new Date() ? "Platí do " : "Vypršelo ") + new Date(c.plati_do).toLocaleDateString("cs-CZ") + ' · saunéři ' + c.clenu + '/' + c.mist + ' · správci: ' + esc((c.spravci || []).join(", ") || "žádný") + (c.kredity_balik != null ? ' · kredity v balíku ' + c.kredity_balik : '') + '</div>' : '<b>Nové centrum</b>') +
+            (c ? '<div class="sub">' + (new Date(c.plati_do) > new Date() ? "Platí do " : "Vypršelo ") + new Date(c.plati_do).toLocaleDateString("cs-CZ") + ' · saunéři ' + c.clenu + '/' + c.mist + ' · správci: ' + esc((c.spravci || []).join(", ") || "žádný") + (c.kredity_balik != null ? ' · Glowcoinů v balíku ' + c.kredity_balik : '') + '</div>' : '<b>Nové centrum</b>') +
             '<div class="row" style="gap:8px;flex-wrap:wrap"><input type="text" class="sc-n" value="' + esc(v.nazev) + '" placeholder="název centra" style="flex:1 1 180px"><input type="date" class="sc-d" value="' + den(v.plati_do) + '" style="width:150px" aria-label="Platí do">' +
             '<label class="row" style="gap:6px">míst <input type="number" class="sc-m" min="1" max="500" value="' + v.mist + '" style="width:70px"></label>' +
-            '<label class="row" style="gap:6px" title="Kolik AI návrhů má centrum každý měsíc v ceně licence">kreditů/měsíc <input type="number" class="sc-k" min="0" max="10000" value="' + (v.kredity_mesicne || 0) + '" style="width:80px"></label></div>' +
+            '<label class="row" style="gap:6px" title="Kolik Glowcoinů (AI návrhů) má centrum každý měsíc v ceně licence">Glowcoinů/měsíc <input type="number" class="sc-k" min="0" max="10000" value="' + (v.kredity_mesicne || 0) + '" style="width:80px"></label></div>' +
             '<div class="row" style="gap:8px;flex-wrap:wrap"><input type="email" class="sc-s" placeholder="' + (c ? 'přidat dalšího správce (e-mail)' : 'e-mail správce centra') + '" style="flex:1 1 200px"><input type="text" class="sc-p" value="' + esc(v.poznamka || "") + '" placeholder="poznámka (pilot, platba)" style="flex:1 1 160px">' +
             '<button class="btn small primary sc-ok" type="button">' + (c ? "Uložit" : "Založit") + '</button></div>' +
             (c ? '<div class="row" style="gap:8px;flex-wrap:wrap"><input type="number" class="sc-kn" placeholder="počet do balíku (minus = odebrat)" style="flex:1 1 200px"><button class="btn small sc-kp" type="button">Přidat do balíku</button></div>' : '') + '</div>';
@@ -2234,8 +2262,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         });
         on(el, ".sc-kp", "click", async function (e, b) {
           var r = b.closest(".sc-r"), c = C0[+r.dataset.i], n = Math.round(+r.querySelector(".sc-kn").value);
-          if (!n) { setStatus("Zadej počet kreditů"); return; } b.disabled = true;
-          try { await K.zavolej({ akce: "spravce-kredity-centrum", id: c.id, pocet: n }); setStatus((n > 0 ? "Přidáno " : "Odebráno ") + Math.abs(n) + " kreditů: " + c.nazev, true); nacist(); }
+          if (!n) { setStatus("Zadej počet Glowcoinů"); return; } b.disabled = true;
+          try { await K.zavolej({ akce: "spravce-kredity-centrum", id: c.id, pocet: n }); setStatus((n > 0 ? "Přidáno " : "Odebráno ") + Math.abs(n) + " Glowcoinů: " + c.nazev, true); nacist(); }
           catch (er) { setStatus("Nepovedlo se: " + (er.message || er)); b.disabled = false; }
         });
       } catch (e) { el.textContent = "Centra se nepodařilo načíst: " + (e.message || e); }
@@ -2317,11 +2345,11 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         el.innerHTML = '<div style="display:flex;flex-direction:column;gap:10px">' + U.map(function (u, i) {
           var plati = u.plati_do && new Date(u.plati_do) > new Date();
           return '<div style="border:1px solid var(--line,#2a2d36);border-radius:12px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center">' +
-            '<div style="flex:1 1 220px;min-width:0"><b style="overflow-wrap:anywhere">' + esc(u.email || u.id) + '</b><div class="sub">' + (u.plati_do ? (plati ? "Platí do " : "Vypršelo ") + new Date(u.plati_do).toLocaleDateString("cs-CZ") : u.centrum ? "Bez vlastního předplatného" : "Bez předplatného") + (u.centrum ? " · centrum " + esc(u.centrum.nazev) + " do " + new Date(u.centrum.plati_do).toLocaleDateString("cs-CZ") : "") + (u.naposledy ? " · naposledy " + new Date(u.naposledy).toLocaleDateString("cs-CZ") : "") + (u.zkusebni ? " · zkušební verze" : "") + " · zařízení " + (u.zarizeni || 0) + "/3" + (u.stejne_zarizeni && u.stejne_zarizeni.length ? " · ⚠ stejné zařízení jako " + esc(u.stejne_zarizeni.join(", ")) : "") + (u.kredity ? " · kredity " + u.kredity.vlastni + " vlastních" + (u.plati_do && plati ? ", v licenci použito " + u.kredity.mesic + "/" + (r.kredity_mesicne || 0) + " tento měsíc" : "") : "") + '</div></div>' +
+            '<div style="flex:1 1 220px;min-width:0"><b style="overflow-wrap:anywhere">' + esc(u.email || u.id) + '</b><div class="sub">' + (u.plati_do ? (plati ? "Platí do " : "Vypršelo ") + new Date(u.plati_do).toLocaleDateString("cs-CZ") : u.centrum ? "Bez vlastního předplatného" : "Bez předplatného") + (u.centrum ? " · centrum " + esc(u.centrum.nazev) + " do " + new Date(u.centrum.plati_do).toLocaleDateString("cs-CZ") : "") + (u.naposledy ? " · naposledy " + new Date(u.naposledy).toLocaleDateString("cs-CZ") : "") + (u.zkusebni ? " · zkušební verze" : "") + " · zařízení " + (u.zarizeni || 0) + "/3" + (u.stejne_zarizeni && u.stejne_zarizeni.length ? " · ⚠ stejné zařízení jako " + esc(u.stejne_zarizeni.join(", ")) : "") + (u.kredity ? " · Glowcoinů " + u.kredity.vlastni + " vlastních" + (u.plati_do && plati ? ", v licenci použito " + u.kredity.mesic + "/" + (r.kredity_mesicne || 0) + " tento měsíc" : "") : "") + '</div></div>' +
             '<input type="text" class="sl-pz" data-i="' + i + '" value="' + esc(u.poznamka || "") + '" placeholder="poznámka (sauna, platba)" style="flex:1 1 160px">' +
             '<input type="date" class="sl-d" data-i="' + i + '" value="' + (u.plati_do ? dnes(u.plati_do) : "") + '" style="width:150px">' +
             '<div class="row" style="gap:6px"><button class="btn small sl-m" data-i="' + i + '" data-m="1" type="button">+1 měsíc</button><button class="btn small sl-m" data-i="' + i + '" data-m="12" type="button">+1 rok</button><button class="btn small sl-s" data-i="' + i + '" type="button">Uložit</button><button class="btn small sl-x" data-i="' + i + '" type="button" style="color:var(--bad)">Zrušit</button>' + '<button class="btn small sl-z" data-i="' + i + '" type="button">Uvolnit zařízení</button>' + '</div>' +
-            '<div class="row" style="gap:6px;flex:1 1 100%;flex-wrap:wrap"><input type="number" class="sl-kn" data-i="' + i + '" placeholder="počet (minus = odebrat)" style="width:200px"><input type="text" class="sl-kp" data-i="' + i + '" placeholder="poznámka ke kreditům (platba)" style="flex:1 1 160px"><button class="btn small sl-k" data-i="' + i + '" type="button">Přidat kredity</button></div></div>';
+            '<div class="row" style="gap:6px;flex:1 1 100%;flex-wrap:wrap"><input type="number" class="sl-kn" data-i="' + i + '" placeholder="počet (minus = odebrat)" style="width:200px"><input type="text" class="sl-kp" data-i="' + i + '" placeholder="poznámka (platba)" style="flex:1 1 160px"><button class="btn small sl-k" data-i="' + i + '" type="button">Přidat Glowcoiny</button></div></div>';
         }).join("") + '</div>';
         var ulozit = async function (i, datum) {
           var u = U[i]; setStatus("Ukládám licenci…");
@@ -2333,8 +2361,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         on(el, ".sl-z", "click", async function (e, b) { var u = U[+b.dataset.i]; if (!(await potvrd("Smazat všechna zařízení účtu " + u.email + "? Může se hned přihlásit na nových, bez čekání 48 hodin.", "Smazat"))) return;
           try { await K.zavolej({ akce: "spravce-zarizeni", user_id: u.id }); setStatus("Zařízení uvolněna: " + u.email, true); nacist(); } catch (er) { setStatus("Nepovedlo se: " + (er.message || er)); } });
         on(el, ".sl-k", "click", async function (e, b) { var u = U[+b.dataset.i], n = Math.round(+el.querySelector('.sl-kn[data-i="' + b.dataset.i + '"]').value);
-          if (!n) { setStatus("Zadej počet kreditů"); return; } b.disabled = true;
-          try { await K.zavolej({ akce: "spravce-kredity", user_id: u.id, pocet: n, poznamka: el.querySelector('.sl-kp[data-i="' + b.dataset.i + '"]').value }); setStatus((n > 0 ? "Přidáno " : "Odebráno ") + Math.abs(n) + " kreditů: " + u.email, true); nacist(); }
+          if (!n) { setStatus("Zadej počet Glowcoinů"); return; } b.disabled = true;
+          try { await K.zavolej({ akce: "spravce-kredity", user_id: u.id, pocet: n, poznamka: el.querySelector('.sl-kp[data-i="' + b.dataset.i + '"]').value }); setStatus((n > 0 ? "Přidáno " : "Odebráno ") + Math.abs(n) + " Glowcoinů: " + u.email, true); nacist(); obnovGlowcoiny(); }
           catch (er) { setStatus("Nepovedlo se: " + (er.message || er)); b.disabled = false; } });
         on(el, ".sl-x", "click", async function (e, b) { if (await potvrd("Zrušit předplatné pro " + U[+b.dataset.i].email + "? Hned přestane moct vyrábět světla.", "Zrušit")) ulozit(+b.dataset.i, dnes(Date.now() - 864e5)); });
       } catch (e) { el.textContent = "Seznam se nepodařilo načíst: " + (e.message || e); }
@@ -4234,7 +4262,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       }
       G.recept = nr.recept;
       await nactiCentrum();
-      stavovaLista();
+      stavovaLista(); obnovGlowcoiny();
       var nav = document.querySelector("nav.main");
       if (nav && !$("nav-ucet")) { var a = document.createElement("a"); a.href = "#/ucet"; a.id = "nav-ucet"; a.textContent = "Účet"; nav.appendChild(a); }
       if (nr.offline) setTimeout(function () { setStatus("Offline: úpravy fungují, náhled a stažení až s internetem"); }, 0);
