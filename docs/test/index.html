@@ -3461,9 +3461,9 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   }
   function g8Snimek(t, pohyb, tt) {   // t = angle on the 8, pohyb 0..1 = how fast the towel flies, tt = time for the flutter
     var A = G8.A, B = G8.B, x = G8.C[0] + A * Math.sin(t), y = G8.C[1] + B * Math.sin(t) * Math.cos(t);
-    var vx = A * Math.cos(t) * pohyb, vy = B * Math.cos(2 * t) * pohyb, dx = -vx * 0.09, dy = 1 - vy * 0.04, an = Math.atan2(-dx, dy) * 180 / Math.PI;
+    var vx = A * Math.cos(t) * pohyb, vy = B * Math.cos(2 * t) * pohyb, an = Math.max(-38, Math.min(38, vx * 2.2 - vy * 0.6));   // the towel trails behind the hand but keeps hanging down, it never spins round
     var mx = (G8.S[0] + x) / 2 + 7, my = (G8.S[1] + y) / 2 + 5, fl = 0.35 + pohyb;
-    var R = g8Rucnik(3.2 * fl * Math.sin(tt * 7 + 1), 4 * fl * Math.sin(tt * 7), 2.2 * fl * Math.sin(tt * 11));
+    var R = g8Rucnik(3.2 * fl * Math.sin(tt * 7 + 1) - vx * 0.25, 4 * fl * Math.sin(tt * 7) - vx * 0.45, 2.2 * fl * Math.sin(tt * 11));
     return { ruka: "M" + G8.S[0] + " " + G8.S[1] + "Q" + mx.toFixed(1) + " " + my.toFixed(1) + " " + x.toFixed(1) + " " + y.toFixed(1), tr: "translate(" + x.toFixed(1) + " " + y.toFixed(1) + ") rotate(" + an.toFixed(1) + ")", R: R };
   }
   function g8Tik(now) {
