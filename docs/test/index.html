@@ -2391,7 +2391,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   }
   var GC_CENIK = { navrh: 10, cast: 3, barvy: 2, chat: 2 };   // server sends the real price list
   function gcNavrhu(n) { var x = Math.floor((+n || 0) / GC_CENIK.navrh); return x + (x === 1 ? " návrh" : x >= 2 && x <= 4 ? " návrhy" : " návrhů"); }
-  function gcShow(n) { var x = Math.floor((+n || 0) / GC_CENIK.navrh); return "až na " + x + (x === 1 ? " celou show" : x >= 2 && x <= 4 ? " celé show" : " celých show") + " od Glowy AI"; }
+  function gcShow(n) { var x = Math.floor((+n || 0) / GC_CENIK.navrh); return x + (x === 1 ? " návrh" : x >= 2 && x <= 4 ? " návrhy" : " návrhů") + " show od Glowy AI"; }   // exactly what the coins buy (one design = GC_CENIK.navrh), no vague "whole show" promise
   function gcSlovo(n) { n = +n || 0; return n + (n === 1 ? " Glowcoin" : n >= 2 && n <= 4 ? " Glowcoiny" : " Glowcoinů"); }
   function glowcoinLista(k) {   // balance next to the logo in the header; click -> account
     var p = $("gc-pill");
