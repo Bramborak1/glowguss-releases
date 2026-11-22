@@ -2206,13 +2206,13 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   // When a payment provider is set up, GC_PLATBA gets its checkout links per package and the button opens those instead.
   var GC_BALICKY = [{ n: 30, kc: 79 }, { n: 100, kc: 199 }, { n: 300, kc: 499, tip: "nejoblíbenější" }, { n: 1000, kc: 1490, tip: "nejvýhodnější" }], GC_PLATBA = null, GC_MAIL = "glowguss@gmail.com";
   function nakupHtml() {
-    return '<div class="sub" style="margin-top:16px;font-weight:600">Dokoupit Glowcoiny</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:8px">' +
+    return '<div class="sub" style="margin-top:14px;font-weight:600">Dokoupit</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:8px">' +
       GC_BALICKY.map(function (b, i) {
         return '<div style="padding:12px 14px;border-radius:14px;border:1px solid ' + (b.tip === "nejoblíbenější" ? 'rgba(255,138,61,.6)' : 'var(--line)') + ';display:flex;flex-direction:column;gap:8px">' +
           '<div class="row" style="gap:8px;align-items:center">' + glowcoin(22) + '<b style="font-size:22px;font-family:var(--f-num)">' + b.n + '</b>' + (b.tip ? '<span class="badge" style="margin-left:auto">' + b.tip + '</span>' : '') + '</div>' +
           '<span class="sub">' + gcShow(b.n) + '</span><button type="button" class="btn ' + (b.tip === "nejoblíbenější" ? 'primary' : '') + ' small gc-koupit" data-i="' + i + '">Koupit za ' + b.kc + ' Kč</button></div>';
       }).join("") + '</div>' +
-      (GC_PLATBA ? '' : '<p class="note" style="margin-top:8px">Platba kartou online brzy. Zatím ti po kliknutí připravím e-mail s objednávkou, pošleme platební údaje a Glowcoiny ti připíšeme hned po zaplacení.</p>');
+      (GC_PLATBA ? '' : '<p class="note" style="margin-top:8px">Zatím se objednává e-mailem, platba kartou bude brzy.</p>');
   }
   function nakupZapoj(el) {
     on(el, ".gc-koupit", "click", function (e, b) {
@@ -2234,11 +2234,13 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       if (k.mesic.celkem) radky.push(['V ceně licence tento měsíc', k.mesic.zbyva + ' z ' + k.mesic.celkem]);
       radky.push(['Dokoupené a přidělené', String(k.vlastni)]);
       if (k.centrum) radky.push(['Z centra ' + esc(k.centrum.nazev), (k.centrum.mesic.celkem ? k.centrum.mesic.zbyva + ' měsíčních + ' : '') + k.centrum.balik + ' v balíku']);
-      el.innerHTML = '<div class="row" style="gap:10px;align-items:baseline"><b style="font-size:32px;font-family:var(--f-num)">' + k.celkem + '</b><span class="sub">' + gcSlovo(k.celkem).replace(/^\d+ /, "") + " k dispozici · " + gcShow(k.celkem) + '</span></div>' +
-        '<div style="display:flex;flex-direction:column;gap:4px;margin-top:8px">' + radky.map(function (x) { return '<div class="row between"><span class="sub">' + x[0] + '</span><b style="font-family:var(--f-num)">' + x[1] + '</b></div>'; }).join("") + '</div>' +
-        '<p class="note" style="margin-top:10px">Glowcoiny platíš jen práci AI, ruční úpravy v editoru jsou zdarma. Akce se platí, i když se výsledek nepovede podle představ, při technické chybě se Glowcoiny vrátí. Nejdřív se berou Glowcoiny v ceně licence (nevyčerpané na konci měsíce propadají), pak dokoupené' + (k.centrum ? ', nakonec Glowcoiny centra' : '') + '.</p>' +
-        '<div class="sub" style="margin-top:12px;font-weight:600">Ceník AI</div><div style="display:grid;grid-template-columns:1fr auto;gap:4px 12px;margin-top:4px">' + [["Celý návrh show", GC_CENIK.navrh], ["Přepracovat jednu část", GC_CENIK.cast], ["Jiná barevná varianta", GC_CENIK.barvy], ["Doladění chatem", GC_CENIK.chat]].map(function (x) { return '<span class="sub">' + x[0] + '</span><b style="display:inline-flex;align-items:center;gap:5px;font-family:var(--f-num)">' + x[1] + glowcoin(16) + '</b>'; }).join("") + '</div>' +
-        nakupHtml() + kredityHistorie(k.historie);
+      el.innerHTML = '<div class="row" style="gap:10px;align-items:baseline"><b style="font-size:32px;font-family:var(--f-num)">' + k.celkem + '</b><span class="sub">' + gcSlovo(k.celkem).replace(/^\d+ /, "") + (k.mesic.celkem ? ' · z toho ' + k.mesic.zbyva + ' v ceně licence tento měsíc' : '') + '</span></div>' +
+        nakupHtml() +
+        '<details class="more" style="margin-top:12px"><summary>Ceník a jak Glowcoiny fungují</summary>' +
+        '<div style="display:grid;grid-template-columns:1fr auto;gap:4px 12px;margin-top:8px">' + [["Celý návrh show", GC_CENIK.navrh], ["Přepracovat jednu část", GC_CENIK.cast], ["Jiná barevná varianta", GC_CENIK.barvy], ["Doladění chatem", GC_CENIK.chat]].map(function (x) { return '<span class="sub">' + x[0] + '</span><b style="display:inline-flex;align-items:center;gap:5px;font-family:var(--f-num)">' + x[1] + glowcoin(16) + '</b>'; }).join("") + '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:4px;margin-top:10px">' + radky.map(function (x) { return '<div class="row between"><span class="sub">' + x[0] + '</span><b style="font-family:var(--f-num)">' + x[1] + '</b></div>'; }).join("") + '</div>' +
+        '<p class="note" style="margin-top:10px">Platíš jen práci AI, ruční úpravy jsou zdarma. Při technické chybě se Glowcoiny vrátí. Nejdřív se berou Glowcoiny v ceně licence (na konci měsíce propadají), pak dokoupené' + (k.centrum ? ', nakonec z centra' : '') + '.</p></details>' +
+        kredityHistorie(k.historie);
       nakupZapoj(el);
     }).catch(function (e) { var el = $("kr"); if (el) el.textContent = "Glowcoiny se nepodařilo načíst: " + (e.message || e); });
   }
