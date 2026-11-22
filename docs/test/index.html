@@ -4768,16 +4768,23 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       box.innerHTML = h;
     } catch (e) { box.innerHTML = '<p class="badbox" style="margin-top:16px">Přehled se nepodařilo načíst: ' + esc(e.message || e) + '</p>'; }
   }
+  function fioRadek(F) {   // automatic payment matching through Fio: on, off, or what went wrong
+    if (!F || !F.zapnuto) return '<p class="note" style="margin-top:8px">Automatické párování plateb je vypnuté. Zapne se, až do Supabase Secrets přidáš <b>FIO_TOKEN</b> (token jen pro čtení z Fio banky).</p>';
+    var kdy = F.kdy ? new Date(F.kdy).toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" }) : "";
+    return '<div class="row" style="gap:10px;margin-top:8px;flex-wrap:wrap;align-items:center"><span class="' + (F.chyba ? 'badbox' : 'okbox') + '" style="flex:1 1 260px;margin:0">' +
+      (F.chyba ? 'Fio: ' + esc(F.chyba) : 'Fio párování zapnuté · kontrola v ' + kdy + ' · příchozích plateb za 20 dní: ' + (F.plateb || 0)) + '</span><button class="btn small" id="ob-fio" type="button">Zkontrolovat banku teď</button></div>';
+  }
   async function spravaObjednavky() {
     var box = document.createElement("section"); box.className = "card"; box.style.marginTop = "16px"; view.appendChild(box);
-    var filtr = "ceka", PR = {}, O = [];
+    var filtr = "ceka", PR = {}, O = [], F = null;
     var STAV = { ceka: ["čeká na platbu", "#FF8A3D"], zaplaceno: ["zaplaceno", "#9BE38A"], zruseno: ["zrušeno", "#9AA0AE"] };
     function kresli() {
       var V = O.filter(function (o) { return filtr === "vse" || o.stav === filtr; });
       var opt = Object.keys(PR).map(function (k) { return '<option value="' + k + '">' + esc(PR[k].jm) + ' · ' + kc(PR[k].kc) + '</option>'; }).join("");
       box.innerHTML = '<div class="row between" style="flex-wrap:wrap;gap:10px"><h2>Objednávky</h2><div class="seg" id="ob-f" style="display:flex;flex-wrap:wrap">' + [["ceka", "Čekají"], ["zaplaceno", "Zaplacené"], ["zruseno", "Zrušené"], ["vse", "Vše"]].map(function (f) {
           return '<button type="button" data-f="' + f[0] + '" aria-pressed="' + (filtr === f[0]) + '" style="width:auto;padding:0 12px">' + f[1] + ' (' + (f[0] === "vse" ? O.length : O.filter(function (o) { return o.stav === f[0]; }).length) + ')</button>'; }).join("") + '</div></div>' +
-        '<p class="note" style="margin-top:6px">Když saunér v aplikaci klikne na licenci nebo Glowcoiny, objednávka se objeví tady a přijde ti e-mail s jejím číslem. Až peníze dorazí, klikni na <b>Zaplaceno</b>: licence se prodlouží nebo se připíšou Glowcoiny (u roční licence i 100 bonusových) a zákazníkovi sám odejde e-mail s dokladem (kopie přijde tobě).</p>' +
+        fioRadek(F) +
+        '<p class="note" style="margin-top:6px">Když saunér v aplikaci klikne na licenci nebo Glowcoiny, objednávka se objeví tady a přijde ti e-mail s jejím číslem. Až peníze dorazí, ' + (F && F.zapnuto && !F.chyba ? 'spáruje je aplikace sama přes Fio (podle variabilního symbolu = čísla objednávky), nebo klikni na <b>Zaplaceno</b>' : 'klikni na <b>Zaplaceno</b>') + ': licence se prodlouží nebo se připíšou Glowcoiny (u roční licence i 100 bonusových) a zákazníkovi sám odejde e-mail s dokladem (kopie přijde tobě).</p>' +
         '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">' + (V.length ? V.map(function (o) {
           var p = PR[o.produkt] || { jm: o.produkt }, st = STAV[o.stav] || [o.stav, "#9AA0AE"];
           return '<div style="border:1px solid var(--line);border-left:4px solid ' + st[1] + ';border-radius:12px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center">' +
@@ -4788,6 +4795,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         '<details class="more" style="margin-top:14px"><summary>Zapsat objednávku ručně (platba jinak než přes aplikaci)</summary><div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px">' +
         '<input type="email" id="ob-mail" placeholder="e-mail účtu" style="flex:1 1 200px"><select id="ob-pr" style="flex:1 1 200px">' + opt + '</select><input type="number" id="ob-kc" placeholder="Kč (jinak ceník)" style="width:150px"><input type="text" id="ob-pz" placeholder="poznámka (faktura, hotově…)" style="flex:1 1 200px"><button class="btn primary" id="ob-nova" type="button">Zapsat</button></div></details>';
       on($("ob-f"), "button", "click", function (e, b) { filtr = b.dataset.f; kresli(); });
+      if ($("ob-fio")) $("ob-fio").addEventListener("click", function () { this.disabled = true; this.textContent = "Kontroluju…"; nacist(true); });
       var zmen = async function (id, stav, ot) {
         if (ot && !(await potvrd(ot[0], ot[1]))) return;
         try { var r = await K.zavolej({ akce: "spravce-objednavka", id: id, stav: stav }); setStatus(stav === "zaplaceno" ? (r.uz ? "Už bylo připsané dřív" : "Zaplaceno, připsáno" + (r.plati_do ? ": licence do " + new Date(r.plati_do).toLocaleDateString("cs-CZ") : "") + (r.doklad && /^odeslán /.test(r.doklad) ? ". Zákazníkovi odešel doklad " + r.doklad.slice(8) : r.doklad ? ". Doklad " + r.doklad : "")) : "Uloženo", true); nacist(); }
@@ -4802,8 +4810,9 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         catch (er) { setStatus("Nepovedlo se: " + (er.message || er)); }
       });
     }
-    async function nacist() {
-      try { var r = await K.zavolej({ akce: "spravce-objednavky" }); O = r.objednavky || []; PR = r.produkty || {}; kresli(); }
+    async function nacist(vynutit) {
+      try { var r = await K.zavolej({ akce: "spravce-objednavky", vynutit: !!vynutit }); O = r.objednavky || []; PR = r.produkty || {}; F = r.fio || null; kresli();
+        if (F && F.sparovano && F.sparovano.length) setStatus("Z banky spárováno: " + F.sparovano.map(function (x) { return "č. " + x.id + (x.chyba ? " (chyba: " + x.chyba + ")" : ""); }).join(", "), true); }
       catch (e) { box.innerHTML = '<h2>Objednávky</h2><p class="badbox" style="margin-top:10px">' + esc(e.message || e) + '</p>'; }
     }
     box.innerHTML = '<h2>Objednávky</h2><p class="sub" style="margin-top:8px">Načítám…</p>'; nacist();
@@ -4918,7 +4927,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var r = function (k, v) { return '<div class="row between" style="gap:10px"><span class="sub">' + k + '</span><b style="font-family:var(--f-num);overflow-wrap:anywhere;text-align:right">' + esc(v) + '</b></div>'; };
     return '<div class="row" style="gap:16px;margin-top:14px;flex-wrap:wrap;align-items:center">' + (qr ? '<div style="flex:none">' + qr + '</div>' : '') +
       '<div style="flex:1 1 180px;min-width:0;display:flex;flex-direction:column;gap:6px">' + r("Částka", kc) + r("Účet", pl.ucet) + r("Variabilní symbol", pl.vs) + r("Zpráva", pl.zprava) + '</div></div>' +
-      '<p class="note" style="margin:12px 0 0;line-height:1.5">' + (qr ? 'Naskenuj QR kód v bankovní aplikaci, nebo zadej údaje ručně. ' : '') + 'Splatnost ' + (pl.splatnost_dni || 14) + ' dní. Jakmile platba dorazí, všechno se ti připíše samo a pošleme potvrzení.</p>';
+      '<p class="note" style="margin:12px 0 0;line-height:1.5">' + (qr ? 'Naskenuj QR kód v bankovní aplikaci, nebo zadej údaje ručně. ' : '') + 'Splatnost ' + (pl.splatnost_dni || 14) + ' dní. Jakmile platba dorazí, všechno se ti připíše samo a pošleme ti doklad e-mailem.</p>';
   }
   function napisNam(predmet, text) {   // in-app contact form: the server e-mails it to us, our reply goes to the user's e-mail
     var ja = String((K.session() || {}).email || "");
@@ -4939,8 +4948,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     });
   }
   async function objednavkaMailem(predmet, co, sn, produkt) {   // the order is saved on the server; no mail program needed (many people have none set up)
-    var ja = String((K.session() || {}).email || ""), cislo = "", chyba = "", pl = null;
-    if (produkt && REMOTE) { try { var o = await K.zavolej({ akce: "objednavka", produkt: produkt, souhlas: sn.text + " (" + sn.kdy + ")" }); if (o && o.objednavka) { cislo = String(o.objednavka.id); pl = o.platba || null; } } catch (e) { chyba = e.message || String(e); } }
+    var ja = String((K.session() || {}).email || ""), cislo = "", chyba = "", pl = null, auto = false;
+    if (produkt && REMOTE) { try { var o = await K.zavolej({ akce: "objednavka", produkt: produkt, souhlas: sn.text + " (" + sn.kdy + ")" }); if (o && o.objednavka) { cislo = String(o.objednavka.id); pl = o.platba || null; auto = !!o.automaticky; cekaPridej(cislo); } } catch (e) { chyba = e.message || String(e); } }
     if (cislo) predmet += " (č. " + cislo + ")";
     var d = document.createElement("div"); d.setAttribute("role", "dialog"); d.setAttribute("aria-modal", "true");
     d.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);display:grid;place-items:center;z-index:999;padding:16px";
@@ -4948,11 +4957,29 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       (cislo ? '<h2 style="margin:0">Objednávka č. ' + esc(cislo) + ' je přijatá</h2><p class="sub" style="margin:6px 0 0">' + esc(co.replace(/^chci koupit /, "").replace(/\.$/, "")) + '</p></div></div>' +
         (pl ? platbaHtml(pl) : '<p style="margin:14px 0 0;line-height:1.5">Platební údaje ti pošleme na <b>' + esc(ja) + '</b>, obvykle do 24 hodin. Hned po zaplacení se ti všechno připíše samo.</p>')
       : '<h2 style="margin:0">Objednávku se nepodařilo odeslat</h2></div></div><p style="margin:14px 0 0;line-height:1.5">' + (chyba ? esc(chyba) + ' ' : '') + 'Napiš nám prosím na <b>' + esc(GC_MAIL) + '</b>, co chceš koupit, a vyřídíme to ručně.</p>') +
-      '<div class="row" style="gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap"><button type="button" class="btn" data-dotaz>' + (cislo ? 'Máš dotaz? Napiš nám' : 'Napsat nám') + '</button><button type="button" class="btn primary" data-ok>Rozumím</button></div></section>';
+      '<div class="row" style="gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap"><button type="button" class="btn" data-dotaz>' + (cislo ? 'Máš dotaz? Napiš nám' : 'Napsat nám') + '</button>' + (cislo && pl && auto ? '<button type="button" class="btn" data-zaplatil>Už jsem zaplatil(a)</button>' : '') + '<button type="button" class="btn primary" data-ok>Rozumím</button></div><p class="note" data-pk style="margin:10px 0 0;display:none"></p></section>';
     var zavri = function () { document.removeEventListener("keydown", key); d.remove(); }, key = function (e) { if (e.key === "Escape") zavri(); };
-    d.addEventListener("click", function (e) { if (e.target === d || e.target.closest("[data-ok]")) zavri(); else if (e.target.closest("[data-dotaz]")) { zavri(); napisNam(predmet, cislo ? "" : "Dobrý den,\n\n" + co + "\n"); } });
+    d.addEventListener("click", function (e) { if (e.target === d || e.target.closest("[data-ok]")) zavri(); else if (e.target.closest("[data-dotaz]")) { zavri(); napisNam(predmet, cislo ? "" : "Dobrý den,\n\n" + co + "\n"); }
+      else if (e.target.closest("[data-zaplatil]")) { var b = e.target.closest("[data-zaplatil]"), t = d.querySelector("[data-pk]"); b.disabled = true; t.style.display = ""; t.textContent = "Kontroluju banku…";
+        zkontrolujPlatbu(true).then(function (r) { var x = r && (r.objednavky || []).filter(function (o) { return String(o.id) === cislo; })[0];
+          if (x && x.stav === "zaplaceno") { t.innerHTML = "<b>Platba dorazila, díky!</b> Všechno je připsané a doklad ti přišel e-mailem. Aplikace se teď obnoví."; setTimeout(function () { location.reload(); }, 2500); }
+          else { t.textContent = "Platba zatím nedorazila. Z jiné banky to obvykle trvá pár hodin, okamžitá platba jen chvilku. Nemusíš na nic čekat: jakmile dorazí, připíše se sama a přijde ti e-mail."; setTimeout(function () { b.disabled = false; }, 30000); } }); } });
     document.addEventListener("keydown", key); document.body.appendChild(d); d.querySelector("[data-ok]").focus();
     setStatus(cislo ? "Objednávka č. " + cislo + " přijatá" : "Objednávka neodešla", !!cislo);
+  }
+  // waiting orders on this device: on the next start the app asks the server (which checks the bank through Fio) whether they were paid
+  function cekaSeznam() { try { return JSON.parse(localStorage.getItem("glowguss-ceka-obj") || "[]"); } catch (e) { return []; } }
+  function cekaPridej(id) { var a = cekaSeznam().filter(function (x) { return x !== id; }); a.push(id); try { localStorage.setItem("glowguss-ceka-obj", JSON.stringify(a.slice(-5))); } catch (e) {} }
+  async function zkontrolujPlatbu(rucne) {
+    if (!REMOTE || (!rucne && !cekaSeznam().length)) return null;
+    try {
+      var r = await K.zavolej({ akce: "platba-kontrola" }), moje = r.objednavky || [], ceka = cekaSeznam();
+      var nove = moje.filter(function (o) { return o.stav === "zaplaceno" && ceka.indexOf(String(o.id)) >= 0; });
+      var zbyva = ceka.filter(function (id) { return moje.some(function (o) { return String(o.id) === id && o.stav === "ceka"; }); });
+      try { localStorage.setItem("glowguss-ceka-obj", JSON.stringify(zbyva)); } catch (e) {}
+      if (nove.length && !rucne) setTimeout(function () { setStatus("Platba za objednávku č. " + nove.map(function (o) { return o.id; }).join(", ") + " dorazila, všechno je připsané", true); }, 600);
+      return r;
+    } catch (e) { return null; }
   }
   function nakupZapoj(el) {
     on(el, ".gc-koupit", "click", async function (e, b) {
@@ -7728,6 +7755,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       if (K.cekaNoveHeslo && K.cekaNoveHeslo()) { noveHesloPage(); return; }
       if (K.souhlasOk && !(await K.souhlasOk())) { souhlasPage(); return; }
       zkontrolujAktualizaci();
+      await zkontrolujPlatbu(false);
       var nr = await nactiRecept();
       if (nr.chyba) {
         if (nr.chyba.kod === "odhlasen") { loginPage(nr.chyba.message); return; }
