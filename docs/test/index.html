@@ -2354,7 +2354,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     $("ac-out").addEventListener("click", odhlasitSe);
     // licence: on top while the trial runs or the licence ends within 30 days, otherwise at the bottom with the e-mail
     var konci = s.plati_do && new Date(s.plati_do).getTime() - Date.now() < 30 * 864e5, licNahore = REMOTE && !G.centrum && (G.zkusebni || konci);
-    if (REMOTE && !G.centrum && (kredityViditelne() || licNahore)) {
+    if (licNahore) {
       var lk = document.createElement("section"); lk.className = "card"; lk.innerHTML = licenceHtml(G.zkusebni ? "zkusebni" : konci ? "konci" : ""); licenceZapoj(lk);
       if (licNahore) { lk.style.marginTop = "16px"; view.querySelector(".cards").parentNode.insertBefore(lk, view.querySelector(".cards")); lk = null; }
       else view.querySelector(".cards").appendChild(lk);
@@ -2453,15 +2453,22 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       document.addEventListener("keydown", key); document.body.appendChild(d); boxy[0].focus();
     });
   }
-  function licenceHtml(proc) {   // buy a licence: in Účet, and on the "no active licence" screen
+  var LIC = [{d: "mesic", jm: "Měsíční", kc: "400 Kč", pod: "každý měsíc"}, {d: "ctvrt", jm: "Na 3 měsíce", kc: "1 100 Kč", pod: "vychází 367 Kč měsíčně"}, {d: "rok", jm: "Roční", kc: "3 900 Kč", pod: "vychází 325 Kč měsíčně + 100 Glowcoinů navíc"}];
+  function licenceHtml(proc) {   // buy a licence: in Účet (trial / ending soon), and on the "no active licence" screen
     var nadpis = proc === "zkusebni" ? "Zkušební verze běží, licenci si kup včas" : proc === "konci" ? "Licence brzy končí" : proc === "vyprsela" ? "Kup si licenci" : "Licence";
-    return '<h2>' + nadpis + '</h2><p class="sub" style="margin:6px 0 0">Obě obsahují 30 Glowcoinů každý měsíc, roční navíc 100 Glowcoinů hned po zaplacení.</p>' +
-      '<div class="row" style="gap:8px;margin-top:68px;flex-wrap:wrap;align-items:flex-end"><button type="button" class="btn lic-koupit" data-d="mesic">Měsíční za 400 Kč</button><span style="position:relative;display:inline-block"><button type="button" class="btn primary lic-koupit" data-d="rok">Roční za 3 900 Kč</button><span style="position:absolute;right:-10px;top:-67px;pointer-events:none">' + glowyPoza("sedi", 84) + '</span></span></div>' +
+    var dl = LIC.map(function (l) {
+      var rok = l.d === "rok";
+      return '<div role="button" tabindex="0" class="lic-koupit" data-d="' + l.d + '" style="position:relative;flex:1 1 0;min-width:0;text-align:left;cursor:pointer;padding:12px 14px;border-radius:14px;font:inherit;color:inherit;background:' + (rok ? 'linear-gradient(135deg,rgba(255,138,61,.22),rgba(224,51,138,.16))' : 'transparent') + ';border:' + (rok ? '2px solid #FF8A3D' : '1px solid var(--line)') + '">' +
+        '<div class="sub">' + l.jm + '</div><b style="display:block;font-size:20px;font-family:var(--f-num);margin-top:2px;white-space:nowrap">' + l.kc + '</b><div class="note" style="margin-top:4px">' + l.pod + '</div>' +
+        (rok ? '<span style="position:absolute;right:-6px;top:-67px;pointer-events:none">' + glowyPoza("sedi", 84) + '</span>' : '') + '</div>';
+    }).join("");
+    return '<h2>' + nadpis + '</h2><p class="sub" style="margin:6px 0 0">Všechny obsahují 30 Glowcoinů každý měsíc.</p>' +
+      '<div class="row" style="gap:10px;margin-top:70px;flex-wrap:nowrap;align-items:stretch">' + dl + '</div>' +
       '<p class="note" style="margin-top:8px">Zatím se objednává e-mailem, platba kartou bude brzy.</p>';
   }
   function licenceZapoj(el) {
     on(el, ".lic-koupit", "click", async function (e, b) {
-      var rok = b.dataset.d === "rok", popis = rok ? "Roční licence za 3 900 Kč" : "Měsíční licence za 400 Kč";
+      var l = LIC.filter(function (x) { return x.d === b.dataset.d; })[0] || LIC[0], popis = (l.d === "ctvrt" ? "Licence na 3 měsíce" : l.jm + " licence") + " za " + l.kc;
       var sn = await souhlasNakupu("licence", popis); if (!sn) return;
       objednavkaMailem("Objednávka: " + popis.toLowerCase(), "chci koupit " + popis.toLowerCase() + ".", sn);
     });
