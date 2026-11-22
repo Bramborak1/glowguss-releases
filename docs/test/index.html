@@ -3870,7 +3870,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       ch[0].setAttribute("d", f.ruka); ch[1].setAttribute("transform", f.tr);
       var tw = ch[1].children; tw[0].setAttribute("d", f.R[0]); tw[1].setAttribute("d", f.R[1]); tw[2].setAttribute("d", f.R[2]);
       var hl = el.parentNode.querySelector(".g8h");   // low in front the towel covers his body, otherwise it flies behind his head
-      if (hl) { var vpredu = el.compareDocumentPosition(hl) & 2; if (f.predni && !vpredu) el.parentNode.appendChild(el); else if (!f.predni && vpredu) el.parentNode.insertBefore(el, hl); }
+      if (hl) { var vpredu = el.compareDocumentPosition(hl) & 2; if (f.predni && !vpredu) el.parentNode.appendChild(el); else if (!f.predni && el.parentNode.firstChild !== el) el.parentNode.insertBefore(el, el.parentNode.firstChild); }   // behind his back: behind the body and the head
     }
     requestAnimationFrame(g8Tik);
   }
@@ -3886,6 +3886,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     return '<svg class="glowy" width="' + Math.round(h * 0.8) + '" height="' + h + '" viewBox="0 0 100 125" aria-hidden="true" style="flex:none;display:block;overflow:visible">' + glowyDefs(i) +
       '<ellipse cx="50" cy="121" rx="22" ry="3" fill="#000" opacity=".3"/><circle cx="50" cy="40" r="38" fill="url(#' + i + 'g)"/>' +
       '<g class="gb">' +
+        // right arm waving an aufguss towel, behind his back
+        glowyOsmicka(i, stale) +
         // legs and feet
         '<path d="M43 100v13M57 100v13" stroke="url(#' + i + 'k)" stroke-width="6" stroke-linecap="round"/>' +
         '<ellipse cx="41" cy="115" rx="6" ry="3.2" fill="#7B2FF7"/><ellipse cx="59" cy="115" rx="6" ry="3.2" fill="#7B2FF7"/>' +
@@ -3896,8 +3898,6 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         '<path d="M60 90l3 12" stroke="#F2C894" stroke-width="2" stroke-linecap="round"/>' +
         // left arm on the hip
         '<path d="M35 74q-9 6-4 14" stroke="url(#' + i + 'k)" stroke-width="6" fill="none" stroke-linecap="round"/>' +
-        // right arm waving an aufguss towel
-        glowyOsmicka(i, stale) +
         // head
         '<g class="g8h" transform="translate(18 1)">' + glowyHlava(i) + '</g>' +
       '</g></svg>';
