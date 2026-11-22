@@ -2552,7 +2552,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     { n: "Nálada", t: "Jaká má být nálada v každé části?", d: "Glowy rozdělil show na části podle hudby. Klikni na část na ose a pod ní jí vyber náladu. Barva každého bloku ukazuje, jak budou svítit stěny." },
     { n: "Dropy", skryt: true, t: "Kde má světlo bouchnout naplno?", d: "Pusť hudbu a ťukni (nebo zmáčkni mezerník) přesně v místě, kde má celá sauna bouchnout. Ťuk se sám přichytí na nejbližší beat." },
     { n: "Náhled", t: "Podívej se, jak to bude svítit", d: "Pusť přehrávání. Světla v sauně svítí přesně tak, jak to dostane QuickDMX. Táhnutím myši saunou otáčíš." },
-    { n: "Stáhnout", t: "Stáhni světla pro QuickDMX", d: "Jedno tlačítko vyrobí světla, zkontroluje pravidla (žádná bílá, kamna jen dýchají, nikdy tma) a připraví zip." }
+    { n: "Stáhnout", t: "Stáhni světla pro QuickDMX", d: "" }
   ];
   function wizard(id, show, k) {
     var ready = !!G.rozbor[id] && show.casti.length && show.pisne.length, K = KROKY[k - 1];
@@ -2560,7 +2560,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var vid = KROKY.map(function (x, i) { return i + 1; }).filter(function (n) { return !KROKY[n - 1].skryt || n === k; });   // the Dropy step lives in the advanced mode now (route krok3 still works)
     var dal = vid.filter(function (n) { return n > k; })[0], pred = vid.filter(function (n) { return n < k; }).pop();
     h.push('<ol class="steps" aria-label="Kroky">' + KROKY.map(function (x, i) { if (vid.indexOf(i + 1) < 0) return ""; return '<li><a href="#/show/' + esc(id) + '/krok' + (i + 1) + '"' + (i + 1 === k ? ' aria-current="step"' : '') + (i + 1 < k ? ' class="done"' : '') + '><span class="num">' + (i + 1 < k ? "✓" : vid.indexOf(i + 1) + 1) + '</span><span class="nm">' + x.n + '</span></a></li>'; }).join("") + '</ol>');
-    h.push('<div class="stephead"><h2>' + esc(K.t) + '</h2><p>' + esc(K.d) + '</p>' + (k === 2 && ready ? '<p style="margin-top:8px"><a class="btn small" href="#/show/' + esc(id) + '/ai">Máš scénář nebo příběh? Nech Glowy AI navrhnout světla</a></p>' : '') + '</div>');
+    h.push('<div class="stephead"><h2>' + esc(K.t) + '</h2>' + (K.d ? '<p>' + esc(K.d) + '</p>' : '') + (k === 2 && ready ? '<p style="margin-top:8px"><a class="btn small" href="#/show/' + esc(id) + '/ai">Máš scénář nebo příběh? Nech Glowy AI navrhnout světla</a></p>' : '') + '</div>');
     if (!ready) {
       if (k !== 1) { h.push('<div class="card empty">Nejdřív v kroku 1 vyber skladbu. Glowy v ní najde beaty a části.<div class="row" style="justify-content:center;margin-top:14px"><a class="btn primary" href="#/show/' + esc(id) + '/krok1">Krok 1: Hudba</a></div></div>'); view.innerHTML = h.join(""); return; }
       h.push('<div id="tabBody"></div>'); view.innerHTML = h.join(""); analyzeStep($("tabBody"), show); return;
@@ -3602,7 +3602,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     if (k === "3d") return ["Tady vidíš, jak bude sauna svítit.", [["Jak saunou otočím?", "Táhni myší (na mobilu prstem)."], ["Proč to ve skutečnosti svítí jinak?", "Každá sauna svítí trochu jinak. V Saunách u své sauny nastav „Jak svítí ve skutečnosti“ a náhled se srovná."]]];
     if (k === "balicek") return ["Tady stáhneš hotová světla pro QuickDMX.", [
       ["Co se zipem udělám?", "Rozbal ho do složky projektu sauny tak, aby se sloučily složky scenes, Live a Music. V QuickDMX otevři Live → Timeline a vyber časovou osu s názvem verze."], GLOWY_PRAVIDLA]];
-    if (/^krok\d$/.test(k)) { var K = KROKY[+k.slice(4) - 1] || KROKY[0]; return [K.d, [
+    if (/^krok\d$/.test(k)) { var K = KROKY[+k.slice(4) - 1] || KROKY[0]; return [K.d || "Tady stáhneš hotová světla pro QuickDMX.", [
       ["Jak postupovat?", "Projdi kroky nahoře: Hudba, Nálada, Náhled, Stáhnout. Kdykoli se můžeš vrátit zpět."],
       ["Světla blikají vedle silného úderu", "V kroku Nálada klikni na tu část a rozbal „Světla nesedí na doby?“. Zkus Posunout o dobu, u valčíku nastav 3 doby."],
       ["Mám scénář nebo příběh", "V kroku Nálada klikni na „Nech Glowy AI navrhnout světla“. Vložíš příběh a Glowy AI navrhne světla za tebe."],
