@@ -2352,6 +2352,18 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       '<p class="sub" style="margin:8px 0 0">' + (G.centrum ? "Licenci ti platí centrum " + esc(G.centrum.nazev) + ", do " + esc(new Date(G.centrum.plati_do).toLocaleDateString("cs-CZ")) + "." : s.plati_do ? "Předplatné platí do " + esc(new Date(s.plati_do).toLocaleDateString("cs-CZ")) + "." : "Platnost předplatného se ukáže po prvním náhledu nebo stažení.") + '</p>' +
       '<p class="note" style="margin-top:8px">' + esc(G.centrum ? "Licenci prodlužuje centrum." : kontaktText()) + '</p><p class="note" style="margin-top:6px">Po odhlášení se tvoje show zálohují na server a z tohohle zařízení zmizí, takže je další saunér neuvidí. Po přihlášení se vrátí. Hudbu pak jen znovu vybereš.</p><div class="row" style="margin-top:14px"><button class="btn" id="ac-out" type="button">Odhlásit</button></div></section></div>';
     $("ac-out").addEventListener("click", odhlasitSe);
+    if (REMOTE && !G.centrum && kredityViditelne()) {
+      var lk = document.createElement("section"); lk.className = "card";
+      lk.innerHTML = '<h2>Licence</h2><p class="sub" style="margin:6px 0 0">Obě obsahují 30 Glowcoinů každý měsíc, roční navíc 100 Glowcoinů hned po zaplacení.</p>' +
+        '<div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap"><button type="button" class="btn lic-koupit" data-d="mesic">Měsíční za 400 Kč</button><button type="button" class="btn primary lic-koupit" data-d="rok">Roční za 3 900 Kč</button></div>' +
+        '<p class="note" style="margin-top:8px">Zatím se objednává e-mailem, platba kartou bude brzy.</p>';
+      view.querySelector(".cards").appendChild(lk);
+      on(lk, ".lic-koupit", "click", async function (e, b) {
+        var rok = b.dataset.d === "rok", popis = rok ? "Roční licence za 3 900 Kč" : "Měsíční licence za 400 Kč";
+        var sn = await souhlasNakupu("licence", popis); if (!sn) return;
+        objednavkaMailem("Objednávka: " + popis.toLowerCase(), "chci koupit " + popis.toLowerCase() + ".", sn);
+      });
+    }
     var gk = document.createElement("section"); gk.className = "card";
     gk.innerHTML = '<div class="row" style="gap:14px;align-items:center">' + glowy(44) + '<div style="flex:1"><h2>Glowyho rady</h2><p class="sub" style="margin:4px 0 0">Glowy vpravo dole s nápovědou. Když pracuje Glowy AI, ukáže se vždycky. <a href="#/napoveda">Celá nápověda</a></p></div>' +
       '<label class="row" style="gap:8px;align-items:center;cursor:pointer;flex:none"><input type="checkbox" id="ac-glowy"' + (glowyZap() ? ' checked' : '') + ' style="width:20px;height:20px"> Zobrazovat</label></div>';
@@ -2420,14 +2432,42 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       }).join("") + '</div>' +
       (GC_PLATBA ? '' : '<p class="note" style="margin-top:8px">Zatím se objednává e-mailem, platba kartou bude brzy.</p>');
   }
+  // before any purchase: the buyer asks for immediate performance and confirms what that means for the 14-day withdrawal right
+  // (Glowcoins = digital content: right lost once credited, Directive 2011/83/EU art. 16(m), § 1837 l) OZ; licence = service: proportional payment, § 1834 OZ)
+  function souhlasNakupu(druh, popis) {   // -> Promise of null (cancelled) or {kdy, text}
+    var text = druh === "glowcoiny"
+      ? "Žádám o okamžité připsání Glowcoinů na můj účet. Beru na vědomí, že jejich připsáním ztrácím právo odstoupit od smlouvy do 14 dnů a že Glowcoiny se nevracejí ani nevyměňují za peníze."
+      : "Žádám, aby licence začala běžet hned, ještě během 14denní lhůty pro odstoupení. Beru na vědomí, že když odstoupím, zaplatím poměrnou část ceny za dobu, kdy licence běžela, a že Glowcoiny z licence, které jsem už použil, se nevracejí.";
+    return new Promise(function (res) {
+      var d = document.createElement("div");
+      d.setAttribute("role", "dialog"); d.setAttribute("aria-modal", "true");
+      d.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);display:grid;place-items:center;z-index:999;padding:16px";
+      d.innerHTML = '<section class="card" style="max-width:480px;width:100%"><h2 style="margin:0">Před nákupem</h2><p class="sub" style="margin:6px 0 0"><b>' + esc(popis) + '</b></p>' +
+        '<label class="row" style="flex-wrap:nowrap;gap:10px;align-items:flex-start;margin-top:14px;cursor:pointer"><input type="checkbox" class="sn-ok" style="width:20px;height:20px;flex:none;margin-top:2px"><span>' + esc(text) + '</span></label>' +
+        '<label class="row" style="flex-wrap:nowrap;gap:10px;align-items:flex-start;margin-top:10px;cursor:pointer"><input type="checkbox" class="sn-ok" style="width:20px;height:20px;flex:none;margin-top:2px"><span>' + souhlasText() + '</span></label>' +
+        '<div class="row" style="gap:8px;justify-content:flex-end;margin-top:16px"><button type="button" class="btn" data-v="0">Zrušit</button><button type="button" class="btn primary" data-v="1" disabled>Pokračovat k objednávce</button></div></section>';
+      var ok = d.querySelector('[data-v="1"]'), boxy = d.querySelectorAll(".sn-ok");
+      Array.prototype.forEach.call(boxy, function (b) { b.addEventListener("change", function () { ok.disabled = !Array.prototype.every.call(boxy, function (x) { return x.checked; }); }); });
+      var hotovo = function (v) { document.removeEventListener("keydown", key); d.remove(); res(v ? { kdy: new Date().toISOString(), text: text } : null); };
+      var key = function (e) { if (e.key === "Escape") hotovo(false); };
+      d.addEventListener("click", function (e) { var b = e.target.closest("button[data-v]"); if (b && !b.disabled) hotovo(b.dataset.v === "1"); else if (e.target === d) hotovo(false); });
+      document.addEventListener("keydown", key); document.body.appendChild(d); boxy[0].focus();
+    });
+  }
+  function objednavkaMailem(predmet, co, sn) {
+    var ja = String((K.session() || {}).email || "");
+    location.href = "mailto:" + GC_MAIL + "?subject=" + encodeURIComponent(predmet) + "&body=" + encodeURIComponent("Dobrý den,\n\n" + co + "\nÚčet v Glowguss: " + ja +
+      "\n\nPotvrzuji (zaškrtnuto v aplikaci " + new Date(sn.kdy).toLocaleString("cs-CZ", { timeZone: "Europe/Prague" }) + "): " + sn.text + "\nSouhlasím s obchodními podmínkami (verze 2026-11-22).\n\nDěkuji");
+    setStatus("Otevírám e-mail s objednávkou…", true);
+  }
   function nakupZapoj(el) {
-    on(el, ".gc-koupit", "click", function (e, b) {
+    on(el, ".gc-koupit", "click", async function (e, b) {
       var x = GC_BALICKY[+b.dataset.i], ja = String((K.session() || {}).email || "");
+      var sn = await souhlasNakupu("glowcoiny", x.n + " Glowcoinů za " + x.kc + " Kč"); if (!sn) return;
       if (GC_PLATBA && GC_PLATBA[x.n]) {   // Lemon Squeezy checkout; user_id tells the server function "platba" whom to credit
         var uid = ""; try { uid = JSON.parse(atob(String((K.session() || {}).access_token || "").split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).sub || ""; } catch (er) {}
-        location.href = GC_PLATBA[x.n] + (GC_PLATBA[x.n].indexOf("?") < 0 ? "?" : "&") + "checkout[email]=" + encodeURIComponent(ja) + "&checkout[custom][user_id]=" + encodeURIComponent(uid); return; }
-      location.href = "mailto:" + GC_MAIL + "?subject=" + encodeURIComponent("Objednávka " + x.n + " Glowcoinů") + "&body=" + encodeURIComponent("Dobrý den,\n\nchci koupit " + x.n + " Glowcoinů za " + x.kc + " Kč.\nÚčet v Glowguss: " + ja + "\n\nDěkuji");
-      setStatus("Otevírám e-mail s objednávkou…", true);
+        location.href = GC_PLATBA[x.n] + (GC_PLATBA[x.n].indexOf("?") < 0 ? "?" : "&") + "checkout[email]=" + encodeURIComponent(ja) + "&checkout[custom][user_id]=" + encodeURIComponent(uid) + "&checkout[custom][okamzite_plneni]=" + encodeURIComponent(sn.kdy); return; }
+      objednavkaMailem("Objednávka " + x.n + " Glowcoinů", "chci koupit " + x.n + " Glowcoinů za " + x.kc + " Kč.", sn);
     });
   }
   function kredityKarta() {
