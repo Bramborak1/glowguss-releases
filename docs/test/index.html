@@ -2048,7 +2048,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     $("nav-show").setAttribute("aria-current", h[0] === "sauny" || h[0] === "sauna" ? "false" : "page");
     $("nav-sauny").setAttribute("aria-current", h[0] === "sauny" || h[0] === "sauna" ? "page" : "false");
     if (h[0] === "napoveda" && $("nav-show")) $("nav-show").setAttribute("aria-current", "false");
-    if ((h[0] === "sprava" || h[0] === "ucet") && $("nav-show")) $("nav-show").setAttribute("aria-current", "false");
+    if ($("nav-centrum")) $("nav-centrum").setAttribute("aria-current", h[0] === "centrum" ? "page" : "false");
+    if ((h[0] === "sprava" || h[0] === "ucet" || h[0] === "centrum") && $("nav-show")) $("nav-show").setAttribute("aria-current", "false");
     if ($("nav-sprava")) $("nav-sprava").setAttribute("aria-current", h[0] === "sprava" ? "page" : "false");
     if ($("nav-ucet")) $("nav-ucet").setAttribute("aria-current", h[0] === "ucet" ? "page" : "false");   // help lives in Glowy now, no tab of its own
     window.scrollTo(0, 0);
@@ -2059,6 +2060,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     if (h[0] === "napoveda") return helpPage();
     if (h[0] === "ucet" && REMOTE) return accountPage();
     if (h[0] === "sprava" && REMOTE) return spravaPage(h[1]);
+    if (h[0] === "centrum" && REMOTE) return centrumPage(h[1]);
     return homePage();
   }
   window.addEventListener("hashchange", route);
@@ -2380,6 +2382,52 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     if (G.spravce) { var sp = document.createElement("section"); sp.className = "card"; sp.style.marginTop = "16px"; sp.innerHTML = '<div class="row between" style="flex-wrap:wrap;gap:10px"><div><h2>Správa</h2><p class="sub" style="margin:4px 0 0">Uživatelé, objednávky, centra a hlídání jsou na vlastní stránce.</p></div><a class="btn primary" href="#/sprava">Otevřít Správu</a></div>'; view.appendChild(sp); }
   }
 
+  // ---------- the centre manager's page: overview, saunéři, Glowcoins, saunas ----------
+  var CENTRUM_TABS = [["prehled", "Přehled"], ["sauneri", "Saunéři"], ["glowcoiny", "Glowcoiny"], ["sauny", "Sauny"]];
+  async function centrumPage(tab) {
+    if (!jeSpravceCentra()) { view.innerHTML = '<div class="card empty">Tahle stránka je jen pro správce centra.</div>'; return; }
+    tab = CENTRUM_TABS.some(function (t) { return t[0] === tab; }) ? tab : "prehled";
+    var tabs = CENTRUM_TABS.filter(function (t) { return t[0] !== "glowcoiny" || kredityViditelne(); });
+    view.innerHTML = '<h1 class="page">Centrum ' + esc(G.centrum.nazev) + '</h1><nav class="tabs" aria-label="Centrum" style="margin-top:12px">' + tabs.map(function (t) { return '<a href="#/centrum/' + t[0] + '"' + (t[0] === tab ? ' aria-current="page"' : '') + '>' + t[1] + '</a>'; }).join("") + '</nav><div id="cp"></div>';
+    if (tab === "sauneri" || tab === "glowcoiny") { centrumKarta(tab); return; }
+    var box = $("cp"); box.innerHTML = '<p class="sub" style="margin-top:16px">Načítám…</p>';
+    var r; try { r = await K.zavolej({ akce: "centrum" }); } catch (e) { box.innerHTML = '<p class="badbox" style="margin-top:16px">' + esc(e.message || e) + '</p>'; return; }
+    G.centrum = r.centrum || G.centrum; G.centrumClenove = r.clenove || []; G.centrumKredity = r.kredity || null; G.centrumSauny = (r.sauny || []).map(function (x) { return x.id; });
+    var c = G.centrum, Cl = G.centrumClenove, kdy = function (d) { return new Date(d).toLocaleDateString("cs-CZ"); };
+    if (tab === "sauny") {
+      var mojeId = Object.keys(G.sauny).filter(function (k) { return !G.sauny[k].archiv; });
+      box.innerHTML = '<section class="card" style="margin-top:16px"><h2>Sauny centra</h2><p class="note" style="margin-top:6px">Sdílená sauna se všem saunérům centra objeví v jejich programu. Když ji upravíš, změny se jim pošlou samy. Oni ji měnit nemůžou.</p>' +
+        '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">' + (mojeId.length ? mojeId.map(function (k) {
+          var sa = G.sauny[k], sd = !sa.centrum && G.centrumSauny.indexOf(k) >= 0, cizi = !!sa.centrum;
+          return '<div style="border:1px solid var(--line);border-left:4px solid ' + (sd || cizi ? '#9BE38A' : 'var(--line)') + ';border-radius:12px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center"><div style="flex:1 1 220px;min-width:0"><a href="#/sauna/' + esc(k) + '"><b>' + esc(sa.nazev || k) + '</b></a><div class="sub">' + (cizi ? "sdílí ji centrum" : sd ? "sdílená se saunéry" : "jen tvoje") + '</div></div>' +
+            (cizi ? '' : sd ? '<button class="btn small cs-x" data-k="' + esc(k) + '" type="button">Přestat sdílet</button>' : '<button class="btn small primary cs-s" data-k="' + esc(k) + '" type="button">Sdílet s centrem</button>') + '</div>';
+        }).join("") : '<p class="sub">Zatím nemáš žádnou saunu. Přidej ji v záložce Sauny.</p>') + '</div></section>';
+      on(box, ".cs-s", "click", async function (e, b) { b.disabled = true; if (await sdilejSaunu(b.dataset.k)) centrumPage("sauny"); else b.disabled = false; });
+      on(box, ".cs-x", "click", async function (e, b) { var sa = G.sauny[b.dataset.k];
+        if (!(await potvrd("Přestat sdílet saunu „" + (sa.nazev || b.dataset.k) + "“? Saunérům zůstane jejich kopie, ale už se nebude aktualizovat.", "Přestat sdílet"))) return;
+        try { await K.zavolej({ akce: "centrum-sauna-odebrat", id: b.dataset.k }); setStatus("Sdílení zrušeno", true); centrumPage("sauny"); } catch (er) { setStatus("Nepovedlo se: " + (er.message || er)); } });
+      return;
+    }
+    var ted = Date.now(), prihl = Cl.filter(function (m) { return m.prihlasen; }), aktivni = Cl.filter(function (m) { return m.naposledy && ted - new Date(m.naposledy).getTime() < 30 * 864e5; });
+    var show = Cl.reduce(function (a, m) { return a + (+m.show || 0); }, 0), zbyva = Math.round((new Date(c.plati_do).getTime() - ted) / 864e5), kr = G.centrumKredity;
+    var dl = function (n, t, pod, barva, href) { return '<' + (href ? 'a href="' + href + '"' : 'div') + ' style="flex:1 1 170px;padding:14px 16px;border-radius:14px;border:1px solid var(--line);border-left:4px solid ' + barva + ';text-decoration:none;color:inherit;display:block"><div class="sub">' + t + '</div><b style="display:block;font-size:28px;font-family:var(--f-num);margin-top:2px">' + n + '</b><div class="note" style="margin-top:2px">' + (pod || "&nbsp;") + '</div></' + (href ? 'a' : 'div') + '>'; };
+    var h = '<div class="row" style="gap:12px;flex-wrap:wrap;margin-top:16px;align-items:stretch">' +
+      dl(kdy(c.plati_do), "Licence centra platí do", zbyva > 0 ? "ještě " + zbyva + " dní" : "vypršela", zbyva > 30 ? "#9BE38A" : "#FF8A3D") +
+      dl(Cl.length + "/" + c.mist, "Obsazená místa", Cl.length >= c.mist ? "všechna obsazená" : (c.mist - Cl.length) + " volných", "#7FD3FF", "#/centrum/sauneri") +
+      dl(aktivni.length, "Aktivní saunéři", "přihlásili se za 30 dní · " + (Cl.length - prihl.length) + " ještě nikdy", "#B9A7FF", "#/centrum/sauneri") +
+      dl(show, "Show centra", "dohromady u všech saunérů", "#E0338A") +
+      (kr && kredityViditelne() ? dl(kr.balik, "Glowcoiny v balíku", kr.mesic.celkem ? "tento měsíc ještě " + kr.mesic.zbyva + " z " + kr.mesic.celkem + " v ceně" : (kr.sdilet ? "čerpají všichni" : "jen přidělené"), "#FFD27A", "#/centrum/glowcoiny") : '') + '</div>' +
+      '<section class="card" style="margin-top:16px"><h2>Prodloužit nebo přikoupit</h2><p class="note" style="margin-top:6px">Cenu pro centrum domlouváme individuálně. Klikni a pošli nám e-mail, ozveme se s nabídkou.</p>' +
+      '<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn primary cp-o" data-co="prodloužit licenci centra" type="button">Prodloužit licenci</button><button class="btn cp-o" data-co="přikoupit místa pro další saunéry" type="button">Přikoupit místa</button>' +
+      (kredityViditelne() ? '<button class="btn cp-o" data-co="přikoupit Glowcoiny do balíku centra" type="button">Přikoupit Glowcoiny</button>' : '') + '</div></section>';
+    box.innerHTML = h;
+    on(box, ".cp-o", "click", function (e, b) {
+      var ja = String((K.session() || {}).email || "");
+      location.href = "mailto:" + GC_MAIL + "?subject=" + encodeURIComponent("Centrum " + c.nazev + ": " + b.dataset.co) + "&body=" + encodeURIComponent("Dobrý den,\n\nza centrum " + c.nazev + " bych chtěl " + b.dataset.co + ".\nTeď: " + Cl.length + "/" + c.mist + " míst, licence do " + kdy(c.plati_do) + ".\nSprávce: " + ja + "\n\nDěkuji");
+      setStatus("Otevírám e-mail…", true);
+    });
+  }
+
   // ---------- the owner's admin page: overview, users, orders, centres, watching ----------
   var SPRAVA_TABS = [["prehled", "Přehled"], ["uzivatele", "Uživatelé"], ["objednavky", "Objednávky"], ["centra", "Centra"], ["hlidani", "Hlídání"]];
   function spravaPage(tab) {
@@ -2625,14 +2673,14 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   // the centre manager: pool, monthly credits, sharing, assigning to one saunér
   function centrumKredityHtml(kr, Cl) {
     if (!kr || !kredityViditelne()) return "";
-    return '<h3 style="margin:18px 0 8px">Glowcoiny centra</h3>' +
+    return '<h2>Glowcoiny centra</h2>' +
       '<div class="row" style="gap:10px;align-items:baseline"><b style="font-size:28px;font-family:var(--f-num)">' + kr.balik + '</b><span class="sub">v balíku centra' + (kr.mesic.celkem ? ' · tento měsíc ještě ' + kr.mesic.zbyva + ' z ' + kr.mesic.celkem + ' v ceně licence' : '') + '</span></div>' +
       '<label class="row" style="gap:10px;margin-top:10px;align-items:flex-start;cursor:pointer"><input type="checkbox" id="cen-kr-sd"' + (kr.sdilet ? " checked" : "") + ' style="margin-top:3px"><span>Saunéři můžou čerpat ze společného balíku<br><span class="note">Vypnuto = saunéři mají jen Glowcoiny, které jim přidělíš (třeba na přípravu na soutěž).</span></span></label>' +
       '<div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">' + Cl.map(function (m, i) { var x = (kr.clenove || {})[m.email] || { vlastni: 0, z_centra: 0, prideleno: 0 };
         return '<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><span style="flex:1 1 200px;min-width:0;overflow-wrap:anywhere">' + esc(m.email) + '<br><span class="sub">vlastní ' + x.vlastni + ' · tento měsíc z centra ' + x.z_centra + (x.prideleno ? ' · přiděleno ' + x.prideleno : '') + '</span></span>' +
           (m.prihlasen ? '<input type="number" class="cen-kr-n" data-i="' + i + '" min="1" placeholder="počet" style="width:90px"><button class="btn small cen-kr-p" data-i="' + i + '" type="button">Přidělit</button>' : '<span class="note">přidělit půjde po prvním přihlášení</span>') + '</div>';
       }).join("") + '</div>' +
-      '<p class="note" style="margin-top:8px">Přidělené Glowcoiny se přesunou z balíku centra saunérovi. Glowcoiny do balíku zatím přidává Milan.</p>' + kredityHistorie(kr.historie, true);
+      '<p class="note" style="margin-top:8px">Přidělené Glowcoiny se přesunou z balíku centra saunérovi. Další Glowcoiny do balíku přikoupíš v Přehledu centra.</p>' + kredityHistorie(kr.historie, true);
   }
   // ---------- sauna centre: the centre pays for its saunéři and shares its saunas (read-only copies here) ----------
   async function nactiCentrum(r0) {
@@ -2667,28 +2715,29 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     try { var r = await K.zavolej({ akce: "centrum-sauna", sauna: Object.assign({}, s, { id: id }) }); G.centrumSauny = (r.sauny || []).map(function (x) { return x.id; }); if (!tise) setStatus("Sauna je sdílená s centrem " + G.centrum.nazev, true); return true; }
     catch (e) { setStatus("Sdílení se nepovedlo: " + (e.message || e)); return false; }
   }
-  function centrumKarta() {
+  function centrumKarta(cast) {   // cast: undefined = Účet, "sauneri" / "glowcoiny" = one tab of the Centrum page
     if (!G.centrum) return;
     var box = document.createElement("section"); box.className = "card"; box.style.marginTop = "16px"; box.id = "cen-card";
-    view.appendChild(box);
+    ($("cp") || view).appendChild(box);
     var kdy = function (d) { return new Date(d).toLocaleDateString("cs-CZ"); };
     function vykresli() {
       var c = G.centrum, sp = jeSpravceCentra(), ja = String((K.session() || {}).email || "").toLowerCase(), Cl = G.centrumClenove || [];
       var sauny = (G.centrumSauny || []).map(function (id) { var lid = Object.keys(G.sauny).filter(function (k) { var c = G.sauny[k].centrum; return c ? c.puvodni === id : k === id; })[0]; return '<a href="#/sauna/' + esc(lid || id) + '">' + esc((G.sauny[lid] || {}).nazev || id) + '</a>'; });
-      var h = '<h2>Centrum ' + esc(c.nazev) + '</h2><p class="sub" style="margin:8px 0 0">Licenci ti platí centrum, do ' + kdy(c.plati_do) + '. Tvoje role: <b>' + (sp ? "správce" : "saunér") + '</b>.</p>' +
+      if (sp && !cast) { box.innerHTML = '<div class="row between" style="flex-wrap:wrap;gap:10px"><div><h2>Centrum ' + esc(c.nazev) + '</h2><p class="sub" style="margin:4px 0 0">Licenci ti platí centrum, do ' + kdy(c.plati_do) + '. Jsi jeho správce.</p></div><a class="btn primary" href="#/centrum">Spravovat centrum</a></div>'; return; }
+      var h = cast ? '' : '<h2>Centrum ' + esc(c.nazev) + '</h2><p class="sub" style="margin:8px 0 0">Licenci ti platí centrum, do ' + kdy(c.plati_do) + '. Tvoje role: <b>' + (sp ? "správce" : "saunér") + '</b>.</p>' +
         '<p class="note" style="margin-top:8px">Sauny centra: ' + (sauny.length ? sauny.join(", ") : "zatím žádná") + '. ' + (sp ? 'Saunu sdílíš na její stránce (Sauny → otevřít → Centrum).' : 'Nastavuje je správce centra, ty v nich jen děláš show. Tvoje show vidíš jen ty.') + '</p>';
-      if (sp) {
-        h += '<h3 style="margin:18px 0 8px">Saunéři ' + Cl.length + '/' + c.mist + '</h3><div style="display:flex;flex-direction:column;gap:8px">' + Cl.map(function (m, i) {
+      if (sp && cast === "sauneri") {
+        h += '<h2>Saunéři ' + Cl.length + '/' + c.mist + '</h2><p class="note" style="margin:6px 0 12px">Obsah jejich show nevidíš, jen kolik jich mají. Každý saunér má svoje show jen pro sebe.</p><div style="display:flex;flex-direction:column;gap:8px">' + Cl.map(function (m, i) {
           var ty = m.email === ja;
           return '<div style="border:1px solid var(--line,#2a2d36);border-radius:12px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center"><div style="flex:1 1 200px;min-width:0"><b style="overflow-wrap:anywhere">' + esc(m.email) + '</b>' + (ty ? ' <span class="note">(ty)</span>' : '') +
-            '<div class="sub">' + (m.prihlasen ? (m.naposledy ? "naposledy " + kdy(m.naposledy) : "přihlášen") : "ještě se nepřihlásil") + '</div></div>' +
+            '<div class="sub">' + (m.prihlasen ? (m.naposledy ? "naposledy " + kdy(m.naposledy) : "přihlášen") + " · " + (m.show || 0) + " show" : "ještě se nepřihlásil") + '</div></div>' +
             (ty ? '<span class="badge">správce</span>' : '<select class="cen-role" data-i="' + i + '" style="width:auto;flex:0 0 auto" aria-label="Role ' + esc(m.email) + '"><option value="sauner"' + (m.role !== "spravce" ? " selected" : "") + '>saunér</option><option value="spravce"' + (m.role === "spravce" ? " selected" : "") + '>správce</option></select><button class="btn small cen-x" data-i="' + i + '" type="button" style="color:var(--bad)">Odebrat</button>') + '</div>';
         }).join("") + '</div>' +
           (Cl.length < c.mist ? '<form id="cen-add" class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><input type="email" id="cen-em" placeholder="e-mail saunéra" required style="flex:1 1 220px;width:auto"><select id="cen-r" aria-label="Role" style="width:auto;flex:0 0 auto"><option value="sauner">saunér</option><option value="spravce">správce</option></select><button class="btn primary" type="submit">Přidat</button></form>' +
             '<p class="note" style="margin-top:8px">Saunér se pak přihlásí přesně tímhle e-mailem (přes Google, nebo e-mailem a heslem) a licenci má hned. Správce navíc přidává saunéry a sdílí sauny.</p>'
-            : '<p class="note" style="margin-top:12px">Všechna místa jsou obsazená. Pro další saunéry napiš Milanovi.</p>');
-        h += centrumKredityHtml(G.centrumKredity, Cl);
+            : '<p class="note" style="margin-top:12px">Všechna místa jsou obsazená. Další místa přikoupíš v Přehledu centra.</p>');
       }
+      if (sp && cast === "glowcoiny") h += centrumKredityHtml(G.centrumKredity, Cl) || '<p class="sub">Glowcoiny centra se zobrazí, až budou spuštěné.</p>';
       box.innerHTML = h;
       if (!sp) return;
       var hotovo = function (r) { G.centrum = r.centrum || G.centrum; G.centrumClenove = r.clenove || G.centrumClenove; if (r.kredity !== undefined) G.centrumKredity = r.kredity; vykresli(); };
@@ -2709,7 +2758,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         try { hotovo(await K.zavolej({ akce: "centrum-clen-odebrat", email: m.email })); setStatus("Saunér odebrán", true); } catch (er) { setStatus("Nepovedlo se: " + (er.message || er)); } });
     }
     vykresli();
-    if (jeSpravceCentra()) K.zavolej({ akce: "centrum" }).then(function (r) { G.centrum = r.centrum || G.centrum; G.centrumClenove = r.clenove || G.centrumClenove; G.centrumKredity = r.kredity || null; G.centrumSauny = (r.sauny || []).map(function (x) { return x.id; }); if ($("cen-card")) vykresli(); }).catch(function () {});
+    if (jeSpravceCentra() && cast) K.zavolej({ akce: "centrum" }).then(function (r) { G.centrum = r.centrum || G.centrum; G.centrumClenove = r.clenove || G.centrumClenove; G.centrumKredity = r.kredity || null; G.centrumSauny = (r.sauny || []).map(function (x) { return x.id; }); if ($("cen-card")) vykresli(); }).catch(function () {});
   }
   // the owner: sauna centres (name, valid until, seats, manager's e-mail)
   async function spravaCenter() {
@@ -4078,6 +4127,12 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       ["Jak přidám saunu?", "Nahraj zip celé složky projektu QuickDMX té sauny. Program načte světla, jejich rozmístění a skupiny (stěny, kamna, lavice, voda). Projdi skupiny a dej „Skupiny sedí“."],
       ["Světla ve skutečnosti svítí jinak", "U sauny otevři „Jak svítí ve skutečnosti“ a nastav jas skupin podle reality."],
       ["Můžu přenést show do jiné sauny?", "Ano, u show změníš saunu a světla se přepočítají."]]];
+    if (h[0] === "centrum") return ["Tady spravuješ svoje centrum: saunéry, Glowcoiny a sdílené sauny.", [
+      ["Jak přidám saunéra?", "V záložce Saunéři napiš jeho e-mail a klikni Přidat. Až se tímhle e-mailem přihlásí, licenci má hned od centra."],
+      ["Vidím jejich show?", "Ne. Vidíš jen, kolik show kdo má a kdy se naposledy přihlásil. Obsah show patří saunérovi."],
+      ["Jak rozdělím Glowcoiny?", "V záložce Glowcoiny buď necháš všechny čerpat ze společného balíku, nebo vypneš sdílení a přidělíš Glowcoiny konkrétním saunérům, třeba na přípravu na závody."],
+      ["Jak sdílím saunu?", "V záložce Sauny klikni u sauny na Sdílet s centrem. Všem saunérům se objeví v programu a tvoje změny se jim pošlou samy."],
+      ["Potřebuju víc míst nebo prodloužit.", "V Přehledu klikni na Prodloužit licenci nebo Přikoupit místa. Otevře se e-mail, ozveme se s nabídkou."]]];
     if (h[0] === "sprava") return ["Tady řídíš celý Glowguss. Vidí to jen provozovatel.", [
       ["Jak vyřídím objednávku?", "Saunér klikne v aplikaci na licenci nebo Glowcoiny, objednávka se objeví v Objednávkách a tobě přijde e-mail s jejím číslem. Až peníze dorazí, klikni na Zaplaceno. Licence se prodlouží nebo se připíšou Glowcoiny, a to jen jednou."],
       ["Někdo zaplatil jinak, třeba hotově?", "V Objednávkách rozbal Zapsat objednávku ručně, vyplň e-mail a produkt a pak ji označ jako zaplacenou. Účet musí existovat, ať se dotyčný nejdřív jednou přihlásí."],
@@ -5342,6 +5397,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       stavovaLista(); obnovGlowcoiny();
       var nav = document.querySelector("nav.main");
       if (nav && !$("nav-ucet")) { var a = document.createElement("a"); a.href = "#/ucet"; a.id = "nav-ucet"; a.textContent = "Účet"; nav.appendChild(a); }
+      if (nav && jeSpravceCentra() && !$("nav-centrum")) { var a3 = document.createElement("a"); a3.href = "#/centrum"; a3.id = "nav-centrum"; a3.textContent = "Centrum"; nav.insertBefore(a3, $("nav-ucet")); }
       if (nav && G.spravce && !$("nav-sprava")) { var a2 = document.createElement("a"); a2.href = "#/sprava"; a2.id = "nav-sprava"; a2.textContent = "Správa"; nav.appendChild(a2); }
       if (nr.offline) setTimeout(function () { setStatus("Offline: úpravy fungují, náhled a stažení až s internetem"); }, 0);
     }
