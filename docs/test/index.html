@@ -930,9 +930,35 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     for (var i = 1; i < P.length; i++) if (X <= P[i][0]) { var a = P[i - 1], b = P[i], f = b[0] > a[0] ? (X - a[0]) / (b[0] - a[0]) : 0; return (a[1] + (b[1] - a[1]) * f) / 257; }
     return P[P.length - 1][1] / 257;
   }
+  // ---------- edits on top of the original: brightness per group and colour swaps (the show's own timing stays) ----------
+  var ODSTINY = [["cervena", "červená", 345, 15], ["oranzova", "oranžová", 15, 45], ["zluta", "žlutá", 45, 75], ["zelena", "zelená", 75, 165], ["tyrkys", "tyrkysová", 165, 195],
+    ["modra", "modrá", 195, 255], ["fialova", "fialová", 255, 290], ["ruzova", "růžová", 290, 345]];
+  function odstin(c) {   // [r,g,b] -> colour family key ("bila" = washed out, near white)
+    var r = c[0], g = c[1], b = c[2], mx = Math.max(r, g, b), mn = Math.min(r, g, b); if (mx < 8) return null;
+    if (1 - mn / mx < 0.35) return "bila";
+    var d = mx - mn, h = mx === r ? (g - b) / d : mx === g ? 2 + (b - r) / d : 4 + (r - g) / d; h = (h * 60 + 360) % 360;
+    for (var i = 0; i < ODSTINY.length; i++) { var o = ODSTINY[i]; if (o[2] > o[3] ? (h >= o[2] || h < o[3]) : (h >= o[2] && h < o[3])) return o[0]; }
+    return null;
+  }
+  function barvyShow(pr) {   // colour families used in the scenes: {key: {n, rgb (brightest example)}}
+    var out = {};
+    Object.keys(pr.sceny).forEach(function (p) { pr.sceny[p].forEach(function (st) { Object.keys(st[1]).forEach(function (id) {
+      var c = st[1][id], k = odstin(c); if (!k) return; var o = out[k] = out[k] || { n: 0, rgb: c.slice(0, 3), mx: 0 }; o.n++;
+      var mx = Math.max(c[0], c[1], c[2]); if (mx > o.mx) { o.mx = mx; o.rgb = c.slice(0, 3); }
+    }); }); });
+    return out;
+  }
+  function upravBarvu(c, g, up) {   // [r,g,b,uv,(fade)] for a light of group g -> edited copy
+    if (!up) return c;
+    var n = c.slice(), z = up.barvy && up.barvy[odstin(c)];
+    if (z) { var mx = Math.max(c[0], c[1], c[2]), zm = Math.max(z[0], z[1], z[2]) || 1; n[0] = Math.round(z[0] / zm * mx); n[1] = Math.round(z[1] / zm * mx); n[2] = Math.round(z[2] / zm * mx); }
+    var k = up.jas && up.jas[g] != null ? Math.max(0, Math.min(1, +up.jas[g])) : 1;
+    if (k !== 1) for (var i = 0; i < 4; i++) n[i] = Math.round(n[i] * k);
+    return n;
+  }
   /* -> {files: {path: text}, tmlPaths, plan, rep, stranky}; plan is for the 3D preview (HTP of all lanes, scenes loop like in QuickDMX)
      adresy: DMX start addresses of the new sauna's lights (for generator files) */
-  function preved(pr, sauna, mapa, verze, adresy) {
+  function preved(pr, sauna, mapa, verze, adresy, up) {
     verze = ascii(verze) || "PREVZATA1"; adresy = adresy || sauna.adresy || {};
     var kdo = prirazeni(pr, sauna, mapa), files = {}, plan = { items: {}, osy: [] }, nove = {}, rep = { sceny: 0, udalosti: 0, svetel: Object.keys(kdo).length, prazdne: 0, generatory: 0, tlacitka: 0, bezAdresy: 0 };
     Object.keys(sauna.modely || {}).forEach(function (m) { (plan.modely = plan.modely || {})[m] = sauna.modely[m].kanaly; });
@@ -944,7 +970,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (!fx.length) { rep.prazdne++; return; }   // nothing of this scene exists in the new sauna's mapping
       var steps = sc.map(function (st) {
         var v = {}, f = {};
-        fx.forEach(function (x) { var c = st[1][kdo[x[0]].z]; if (!c) return; v[x[0]] = hodnoty(sauna, kdo[x[0]].g, x[2], c); f[x[0]] = c[4] === 1; });
+        fx.forEach(function (x) { var c = st[1][kdo[x[0]].z]; if (!c) return; v[x[0]] = hodnoty(sauna, kdo[x[0]].g, x[2], upravBarvu(c, kdo[x[0]].g, up)); f[x[0]] = c[4] === 1; });
         return [st[0], v, f];
       });
       var cesta = verze + "/" + cistaCesta(p.replace(/\\/g, "/"));
@@ -968,6 +994,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         var pev = fx.some(function (f) { return c in (sauna.modely[f[2]].pevne || {}); });   // a channel with the same name plays the same curve (1:1, also white/amber/uv)
         var k = G.krivky[c] ? G.krivky[c] : pev ? [["Selected", "1"]].concat(KRIVKA_PLNA) : [["Selected", "0"]].concat(KRIVKA_PLNA);
         if (pev && G.krivky[c] && !krivka(G.krivky[c]).sel) k = [["Selected", "1"]].concat(KRIVKA_PLNA);   // the new lights need this channel on to light at all
+        var kj = up && up.jas && up.jas[kdo[fx[0][0]].g] != null ? Math.max(0, Math.min(1, +up.jas[kdo[fx[0][0]].g])) : 1;
+        if (kj !== 1 && /^(red|green|blue|white|amber|uv)$/.test(c)) k = k.map(function (q) { if (!/^Point_\d+$/.test(q[0])) return q; var xy = q[1].split(","); return [q[0], xy[0] + "," + Math.round(+xy[1] * kj)]; });
         L.push("[" + c + "]"); k.forEach(function (q) { L.push(q[0] + " = " + q[1]); }); K[c] = krivka(k);
       });
       var jm = verze + "-" + p.split("/").pop();
@@ -1046,7 +1074,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return out;
   }
 
-  var api = { osy: osy, osyOf: osyOf, pridejTlacitka: pridejTlacitka, ctiOsu: ctiOsu, ctiScenu: ctiScenu, prevezmi: prevezmi, vychoziMapa: vychoziMapa, preved: preved, stav: stav, ascii: ascii, ROLE: ROLE };
+  var api = { ODSTINY: ODSTINY, barvyShow: barvyShow, odstin: odstin, osy: osy, osyOf: osyOf, pridejTlacitka: pridejTlacitka, ctiOsu: ctiOsu, ctiScenu: ctiScenu, prevezmi: prevezmi, vychoziMapa: vychoziMapa, preved: preved, stav: stav, ascii: ascii, ROLE: ROLE };
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.SvetlaPrevod = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
@@ -4507,7 +4535,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var show = clone(G.shows[id]), pr = show.prevod, sauna = G.sauny[show.sauna];
     if (!G.soubor[id] || P.id !== id) obnovHudbu(id).then(function (nova) { if (nova && location.hash === "#/show/" + id + "/prevod") route(); });
     if (!sauna) { view.innerHTML = '<div class="card empty">Sauna této show už neexistuje. <a href="#/">Zpět</a></div>'; return; }
-    var mapa = Object.assign(PR.vychoziMapa(pr, sauna), show.mapa || {}), res = PR.preved(pr, sauna, mapa, show.verze), T = pr.delka || 0, alive = true;
+    var mapa = Object.assign(PR.vychoziMapa(pr, sauna), show.mapa || {}), up = show.upravy || {}, res = PR.preved(pr, sauna, mapa, show.verze, null, up), T = pr.delka || 0, alive = true;
     var JM = { STENY: "Stěny", KAMNA: "Kamna", SPOTY: "Spoty", LAVICE: "Lavice", VODA: "Voda" };
     var zdroje = PR.ROLE.filter(function (r) { return pr.pocty[r]; }), str = res.stranky, osa = res.plan.osy.length > 0;
     var upoz = [], presk = Object.keys(pr.preskoceno || {});
@@ -4532,6 +4560,21 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         return '<div class="row between" style="gap:8px"><span><span class="dot" style="background:' + ROLE_COL[g] + ';vertical-align:-1px"></span> ' + JM[g] + ' (' + sauna.skupiny[g].svetla.length + ')</span><select class="pv-m" data-g="' + g + '" style="width:auto" aria-label="' + JM[g] + ' hraje">' +
           zdroje.map(function (r) { return '<option value="' + r + '"' + (mapa[g] === r ? " selected" : "") + '>jako ' + JM[r].toLowerCase() + ' (' + pr.pocty[r] + ')</option>'; }).join("") + '<option value=""' + (!mapa[g] ? " selected" : "") + '>nesvítí</option></select></div>';
       }).join("") + '</div>' + (upoz.length ? '<div class="note" style="margin-top:12px;display:flex;flex-direction:column;gap:6px">' + upoz.map(function (u) { return '<span>' + u + '</span>'; }).join("") + '</div>' : '') + '</section>' +
+      (function () {   // edits on top of the original show: brightness per group, colour swaps
+        var R0 = G.recept || {}, J = R0.barvyJmena || {}, PAL = R0.paleta || {}, BS = PR.barvyShow(pr), cel = 0; Object.keys(BS).forEach(function (k) { cel += BS[k].n; });
+        var jmO = { bila: "bílá / skoro bílá" }; PR.ODSTINY.forEach(function (o) { jmO[o[0]] = o[1]; });
+        var poradi = ["bila"].concat(PR.ODSTINY.map(function (o) { return o[0]; })).filter(function (k) { return BS[k]; });
+        var hexZ = function (k) { var z = (up.barvy || {})[k]; return z ? hex(z) : ""; };
+        return '<section class="card"><h2>Upravit světla</h2><p class="note" style="margin-top:6px">Časy a pohyb zůstávají z původní show, tady měníš jen jas a barvy. Změna se hned projeví v náhledu.</p>' +
+          '<h3 style="margin:14px 0 6px">Jas skupin</h3><div style="display:flex;flex-direction:column;gap:8px">' + PR.ROLE.filter(function (g) { return sauna.skupiny[g] && mapa[g]; }).map(function (g) {
+            var v = Math.round(((up.jas || {})[g] != null ? up.jas[g] : 1) * 100);
+            return '<label class="row between" style="gap:10px"><span style="min-width:70px"><span class="dot" style="background:' + ROLE_COL[g] + ';vertical-align:-1px"></span> ' + JM[g] + '</span><input type="range" class="pv-jas" data-g="' + g + '" min="10" max="100" step="5" value="' + v + '" style="flex:1" aria-label="Jas ' + JM[g] + '"><span class="sub" style="min-width:40px;text-align:right">' + v + ' %</span></label>'; }).join("") + '</div>' +
+          (poradi.length ? '<h3 style="margin:16px 0 6px">Záměna barev</h3><p class="note">Vyber, jakou barvou se má původní barva nahradit ve všech scénách. Efekty z generátoru si barvy nechávají.</p><div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">' + poradi.map(function (k) {
+            var z = hexZ(k);
+            return '<div class="row between" style="gap:8px"><span><span class="dot" style="background:' + hex(BS[k].rgb.map(function (x) { return x * 255 / (BS[k].mx || 255); })) + ';vertical-align:-1px"></span> ' + esc(jmO[k]) + ' <span class="sub">' + Math.max(1, Math.round(BS[k].n / cel * 100)) + ' %</span></span><select class="pv-bar" data-k="' + k + '" style="width:auto" aria-label="Nahradit ' + esc(jmO[k]) + '"><option value="">beze změny</option>' +
+              Object.keys(J).filter(function (c) { return c !== "OFF" && PAL[c]; }).map(function (c) { return '<option value="' + c + '"' + (z && z.toLowerCase() === hex(PAL[c]).toLowerCase() ? ' selected' : '') + '>→ ' + esc(J[c]) + '</option>'; }).join("") + '</select></div>'; }).join("") + '</div>' : '') +
+          ((up.barvy && Object.keys(up.barvy).length) || (up.jas && Object.keys(up.jas).length) ? '<button class="btn small" id="pv-reset" type="button" style="margin-top:12px">Vrátit původní světla</button>' : '') + '</section>';
+      })() +
       '<section class="card"><h2>Stáhnout pro QuickDMX</h2><div class="field" style="margin-top:12px"><label class="lbl" for="pv-verze">Jméno verze v QuickDMX</label><input type="text" id="pv-verze" value="' + esc(show.verze) + '"></div>' +
       '<p class="note" style="margin-top:8px">' + res.rep.sceny + ' scén' + (res.rep.generatory ? ', ' + res.rep.generatory + ' efektů z generátoru' : '') + (osa ? ', ' + res.rep.udalosti + ' událostí na ose' : '') + (str.length ? ', ' + res.rep.tlacitka + ' tlačítek' : '') + ', ' + res.rep.svetel + ' světel. ' +
       (osa ? (G.soubor[id] ? 'Hudba půjde do zipu jako ' + esc(hudbaCesta(show)) + '.' : 'Hudbu (' + esc(hudbaCesta(show) || "") + ') načti v přehrávači, jinak ji do složky Music zkopíruj sám.') : '') +
@@ -4541,6 +4584,10 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     function uloz(fields) { saveShow(show, Object.assign({ upraveno: new Date().toISOString() }, fields)).then(function () { if (alive) route(); }); }
     $("pv-sauna").addEventListener("change", function () { var sk = this.value; uloz({ sauna: sk, saunaNazev: G.sauny[sk].nazev, mapa: PR.vychoziMapa(pr, G.sauny[sk]) }); });
     on(view, ".pv-m", "change", function (e, el) { var m = Object.assign({}, mapa); m[el.dataset.g] = el.value; uloz({ mapa: m }); });
+    on(view, ".pv-jas", "input", function (e, el) { el.nextElementSibling.textContent = el.value + " %"; });
+    on(view, ".pv-jas", "change", function (e, el) { var u = clone(up); u.jas = u.jas || {}; if (+el.value >= 100) delete u.jas[el.dataset.g]; else u.jas[el.dataset.g] = +el.value / 100; uloz({ upravy: u }); });
+    on(view, ".pv-bar", "change", function (e, el) { var u = clone(up); u.barvy = u.barvy || {}; if (el.value) u.barvy[el.dataset.k] = (G.recept.paleta[el.value] || []).slice(0, 3); else delete u.barvy[el.dataset.k]; uloz({ upravy: u }); });
+    if ($("pv-reset")) $("pv-reset").addEventListener("click", function () { uloz({ upravy: {} }); });
     var ukaz = function (t) {
       if (!S3) return;
       if (rucne) { S3.update(PR.stav({ items: res.plan.items, modely: res.plan.modely, osy: [{ lanes: { 3: [{ a: 0, p: rucne.p, rych: 100 }] } }] }, (performance.now() - rucne.t0) / 1000)); return; }
@@ -4566,7 +4613,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     }
     $("pv-dl").addEventListener("click", async function () {
       var v = verze(), s = $("pv-st"); if (!v) return;
-      var r = PR.preved(pr, sauna, mapa, v);
+      var r = PR.preved(pr, sauna, mapa, v, null, up);
       var d = window.claude ? await window.claude.use("downloads") : null; if (!d || !window.JSZip) { s.textContent = "Stahování tady není dostupné."; return; }
       var files = Object.assign({}, r.files), mf = await sHudbou(files, s); s.textContent = "Balím…";
       var z = new window.JSZip(); Object.keys(files).sort().forEach(function (p) { z.file(p, files[p]); });
@@ -4580,7 +4627,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         if (!dir) { s.textContent = "Vyber složku projektu sauny v QuickDMX (Dokumenty → TheLightingController → LightShows → tvoje sauna)."; dir = await window.showDirectoryPicker({ id: "glowguss-" + String(show.sauna).replace(/[^a-z0-9]/gi, "").slice(0, 20), mode: "readwrite", startIn: "documents" }); await ulozSlozku(show.sauna, dir); }
         var cti = async function (cesta) { try { var dd = dir, c = cesta.split("/"); for (var j = 0; j < c.length - 1; j++) dd = await dd.getDirectoryHandle(c[j]); return await (await (await dd.getFileHandle(c[c.length - 1])).getFile()).text(); } catch (e) { return null; } };
         var adresy = sauna.adresy; if (!adresy || !Object.keys(adresy).length) { adresy = {}; var fi = await cti("fixtures.ini"); if (fi) IMP.ini(fi).forEach(function (q) { if (q.id && +q.address > 0) adresy[q.id] = +q.address; }); }
-        var r = PR.preved(pr, sauna, mapa, v, adresy), files = Object.assign({}, r.files), mf = await sHudbou(files, s);
+        var r = PR.preved(pr, sauna, mapa, v, adresy, up), files = Object.assign({}, r.files), mf = await sHudbou(files, s);
         if (r.stranky.length) {
           var live = await cti("Live/live.ini");
           if (live != null) { files["Live/live.ini.pred-glowguss-" + new Date().toISOString().slice(0, 10)] = live; files["Live/live.ini"] = PR.pridejTlacitka(live, r.stranky); }
