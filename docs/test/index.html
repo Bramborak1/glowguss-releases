@@ -2562,7 +2562,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
           '<div class="row" style="gap:8px;align-items:center">' + glowcoin(22) + '<b style="font-size:22px;font-family:var(--f-num)">' + b.n + '</b>' + (b.tip ? '<span class="badge" style="margin-left:auto">' + b.tip + '</span>' : '') + '</div>' +
           '<span class="sub">' + gcShow(b.n) + '</span><button type="button" class="btn ' + (b.tip === "nejoblíbenější" ? 'primary' : '') + ' small gc-koupit" data-i="' + i + '">Koupit za ' + b.kc + ' Kč</button></div>';
       }).join("") + '</div>' +
-      (GC_PLATBA ? '' : '<p class="note" style="margin-top:8px">Zatím se objednává e-mailem, platba kartou bude brzy.</p>');
+      (GC_PLATBA ? '' : '<p class="note" style="margin-top:8px">Zatím platíš převodem: po objednávce ti pošleme platební údaje e-mailem. Platba kartou bude brzy.</p>');
   }
   // before any purchase: the buyer asks for immediate performance and confirms what that means for the 14-day withdrawal right
   // (Glowcoins = digital content: right lost once credited, Directive 2011/83/EU art. 16(m), § 1837 l) OZ; licence = service: proportional payment, § 1834 OZ)
@@ -2597,7 +2597,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     }).join("");
     return '<h2>' + nadpis + '</h2><p class="sub" style="margin:6px 0 0">Všechny obsahují 30 Glowcoinů každý měsíc.</p>' +
       '<div class="row" style="gap:10px;margin-top:70px;flex-wrap:nowrap;align-items:stretch">' + dl + '</div>' +
-      '<p class="note" style="margin-top:8px">Zatím se objednává e-mailem, platba kartou bude brzy.</p>';
+      '<p class="note" style="margin-top:8px">Zatím platíš převodem: po objednávce ti pošleme platební údaje e-mailem. Platba kartou bude brzy.</p>';
   }
   function licenceZapoj(el) {
     on(el, ".lic-koupit", "click", async function (e, b) {
@@ -2606,12 +2606,23 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       objednavkaMailem("Objednávka: " + popis.toLowerCase(), "chci koupit " + popis.toLowerCase() + ".", sn, "licence-" + l.d);
     });
   }
-  async function objednavkaMailem(predmet, co, sn, produkt) {
-    var ja = String((K.session() || {}).email || ""), cislo = "";
-    if (produkt && REMOTE) { try { var o = await K.zavolej({ akce: "objednavka", produkt: produkt, souhlas: sn.text + " (" + sn.kdy + ")" }); if (o && o.objednavka) { cislo = String(o.objednavka.id); predmet += " (č. " + cislo + ")"; } } catch (e) {} }
-    location.href = "mailto:" + GC_MAIL + "?subject=" + encodeURIComponent(predmet) + "&body=" + encodeURIComponent("Dobrý den,\n\n" + co + "\nÚčet v Glowguss: " + ja +
+  async function objednavkaMailem(predmet, co, sn, produkt) {   // the order is saved on the server; no mail program needed (many people have none set up)
+    var ja = String((K.session() || {}).email || ""), cislo = "", chyba = "";
+    if (produkt && REMOTE) { try { var o = await K.zavolej({ akce: "objednavka", produkt: produkt, souhlas: sn.text + " (" + sn.kdy + ")" }); if (o && o.objednavka) cislo = String(o.objednavka.id); } catch (e) { chyba = e.message || String(e); } }
+    if (cislo) predmet += " (č. " + cislo + ")";
+    var mail = "mailto:" + GC_MAIL + "?subject=" + encodeURIComponent(predmet) + "&body=" + encodeURIComponent("Dobrý den,\n\n" + co + "\nÚčet v Glowguss: " + ja +
       "\n\nPotvrzuji (zaškrtnuto v aplikaci " + new Date(sn.kdy).toLocaleString("cs-CZ", { timeZone: "Europe/Prague" }) + "): " + sn.text + "\nSouhlasím s obchodními podmínkami (verze 2026-11-22).\n\nDěkuji");
-    setStatus("Otevírám e-mail s objednávkou…", true);
+    var d = document.createElement("div"); d.setAttribute("role", "dialog"); d.setAttribute("aria-modal", "true");
+    d.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);display:grid;place-items:center;z-index:999;padding:16px";
+    d.innerHTML = '<section class="card" style="max-width:480px;width:100%"><div class="row" style="gap:14px;align-items:center">' + glowyPoza(cislo ? "palec" : "premysli", 80) + '<div style="flex:1;min-width:0">' +
+      (cislo ? '<h2 style="margin:0">Objednávka č. ' + esc(cislo) + ' je přijatá</h2><p class="sub" style="margin:6px 0 0">' + esc(co.replace(/^chci koupit /, "").replace(/\.$/, "")) + '</p></div></div>' +
+        '<p style="margin:14px 0 0;line-height:1.5">Platební údaje ti pošleme na <b>' + esc(ja) + '</b>, obvykle do 24 hodin. Hned po zaplacení se ti všechno připíše samo.</p>'
+      : '<h2 style="margin:0">Objednávku se nepodařilo odeslat</h2></div></div><p style="margin:14px 0 0;line-height:1.5">' + (chyba ? esc(chyba) + ' ' : '') + 'Napiš nám prosím na <b>' + esc(GC_MAIL) + '</b>, co chceš koupit, a vyřídíme to ručně.</p>') +
+      '<div class="row" style="gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap"><a class="btn" href="' + esc(mail) + '">' + (cislo ? 'Máš dotaz? Napiš nám' : 'Otevřít e-mail') + '</a><button type="button" class="btn primary" data-ok>Rozumím</button></div></section>';
+    var zavri = function () { document.removeEventListener("keydown", key); d.remove(); }, key = function (e) { if (e.key === "Escape") zavri(); };
+    d.addEventListener("click", function (e) { if (e.target === d || e.target.closest("[data-ok]")) zavri(); });
+    document.addEventListener("keydown", key); document.body.appendChild(d); d.querySelector("[data-ok]").focus();
+    setStatus(cislo ? "Objednávka č. " + cislo + " přijatá" : "Objednávka neodešla", !!cislo);
   }
   function nakupZapoj(el) {
     on(el, ".gc-koupit", "click", async function (e, b) {
