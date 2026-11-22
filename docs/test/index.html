@@ -2501,7 +2501,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       ["3. Nálada a dropy", "V kroku 2 dej každé části náladu (Klid, Euforie, Síla…). V kroku 3 pusť hudbu a ťukni mezerníkem tam, kde má celá sauna bouchnout. Ťuk se přichytí na nejbližší beat."],
       ["4. Náhled", "V kroku 4 se podívej na 3D náhled a na Soulad s hudbou. Ukazuje, jak světla sedí k hudbě, a kde je nejslabší místo."],
       ["5. Do QuickDMX", "V kroku 5 stáhni zip a rozbal ho do složky projektu sauny tak, aby se sloučily složky scenes, Live a Music. V QuickDMX otevři Live → Timeline a vyber časovou osu s názvem verze."],
-      ["Pravidla, která program hlídá", "Nikdy bílá ani skoro bílá, kamna a střed jen pomalu dýchají, nikdy úplná tma jen s UV, údery přesně na beat. Když kontrola něco najde, zip se nevyrobí."],
+      ["Co Glowy hlídá za tebe", "Světla v sauně nikdy nesvítí bíle ani skoro bíle, kamna a střed jen pomalu dýchají a bliknutí sedí přesně na beat. Všechno ostatní je na tobě a můžeš si to upravit."],
       ["Záloha", "Na hlavní stránce dole uložíš všechno do jednoho souboru. Show můžeš poslat i jinému saunerovi (Upravit show → Uložit show do souboru)."]
     ].map(function (x) { return '<section class="card"><h2>' + esc(x[0]) + '</h2><p class="sub" style="margin:8px 0 0;line-height:1.55">' + esc(x[1]) + '</p></section>'; }).join("") + '</div>';
   }
@@ -3582,7 +3582,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     };
   }
   // help Glowy gives on each screen: [intro, [[question, answer], ...]]
-  var GLOWY_PRAVIDLA = ["Může se světlům něco pokazit?", "Ne. Program vždycky hlídá pravidla: nikdy bílá ani skoro bílá, kamna a střed jen pomalu dýchají, údery přesně na beat. Když kontrola něco najde, zip se nevyrobí."];
+  var GLOWY_PRAVIDLA = ["Co Glowy hlídá za tebe?", "Světla v sauně nikdy nesvítí bíle ani skoro bíle, kamna a střed jen pomalu dýchají a bliknutí sedí přesně na beat. Všechno ostatní je na tobě a můžeš si to upravit."];
   function glowyRady(h) {
     var k = h[0] === "show" ? (h[2] || "krok1") : "";
     if (k === "ai") return ["Napiš mi příběh své show a já ti ke každé části hudby navrhnu náladu světel.", [].concat([
