@@ -232,6 +232,10 @@
         '<g class="wk-scr"><rect x="31" y="67" width="38" height="24" rx="2" fill="#7B2FF7"/><rect class="wk-s2" x="31" y="67" width="38" height="24" rx="2" fill="#E0338A"/><rect class="wk-s3" x="31" y="67" width="38" height="24" rx="2" fill="#FF8A3D"/></g>' +
         '<path d="M35 88l8-10 8 10M47 88l8-12 10 12" stroke="#1A1220" stroke-width="2" fill="none" opacity=".45"/>' +
         ruka("M35 74q-8 6-6 14") + dlan(29, 86) + ruka("M65 74q8 6 6 14") + dlan(71, 86);
+    } else if (typ === "ukazuje") {
+      po = ruka("M35 74q-12-4-22-14") + dlan(13, 59) + ruka("M65 74q9 6 4 14") + dlan(69, 88);
+      hlava = '<g transform="translate(16 2) rotate(-8 32 40)">' + glowyHlava(i) + '</g>';
+      navic = '<path class="gn" d="M4 44l2 4 4 1-4 1-2 4-2-4-4-1 4-1z" fill="#FFD27A" style="animation-duration:2.2s"/>';
     } else if (typ === "stahuje") {
       po = '<path d="M28 78h14l4 4h26v20H28z" fill="#FFC14D"/><path d="M28 84h44v18H28z" fill="#FFD27A"/>' +
         '<text x="50" y="97" text-anchor="middle" font-size="8" font-weight="800" fill="#8A4B00" font-family="sans-serif">.zip</text>' +
@@ -246,7 +250,7 @@
   function vykresli() {
     document.querySelectorAll("[data-glowy]").forEach(function (el) {
       var t = el.getAttribute("data-glowy"), h = +el.getAttribute("data-h") || 120;
-      el.innerHTML = /^(sluchatka|pise|divase|stahuje)$/.test(t) ? glowyKarta(t, h) : t === "postava" ? glowyPostava(h) : t === "pracuje" ? glowyPracuje(h) : t === "hlava" ? glowy(h) : glowyPoza(t, h);
+      el.innerHTML = /^(sluchatka|pise|divase|stahuje|ukazuje)$/.test(t) ? glowyKarta(t, h) : t === "postava" ? glowyPostava(h) : t === "pracuje" ? glowyPracuje(h) : t === "hlava" ? glowy(h) : glowyPoza(t, h);
     });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", vykresli); else vykresli();
