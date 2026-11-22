@@ -2568,8 +2568,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   // (Glowcoins = digital content: right lost once credited, Directive 2011/83/EU art. 16(m), § 1837 l) OZ; licence = service: proportional payment, § 1834 OZ)
   function souhlasNakupu(druh, popis) {   // -> Promise of null (cancelled) or {kdy, text}
     var text = druh === "glowcoiny"
-      ? "Žádám o okamžité připsání Glowcoinů na můj účet. Beru na vědomí, že prvním použitím Glowcoinu z balíčku ztrácím právo odstoupit od smlouvy. Celý nepoužitý balíček mohu vrátit do 14 dnů od nákupu, potom se peníze nevracejí."
-      : "Žádám, aby licence začala běžet hned, ještě během 14denní lhůty pro odstoupení. Beru na vědomí, že když odstoupím, zaplatím poměrnou část ceny za dobu, kdy licence běžela, a že Glowcoiny z licence jsou dárek, který při odstoupení zaniká bez náhrady.";
+      ? "Chci Glowcoiny hned. Beru na vědomí, že jejich prvním použitím ztrácím právo odstoupit. Celý nepoužitý balíček můžu vrátit do 14 dnů."
+      : "Chci, aby licence běžela hned. Beru na vědomí, že když do 14 dnů odstoupím, zaplatím poměrnou část za dobu, kdy běžela, a Glowcoiny z licence propadnou.";
     return new Promise(function (res) {
       var d = document.createElement("div");
       d.setAttribute("role", "dialog"); d.setAttribute("aria-modal", "true");
