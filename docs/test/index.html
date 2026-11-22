@@ -2216,7 +2216,9 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   function nakupZapoj(el) {
     on(el, ".gc-koupit", "click", function (e, b) {
       var x = GC_BALICKY[+b.dataset.i], ja = String((K.session() || {}).email || "");
-      if (GC_PLATBA && GC_PLATBA[x.n]) { location.href = GC_PLATBA[x.n] + (GC_PLATBA[x.n].indexOf("?") < 0 ? "?" : "&") + "checkout[email]=" + encodeURIComponent(ja); return; }
+      if (GC_PLATBA && GC_PLATBA[x.n]) {   // Lemon Squeezy checkout; user_id tells the server function "platba" whom to credit
+        var uid = ""; try { uid = JSON.parse(atob(String((K.session() || {}).access_token || "").split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).sub || ""; } catch (er) {}
+        location.href = GC_PLATBA[x.n] + (GC_PLATBA[x.n].indexOf("?") < 0 ? "?" : "&") + "checkout[email]=" + encodeURIComponent(ja) + "&checkout[custom][user_id]=" + encodeURIComponent(uid); return; }
       location.href = "mailto:" + GC_MAIL + "?subject=" + encodeURIComponent("Objednávka " + x.n + " Glowcoinů") + "&body=" + encodeURIComponent("Dobrý den,\n\nchci koupit " + x.n + " Glowcoinů za " + x.kc + " Kč.\nÚčet v Glowguss: " + ja + "\n\nDěkuji");
       setStatus("Otevírám e-mail s objednávkou…", true);
     });
@@ -3681,7 +3683,11 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       btn.addEventListener("mouseenter", function () { rec.style.opacity = "1"; });
       document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !pan.hidden) nastav(false); });
       f.nastav = nastav;
+      // on wide screens stand right next to the content, not lost in the far corner
+      var poloha = function () { var w = document.querySelector(".wrap"), fb = $("glowy-btn"); if (!w || !fb) return; var vol = window.innerWidth - w.getBoundingClientRect().right, sir = fb.querySelector("svg") ? fb.querySelector("svg").getBoundingClientRect().width : 120; f.style.right = Math.round(Math.max(14, vol - sir - 24)) + "px"; };
+      window.addEventListener("resize", poloha); setTimeout(poloha, 0); f.poloha = poloha;
     }
+    if (f.poloha) f.poloha();
     var r = glowyRady(h), pan = $("glowy-panel");
     pan.innerHTML = '<div class="row between" style="align-items:flex-start;gap:8px"><p style="margin:0;font-weight:600;line-height:1.45">' + esc(r[0]) + '</p><button type="button" class="btn small" id="glowy-x" aria-label="Zavřít">✕</button></div>' +
       r[1].map(function (x) { return '<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:600">' + esc(x[0]) + '</summary><p class="note" style="margin:6px 0 0;line-height:1.5">' + esc(x[1]) + '</p></details>'; }).join("") +
