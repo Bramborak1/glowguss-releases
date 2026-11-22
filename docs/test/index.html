@@ -765,18 +765,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
     return out;
   }
-  function ctiScenu(text) {   // -> {fx: {id: [name, model]}, steps: [[hundredths, {id: {ch: [value, fade]}}]]}
-    var t = tx(text), fx = {}, steps = [], m, re = /<Fixture id="(\d+)" name="([^"]*)" model="([^"]*)"\s*\/>/g;
-    while ((m = re.exec(t))) fx[m[1]] = [m[2], m[3]];
-    var sre = /<Step length="(\d+)"[^>]*>([\s\S]*?)<\/Step>/g;
+  function ctiScenu(text) {   // -> {fx: {id: [name, model]}, steps: [[hundredths, {id: {ch: [value, fade]}}]]}; attributes may come in any order (named steps: <Step name="yr" length="100">)
+    var t = tx(text), fx = {}, steps = [], m, at = function (s, n) { var x = new RegExp("\\b" + n + "=\"([^\"]*)\"").exec(s); return x ? x[1] : null; };
+    var re = /<Fixture\b([^>]*?)\/>/g; while ((m = re.exec(t))) { var id = at(m[1], "id"); if (id) fx[id] = [at(m[1], "name") || "", at(m[1], "model") || ""]; }
+    var sre = /<Step\b([^>]*)>([\s\S]*?)<\/Step>/g;
     while ((m = sre.exec(t))) {
-      var d = {}, fre = /<Fixture id="(\d+)">([\s\S]*?)<\/Fixture>/g, f;
+      var d = {}, fre = /<Fixture\b([^>]*)>([\s\S]*?)<\/Fixture>/g, f;
       while ((f = fre.exec(m[2]))) {
-        var ch = {}, cre = /<Channel [^>]*name="([^"]+)" value="(\d+)"([^>]*)\/>/g, c;
-        while ((c = cre.exec(f[2]))) ch[c[1]] = [+c[2], /fade="1"/.test(c[3])];
-        d[f[1]] = ch;
+        var ch = {}, cre = /<Channel\b([^>]*)\/>/g, c;
+        while ((c = cre.exec(f[2]))) { var nm = at(c[1], "name"), v = at(c[1], "value"); if (nm && v != null) ch[nm] = [+v, at(c[1], "fade") === "1"]; }
+        d[at(f[1], "id")] = ch;
       }
-      steps.push([+m[1], d]);
+      steps.push([+(at(m[1], "length") || 0), d]);
     }
     return { fx: fx, steps: steps };
   }
@@ -1058,21 +1058,34 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       var n = 0, ev = function (lines) { L.push("[Event_" + (n++) + "]"); lines.forEach(function (x) { L.push(x); }); }, lanes = {};
       if (o.hudba) ev(["TimeLineIndex = 2", "StartTime = 0:00:00.0", "Path = " + cistaCesta(o.hudba), "Length = " + casText(o.delka)]);
       var ED = (up && up.udalosti) || {}, PS = ((up && up.pasaze) || []).filter(function (s2) { return (s2.o || 0) === oi; }), bloky = [], stopy = [];
-      o.udalosti.map(function (u, i) {   // edited start / length / deleted, then in time order per lane
-        var e = ED[oi + ":" + i] || {}, xl = (u.x || []).filter(function (x) { return x[0] === "Length"; })[0];
-        return { u: u, i: i, a: e.t != null ? Math.max(0, +e.t) : cs(u.t), len: e.len != null ? +e.len : xl ? cs(xl[1]) : null, smazat: !!e.x };
-      }).sort(function (x, y) { return x.a - y.a || x.i - y.i; }).forEach(function (q) {
-        var u = q.u, x = (u.x || []).filter(function (z) { return z[0] !== "Length"; }), rych = +((u.x || []).filter(function (z) { return z[0] === "Speed"; })[0] || [0, 100])[1] || 100;
+      /* In QuickDMX a block plays (its scene loops) until the next event in its lane, usually an OFF (the X mark); Length is only how long
+         one pass of the scene takes. An OFF right after a block belongs to it: it moves with the block, and dragging the block's end moves it. */
+      var puv = o.udalosti.map(function (u, i) { return { u: u, i: i, a: cs(u.t) }; }).sort(function (x, y) { return x.a - y.a || x.i - y.i; }), vlast = {}, konecP = {}, maOff = {};
+      puv.forEach(function (q, k) { if (q.u.p === "OFF" || q.u.p === "STOP") return; var dal = puv.slice(k + 1).filter(function (z) { return z.u.l === q.u.l; })[0];
+        if (dal) { konecP[q.i] = dal.a; if (dal.u.p === "OFF") { vlast[dal.i] = q.i; maOff[q.i] = 1; } } });
+      var Q = o.udalosti.map(function (u, i) {
+        var e = ED[oi + ":" + i] || {}, a = e.t != null ? Math.max(0, +e.t) : cs(u.t);
+        var len = !maOff[i] ? null : e.len != null ? +e.len : e.t != null ? konecP[i] - cs(u.t) : null;   // edited end, or a moved block keeps its duration
+        return { u: u, i: i, a: a, len: len, delka: len != null ? len : konecP[i] != null ? konecP[i] - a : null, smazat: !!e.x };
+      });
+      var vsech = [];
+      Q.forEach(function (q) {
+        var b = q.u.p === "OFF" && vlast[q.i] != null ? Q[vlast[q.i]] : null;
+        if (b && b.len != null) vsech.push({ u: { l: q.u.l, p: "OFF" }, i: q.i, a: b.a + b.len }); else vsech.push(q);
+      });
+      vsech.sort(function (x, y) { return x.a - y.a || (x.u.p === "OFF" ? 0 : 1) - (y.u.p === "OFF" ? 0 : 1) || x.i - y.i; }).forEach(function (q) {
+        var u = q.u, x = u.x || [], rych = +(x.filter(function (z) { return z[0] === "Speed"; })[0] || [0, 100])[1] || 100;
         if (u.p === "STOP") { ev(["TimeLineIndex = " + u.l, "StartTime = " + casText(q.a), "Path = STOP"]); stopy.push(q.a); return; }   // STOP ends the whole show
-        if (u.p !== "OFF") bloky.push({ i: q.i, l: u.l, a: q.a, len: q.len, p: u.p, smazano: q.smazat, gen: !pr.sceny[u.p] });
-        var t = casText(q.a), lenL = q.len != null ? ["Length = " + casText(q.len)] : [];
+        if (u.p !== "OFF") bloky.push({ i: q.i, l: u.l, a: q.a, len: q.delka, p: u.p, smazano: q.smazat, gen: !pr.sceny[u.p] });
+        var t = casText(q.a);
         if (u.p === "OFF" || q.smazat) { ev(["TimeLineIndex = " + u.l, "StartTime = " + t, "Path = OFF"]); (lanes[u.l] = lanes[u.l] || []).push({ a: q.a, p: null, rych: 100 }); return; }
         var ik = pr.sceny[u.p] ? scena(u.p, slouc(up, PS.filter(function (s2) { return q.a >= s2.od - 0.001 && q.a < s2.do - 0.001; }))) : (nove[u.p] ? u.p : null);
         if (!ik) return;
         var p = pr.sceny[u.p] ? plan.items[ik].cesta : nove[u.p];
-        ev(["TimeLineIndex = " + u.l, "StartTime = " + t, "Path = " + p].concat(lenL, x.map(function (z) { return z[0] + " = " + z[1]; })));
-        (lanes[u.l] = lanes[u.l] || []).push({ a: q.a, p: ik, rych: rych, e: q.len != null ? q.a + q.len : null, i: q.i });
+        ev(["TimeLineIndex = " + u.l, "StartTime = " + t, "Path = " + p].concat(x.map(function (z) { return z[0] + " = " + z[1]; })));
+        (lanes[u.l] = lanes[u.l] || []).push({ a: q.a, p: ik, rych: rych, i: q.i });
       });
+      Object.keys(lanes).forEach(function (l) { lanes[l].sort(function (x, y) { return x.a - y.a; }); });
       if (stopy.length) { var t0 = Math.min.apply(0, stopy); Object.keys(lanes).forEach(function (l) { lanes[l].push({ a: t0, p: null, rych: 100 }); lanes[l].sort(function (x, y) { return x.a - y.a; }); }); }
       rep.udalosti += n;
       var tp = "Live/TimeLine/timelines/" + (O.length > 1 ? verze + "-" + (ascii(o.nazev) || oi + 1) : verze) + ".tml";
@@ -4596,11 +4609,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   function osaPrevzate(el, show, res, sauna, S3, up, uloz) {
     var id = show.id, OI = Math.min((TLSTAV[id] || {}).oi || 0, res.plan.osy.length - 1), O = res.plan.osy[OI], B = O.bloky, T = Math.max(O.delka || 0, B.reduce(function (m, b) { return Math.max(m, b.a + (b.len || 2)); }, 0)) + 2;
     var st = TLSTAV[id] = TLSTAV[id] || { sel: null, scroll: 0 }; if (!st.pxs) st.pxs = Math.max(2, Math.min(40, 1100 / T));
-    var lanes = []; B.forEach(function (b) { if (lanes.indexOf(b.l) < 0) lanes.push(b.l); }); lanes.sort(function (a, b) { return a - b; });
-    var jmeno = function (l) {   // lane name from the folder its scenes live in (LEVA, KAMNA...)
-      var h = {}; B.filter(function (b) { return b.l === l; }).forEach(function (b) { var c = b.p.split("/"); var k = c.length > 1 ? c[c.length - 2] : ""; h[k] = (h[k] || 0) + 1; });
-      var best = Object.keys(h).sort(function (a, b) { return h[b] - h[a]; })[0]; return best && best.length < 18 ? best : "Řada " + (l - 2);
-    };
+    var lanes = [], maxL = B.reduce(function (m, b) { return Math.max(m, b.l); }, 3); for (var li = 3; li <= maxL; li++) lanes.push(li);   // rows as in QuickDMX: Light scene timeline #1, #2…
+    var jmeno = function (l) { return "Řada " + (l - 2); };
     var konec = function (b) { if (b.len != null) return b.a + b.len; var n = B.filter(function (x) { return x.l === b.l && x.a > b.a + 0.001; }).sort(function (x, y) { return x.a - y.a; })[0]; return n ? n.a : T; };
     var barvaBloku = function (b) {   // what the block shows: brightest step of its scene, mixed over its lights
       var L = O.lanes[b.l] || [], e = L.filter(function (x) { return x.i === b.i; })[0], it = e && res.plan.items[e.p]; if (!it || it.gen) return b.gen ? "#888" : "#333";
@@ -4615,7 +4625,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       (function () { var h = "", krok = [1, 2, 5, 10, 15, 30, 60, 120].filter(function (k) { return k * st.pxs >= 50; })[0] || 300; for (var t = 0; t < T; t += krok) h += '<span class="sub" style="position:absolute;left:' + (t * st.pxs) + 'px;top:0;border-left:1px solid var(--line, rgba(128,128,128,.35));padding-left:3px;height:' + (TOP + lanes.length * RH) + 'px;pointer-events:none">' + mmss(t) + '</span>'; return h; })() +
       B.map(function (b) { var a = b.a, e = konec(b), y = TOP + lanes.indexOf(b.l) * RH + 2;
         return '<div class="tl-b" data-i="' + b.i + '" title="' + esc(b.p.split("/").pop() + " · " + fmt(a, true) + "–" + fmt(e, true)) + '" style="position:absolute;left:' + (a * st.pxs) + 'px;top:' + y + 'px;width:' + Math.max(3, (e - a) * st.pxs - 1) + 'px;height:' + (RH - 4) + 'px;border-radius:4px;cursor:grab;box-sizing:border-box;' +
-          (b.smazano ? 'background:repeating-linear-gradient(45deg,transparent 0 4px,rgba(128,128,128,.4) 4px 8px);border:1px dashed rgba(128,128,128,.6)' : 'background:' + barvaBloku(b) + ';border:1px solid rgba(0,0,0,.35)') + '"><span style="position:absolute;right:0;top:0;bottom:0;width:6px;cursor:ew-resize" data-r="1"></span></div>'; }).join("") +
+          (b.smazano ? 'background:repeating-linear-gradient(45deg,transparent 0 4px,rgba(128,128,128,.4) 4px 8px);border:1px dashed rgba(128,128,128,.6)' : 'background:' + barvaBloku(b) + ';border:1px solid rgba(0,0,0,.35)') + '">' + ((e - a) * st.pxs > 70 ? '<span style="position:absolute;left:5px;right:8px;top:0;line-height:' + (RH - 6) + 'px;font-size:10px;color:#fff;text-shadow:0 0 3px #000,0 0 2px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none">' + esc(b.p.split("/").pop().replace(/\.(scex|gpj)$/i, "")) + '</span>' : '') + '<span style="position:absolute;right:0;top:0;bottom:0;width:6px;cursor:ew-resize" data-r="1"></span></div>'; }).join("") +
       ((up.pasaze || []).filter(function (p) { return (p.o || 0) === OI; }).map(function (p) { return '<div style="position:absolute;left:' + (p.od * st.pxs) + 'px;width:' + ((p.do - p.od) * st.pxs) + 'px;top:' + (TOP - 4) + 'px;height:3px;background:var(--acc, #FF8A3D);border-radius:2px;pointer-events:none" title="upravená pasáž"></div>'; }).join("")) +
       '<div id="tl-sel" style="position:absolute;top:0;bottom:0;background:rgba(255,138,61,.18);border:1px solid rgba(255,138,61,.7);pointer-events:none;display:none"></div>' +
       '<div id="tl-ph" style="position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.4);pointer-events:none;left:0"></div></div></div></div><div id="tl-panel" style="margin-top:12px"></div>';
