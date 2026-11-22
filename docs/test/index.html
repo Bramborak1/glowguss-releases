@@ -1491,7 +1491,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       Object.keys(st).forEach(function (id) { s += jas(st[id].model, st[id].v); n++; }); return n ? s / n : 0;
     });
     var Em = idx.map(function (i) { return E[i]; });
-    var out = [];
+    var out = [], mista = [];   // mista: concrete places that don't fit {t, id, text, w} (w = how bad, to keep the worst)
+    var misto = function (t, id, text, w) { mista.push({ t: Math.max(0, t), id: id, text: text, w: w || 1 }); };
     // 1) hits on the beat: every instant brightening step in the scenes, how far from the nearest beat
     // moments (sparks, flashes on story sounds) are timed to the sounds on purpose, not to beats: leave them out
     var DM = { zablesk: 1.2, tma: 4, zhasnuti: 3.5, jiskry: 3, nastup: 3, prisvit: 6 };
@@ -1510,6 +1511,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       });
     });
     if (hits.length) {
+      var mimo = hits.filter(function (t) { return near(t) > 0.06; }).sort(function (a, b) { return a - b; }), sk = [];
+      mimo.forEach(function (t) { var g = sk[sk.length - 1]; if (g && t - g.z < 4) { g.z = t; g.n++; } else sk.push({ a: t, z: t, n: 1 }); });   // off-beat hits close together = one place
+      sk.forEach(function (g) { misto(g.a, "rytmus", g.n > 1 ? g.n + " bliknutí světel mimo beat" : "bliknutí světel mimo beat", g.n); });
       var ok = hits.filter(function (t) { return near(t) <= 0.06; }).length;
       out.push({ id: "rytmus", nazev: "Údery na beat", pct: Math.round(100 * ok / hits.length), text: ok === hits.length ? "Všechny údery světla padnou na beat." : (hits.length - ok) + " z " + hits.length + " úderů je mimo beat." });
     }
@@ -1518,6 +1522,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     var r = corr(bar(Em), bar(L)), pE = Math.round(Math.max(0, Math.min(1, r / 0.75)) * 100);
     var bE = bar(Em), bL = bar(L), z = function (a) { var m = mean(a), sd = Math.sqrt(mean(a.map(function (v) { return (v - m) * (v - m); }))) || 1; return a.map(function (v) { return (v - m) / sd; }); };
     var zE = z(bE), zL = z(bL), wi = 0; zE.forEach(function (v, i) { if (Math.abs(v - zL[i]) > Math.abs(zE[wi] - zL[wi])) wi = i; });
+    var pas = [];   // 2-bar windows where light and music go clearly different ways, neighbours merged
+    zE.forEach(function (v, i) { var d = v - zL[i]; if (Math.abs(d) < 1.5) return; var g = pas[pas.length - 1], sg = d > 0 ? 1 : -1; if (g && g.sg === sg && i - g.z <= 2) { g.z = i; g.w = Math.max(g.w, Math.abs(d)); } else pas.push({ a: i, z: i, sg: sg, w: Math.abs(d) }); });
+    pas.forEach(function (g) { var t = B[idx[Math.min(idx.length - 1, g.a * 4)]]; if (t != null) misto(t, "energie", g.sg > 0 ? "hudba zesílí, světla zůstanou slabá" : "hudba ztichne, světla svítí silně", g.w); });
     var wt = idx.length ? B[idx[Math.min(idx.length - 1, wi * 4)]] : 0;
     out.push({ id: "energie", nazev: "Světlo sleduje hudbu", pct: pE, cas: pE >= 75 ? null : wt,
       text: pE >= 75 ? "Kde hudba zesílí, zesílí i světla." : "Jas světel moc nesleduje, kdy hudba sílí a slábne. Nejvíc kolem " + mmss(wt) + ": hudba " + (zE[wi] > zL[wi] ? "hraje silně, světla jsou slabá." : "je tichá, světla silná.") });
@@ -1529,7 +1536,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }).filter(function (p) { return !isNaN(p.e) && p.z > p.a; });
     if (parts.length > 1) {
       var es = parts.map(function (p) { return p.e; }), ls = parts.map(function (p) { return p.l; }), worst = null, bad = 0;
-      parts.forEach(function (p) { var d = rank(ls, p.l) - rank(es, p.e); if (Math.abs(d) > 0.4) { bad++; if (!worst || Math.abs(d) > Math.abs(worst.d)) worst = { p: p, d: d }; } });
+      parts.forEach(function (p) { var d = rank(ls, p.l) - rank(es, p.e); if (Math.abs(d) > 0.4) { bad++; misto(p.a, "casti", "část " + (p.c.emoce || "") + (d > 0 ? " svítí víc, než jak silně hraje hudba" : " svítí slaběji, než jak silně hraje hudba"), 1 + Math.abs(d)); if (!worst || Math.abs(d) > Math.abs(worst.d)) worst = { p: p, d: d }; } });
       var pP = Math.round(100 * (1 - bad / parts.length));
       out.push({ id: "casti", nazev: "Nálada částí sedí k hudbě", pct: pP, cas: worst ? worst.p.a : null,
         text: worst ? "Část " + mmss(worst.p.a) + " (" + worst.p.c.emoce + ") " + (worst.d > 0 ? "svítí víc, než jak silně hraje hudba. Je to záměr?" : "je tišší, než jak silně hraje hudba. Je to záměr?") : "Silné části svítí silně, klidné klidně." });
@@ -1541,7 +1548,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       D.forEach(function (d) {
         var j = 0, bd = 1e9; idx.forEach(function (i, k) { var x = Math.abs(B[i] - d.beat_s); if (x < bd) { bd = x; j = k; } });
         var e = mean(Em.slice(j, j + 4)), pre = mean(Em.slice(Math.max(0, j - 4), j)), hitB = idx[j] != null && (function () { var q = 0; rozbor.pisne.forEach(function (p) { var o = p.b.indexOf(B[idx[j]]); if (o >= 0) q = p.drums[o]; }); return q; })();
-        if (rank(sorted, e) >= 0.5 || e - pre >= 0.04 || hitB) okD++; else if (weak == null) weak = d.beat_s;   // strong place, or the music rises, or drums play there
+        if (rank(sorted, e) >= 0.5 || e - pre >= 0.04 || hitB) okD++; else { if (weak == null) weak = d.beat_s; misto(d.beat_s, "dropy", "drop v tichém místě, kde nehrají bicí", 2); }   // strong place, or the music rises, or drums play there
       });
       out.push({ id: "dropy", nazev: "Dropy na silných místech", pct: Math.round(100 * okD / D.length), cas: weak,
         text: weak == null ? "Všechny dropy jsou tam, kde hudba hraje naplno." : "Drop v " + mmss(weak) + " je v tichém místě hudby, kde nehrají bicí." });
@@ -1550,6 +1557,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (parts.length > 1) {
       var jumps = [];
       for (var k = 1; k < parts.length; k++) jumps.push({ t: parts[k].a, dm: parts[k].e - parts[k - 1].e, dl: parts[k].l - parts[k - 1].l });
+      jumps.forEach(function (j) { if (!(Math.abs(j.dm) < 0.05 || j.dm * j.dl > 0)) misto(j.t, "prechody", j.dm > 0 ? "hudba zesílí, ale světla zeslábnou" : "hudba zeslábne, ale světla zesílí", 1 + Math.abs(j.dm) * 10); });
       var okJ = jumps.filter(function (j) { return Math.abs(j.dm) < 0.05 || j.dm * j.dl > 0; }).length, badJ = jumps.filter(function (j) { return !(Math.abs(j.dm) < 0.05 || j.dm * j.dl > 0); })[0];
       out.push({ id: "prechody", nazev: "Změny se směrem hudby", pct: Math.round(100 * okJ / jumps.length), cas: badJ ? badJ.t : null,
         text: badJ ? "V " + mmss(badJ.t) + " hudba " + (badJ.dm > 0 ? "zesílí, ale světla zeslábnou." : "zeslábne, ale světla zesílí.") : "Při každé změně jdou světla stejným směrem jako hudba." });
@@ -1557,7 +1565,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     var W = { rytmus: 1, energie: 1.5, casti: 1.5, dropy: 1, prechody: 1 }, sw = 0, s = 0;
     out.forEach(function (o) { s += o.pct * W[o.id]; sw += W[o.id]; });
     var tip = out.filter(function (o) { return o.pct < 75; }).sort(function (a, b) { return a.pct - b.pct; })[0] || null;
-    return { celkem: sw ? Math.round(s / sw) : 0, kontroly: out, tip: tip };
+    // keep at most 5 worst places per check, then list them in time order
+    var NZ = { rytmus: "Údery", energie: "Síla hudby", casti: "Nálada části", dropy: "Drop", prechody: "Změna" };
+    var vyber = []; Object.keys(NZ).forEach(function (id) { vyber = vyber.concat(mista.filter(function (m) { return m.id === id; }).sort(function (a, b) { return b.w - a.w; }).slice(0, 5)); });
+    vyber.forEach(function (m) { m.nazev = NZ[m.id]; m.cas = mmss(m.t); });
+    vyber.sort(function (a, b) { return a.t - b.t; });
+    return { celkem: sw ? Math.round(s / sw) : 0, kontroly: out, tip: tip, mista: vyber };
   }
   var api = { hodnot: hodnot };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.SvetlaDramaturg = api;
@@ -3204,7 +3217,10 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     }
     document.addEventListener("keydown", key);
     function all() { renderTimeline(); renderPart(); renderDrops(); }
+    var skok = G.skokNa && G.skokNa.id === show.id ? G.skokNa : null; G.skokNa = null;   // came from "Kde to nesedí": select the part at that time
+    if (skok) { partsT(show).forEach(function (x) { if (skok.t >= x.a && skok.t < x.b) st.sel = x.i; }); st.ohnisko = skok.t; }
     wireTlOnce(); all();
+    if (skok) setTimeout(function () { seek(Math.max(0, skok.t - 0.5)); setStatus(mmss(skok.t) + " – " + skok.co, true); var tl0 = $("tl"); if (tl0 && tl0.scrollIntoView) tl0.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50);   // after the playhead hook below exists
     if (mode !== "nalada") wirePlayer(show, function () { route(); });
     P.hooks.push(function (t) {
       var span = V.b - V.a;
@@ -4121,9 +4137,17 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
           return '<div><div class="row between sub"><span>' + esc(k.nazev) + '</span><span style="color:' + col(k.pct) + '">' + k.pct + ' %</span></div>' +
             '<div style="height:6px;border-radius:3px;background:var(--line);margin-top:4px"><div style="height:6px;border-radius:3px;width:' + k.pct + '%;background:' + col(k.pct) + '"></div></div></div>';
         }).join("") + '</div>' +
-        (d.tip ? '<p class="note" style="margin-top:12px">' + esc(d.tip.text) + (d.tip.cas != null ? ' <button class="btn small" id="drama-go" type="button">Ukázat</button>' : '') + '</p>' : '<p class="note" style="margin-top:12px">Světla sedí k hudbě.</p>') +
+        (d.mista && d.mista.length ? '<div style="margin-top:14px"><div class="lbl">Kde to nesedí (' + d.mista.length + ')</div><p class="note" style="margin-top:2px">Klikni a otevře se ta část na časové ose, kde ji můžeš hned upravit.</p>' +
+          '<div class="dlist" id="drama-mista" style="margin-top:6px">' + d.mista.map(function (m, i) {
+            return '<button type="button" class="drow" data-i="' + i + '" style="width:100%;text-align:left;background:none;border:0;color:inherit;cursor:pointer;padding:6px 0;font:inherit"><span class="t">' + esc(m.cas) + '</span><span class="m" style="white-space:normal;line-height:1.35"><b>' + esc(m.nazev) + '</b> · ' + esc(m.text) + '</span><span class="sub" aria-hidden="true">›</span></button>';
+          }).join("") + '</div></div>' : '') +
+        (d.mista && d.mista.length ? '' : d.tip ? '<p class="note" style="margin-top:12px">' + esc(d.tip.text) + (d.tip.cas != null ? ' <button class="btn small" id="drama-go" type="button">Ukázat</button>' : '') + '</p>' : '<p class="note" style="margin-top:12px">Světla sedí k hudbě.</p>') +
         '<details class="more" style="margin-top:8px"><summary>Jak se to měří</summary><p class="note">Program projde scény, které dostane QuickDMX, a porovná je s rozborem hudby: jestli údery padnou na beat, jestli jas sleduje, kdy hudba sílí a slábne, jestli silné části svítí silně a klidné klidně, jestli jsou dropy na místech, kde se v hudbě něco děje, a jestli se světla při změně mění stejným směrem jako hudba. Je to kontrola řemesla, ne vkusu: záměrný kontrast (třeba tichý zlom) sníží skóre, i když je správně.</p></details>';
       if ($("drama-go")) $("drama-go").addEventListener("click", function () { seek(Math.max(0, d.tip.cas - 1)); });
+      on(el, "#drama-mista .drow", "click", function (e, b) {   // open that place on the editor timeline
+        var m = d.mista[+b.dataset.i]; if (!m) return; pause(); G.skokNa = { id: show.id, t: m.t, co: m.nazev + " · " + m.text };
+        location.hash = "#/show/" + show.id + (simple ? "/krok2" : "/emoce");
+      });
     }
     drama();
     $("scrub").addEventListener("input", function () { seek(+this.value); });
