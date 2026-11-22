@@ -719,7 +719,26 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function tx(x) {   // zip entries come as text (latin1-safe); strip BOM
     return String(x == null ? "" : x).replace(/^\uFEFF/, "");
   }
-  function najdi(files, p) { var lo = p.toLowerCase().replace(/\\/g, "/"); var k = Object.keys(files).filter(function (x) { return x.toLowerCase() === lo; })[0]; return k == null ? null : files[k]; }
+  // QuickDMX writes non-ASCII letters in file names as #UXXXX (P#U00e1d = Pád); paths in its files may be either form, with \ or /, any case
+  function dekoduj(s) { return String(s || "").replace(/#U([0-9a-fA-F]{4})/g, function (_, h) { return String.fromCharCode(parseInt(h, 16)); }); }
+  function klic(s) { return dekoduj(s).replace(/\\/g, "/").normalize("NFC").toLowerCase(); }
+  var INDEX = typeof WeakMap !== "undefined" ? new WeakMap() : null;
+  function index(files) { var ix = INDEX && INDEX.get(files); if (ix) return ix; ix = {}; Object.keys(files).forEach(function (k) { ix[klic(k)] = k; }); if (INDEX) INDEX.set(files, ix); return ix; }
+  function najdiKlic(files, p) { return index(files)[klic(p)] || null; }
+  function najdi(files, p) { var k = najdiKlic(files, p); return k == null ? null : files[k]; }
+  /* where a timeline or a button points: relative to its folder, an absolute path from another computer (C:/Users/.../scenes/x.scex),
+     or a scene whose folder was moved (random svetla/x.scex now in scenes/Artus sc/random svetla/) -> project path or null */
+  function najdiCil(files, p, kde) {
+    var k = najdiKlic(files, kde + p); if (k) return k;
+    var lo = klic(p), ix = index(files), keys = Object.keys(ix);
+    ["/scenes/", "/editor/generator/projects/"].some(function (d) { var i = lo.lastIndexOf(d); if (i >= 0) k = ix[lo.slice(i + 1)] || null; return !!k; }); if (k) return k;
+    var ext = (lo.match(/\.[a-z0-9]+$/) || [""])[0], dir = /\.gpj$/.test(lo) ? /^(scenes|editor\/generator\/projects)\// : /^scenes\//;
+    var tail = lo.replace(/^[a-z]:/, "").replace(/^\/+/, "");
+    var c = keys.filter(function (x) { return dir.test(x) && x.slice(-tail.length - 1) === "/" + tail; });
+    if (!c.length) { var bn = tail.split("/").pop(); c = keys.filter(function (x) { return dir.test(x) && x.split("/").pop() === bn && x.slice(-ext.length) === ext; }); }
+    return c.length ? ix[c.sort(function (a, b) { return a.length - b.length; })[0]] : null;
+  }
+  function hudbaZ(p) { p = String(p || "").replace(/\\/g, "/"); return /^([a-z]:|\/)/i.test(p) ? "Music/" + p.split("/").pop() : p; }   // music from another computer's disk -> Music/<file>
   function cs(s) {   // "h:mm:ss.d" -> seconds
     var a = String(s || "0").trim().split(":").map(Number);
     while (a.length < 3) a.unshift(0);
@@ -727,11 +746,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   // ---------- reading ----------
-  function osy(files) {   // the show timelines in a project zip
-    return Object.keys(files).filter(function (k) { return /(^|\/)Live\/TimeLine\/timelines\/[^\/]+\.tml$/i.test(k) || /^[^\/]+\.tml$/i.test(k); }).map(function (k) {
-      var ev = ctiOsu(files[k]), hud = ev.filter(function (e) { return +e.TimeLineIndex === 2; })[0], sc = ev.filter(function (e) { return /\.scex$/i.test(e.Path || ""); }).length;
-      return { cesta: k, nazev: k.split("/").pop().replace(/\.tml$/i, ""), sceny: sc, hudba: hud ? hud.Path : "", delka: hud ? cs(hud.Length) : 0 };
-    }).filter(function (o) { return o.sceny > 0; }).sort(function (a, b) { return a.nazev.localeCompare(b.nazev); });
+  function osy(files) {   // the show timelines in a project: Live/TimeLine/timelines first, copies kept elsewhere (cerem/, artus/...) only if not there
+    var vse = Object.keys(files).filter(function (k) { return /\.tml$/i.test(k) && !/(^|\/)StandAlone\//i.test(k); }).sort(function (a, b) {
+      var pa = /(^|\/)Live\/TimeLine\/timelines\//i.test(a) ? 0 : 1, pb = /(^|\/)Live\/TimeLine\/timelines\//i.test(b) ? 0 : 1; return pa - pb || a.length - b.length; });
+    var bylo = {};
+    return vse.map(function (k) {
+      var nm = dekoduj(k.split("/").pop().replace(/\.tml$/i, "")), kl = nm.toLowerCase(); if (bylo[kl]) return null; bylo[kl] = 1;
+      var ev = ctiOsu(files[k]), hud = ev.filter(function (e) { return +e.TimeLineIndex === 2; })[0], sc = ev.filter(function (e) { return /\.(scex|gpj)$/i.test(e.Path || ""); }).length;
+      return { cesta: k, nazev: nm, sceny: sc, hudba: hud ? hudbaZ(hud.Path) : "", delka: hud ? cs(hud.Length) : 0 };
+    }).filter(function (o) { return o && o.sceny > 0; }).sort(function (a, b) { return a.nazev.localeCompare(b.nazev); });
   }
   function ctiOsu(text) {   // [{key: value, _k: [keys in file order]}] for each [Event_n]
     var out = [], cur = null;
@@ -795,34 +818,43 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (prof) Object.keys(prof.skupiny || {}).forEach(function (r) { prof.skupiny[r].svetla.forEach(function (f, i) { svetla[f[0]] = { n: f[1], m: f[2], r: r, i: i }; }); });
     function cil(p) {   // load what a timeline event or a button starts; false = not converted
       if (/\.scex$/i.test(p)) {
-        if (!(p in sceny)) { var t = najdi(files, "scenes/" + p); if (t == null) { chybi[p] = 1; sceny[p] = null; } else sceny[p] = ctiScenu(t); }
+        if (!(p in sceny)) { var kk = najdiCil(files, p, "scenes/"); if (kk == null) { chybi[p] = 1; sceny[p] = null; } else sceny[p] = ctiScenu(files[kk]); }
         return !!sceny[p];
       }
       if (/\.gpj$/i.test(p)) {
         if (!(p in gen)) {
-          var g = najdi(files, "Editor/Generator/projects/" + p);
+          var gk = najdiCil(files, p, "Editor/Generator/projects/"), g = gk == null ? null : files[gk];
           if (g == null) { chybi[p] = 1; gen[p] = null; }
           else { var S = ctiIni(g); gen[p] = { params: (S.filter(function (x) { return x._ === "Params"; })[0] || { _k: [] })._k, fx: S.filter(function (x) { return /^Fixture_\d+$/.test(x._); }).map(function (x) { return hod(x, "ID"); }),
             krivky: S.filter(function (x) { return !/^(Params|Fixture_\d+)$/.test(x._); }).reduce(function (o, x) { o[x._] = x._k; return o; }, {}) }; }
         }
         return !!gen[p];
       }
-      if (/\.tml$/i.test(p) && (volba.osy || []).some(function (c) { return c.split("/").pop().toLowerCase() === p.split("/").pop().toLowerCase(); })) return true;   // a button that starts a converted timeline
+      if (/\.tml$/i.test(p) && (volba.osy || []).some(function (c) { return klic(c.split("/").pop()) === klic(p.replace(/\\/g, "/").split("/").pop()); })) return true;   // a button that starts a converted timeline
       preskoceno[p] = (preskoceno[p] || 0) + 1; return false;
     }
-    var osy = (volba.osy || []).map(function (cesta) {
+    if (volba.tlacitka && najdi(files, "Live/live.ini")) {   // timelines started from Live buttons are converted with them
+      var vsechny = osy(files), mam = {}; volba = Object.assign({}, volba, { osy: (volba.osy || []).slice() });
+      volba.osy.forEach(function (c) { mam[klic(c.split("/").pop())] = 1; });
+      stranky(najdi(files, "Live/live.ini")).forEach(function (pg) { pg.tlacitka.forEach(function (b) {
+        var n = hod({ _k: b.f }, "name"); if (!n || !/\.tml$/i.test(n)) return;
+        var bn = klic(n.replace(/\\/g, "/").split("/").pop()), o = vsechny.filter(function (x) { return klic(x.cesta.split("/").pop()) === bn; })[0];
+        if (o && !mam[bn]) { mam[bn] = 1; volba.osy.push(o.cesta); }
+      }); });
+    }
+    var osy0 = (volba.osy || []).map(function (cesta) {
       var ev = ctiOsu(najdi(files, cesta)), udalosti = [], hudba = "", delka = 0;
       ev.forEach(function (e) {
         var lane = +e.TimeLineIndex, p = String(e.Path || "");
-        if (lane === 2) { hudba = p; delka = Math.max(delka, cs(e.StartTime) + cs(e.Length)); return; }
+        if (lane === 2) { hudba = hudbaZ(p); delka = Math.max(delka, cs(e.StartTime) + cs(e.Length)); return; }
         if (lane < 3) return;
         var u = { l: lane, t: e.StartTime, p: p };
         e._k.forEach(function (k) { if (["TimeLineIndex", "StartTime", "Path"].indexOf(k) < 0) (u.x = u.x || []).push([k, e[k]]); });
-        if (p !== "OFF" && !cil(p)) return;
+        if (p !== "OFF" && p !== "STOP" && !cil(p)) return;   // STOP (stops the timeline) stays as it is
         udalosti.push(u);
         if (p !== "OFF") delka = Math.max(delka, cs(e.StartTime) + cs(e.Length || "0"));
       });
-      return { nazev: cesta.split("/").pop().replace(/\.tml$/i, ""), hudba: hudba, delka: Math.round(delka * 10) / 10, udalosti: udalosti };
+      return { nazev: dekoduj(cesta.split("/").pop().replace(/\.tml$/i, "")), hudba: hudba, delka: Math.round(delka * 10) / 10, udalosti: udalosti };
     });
     var str = [];
     if (volba.tlacitka && najdi(files, "Live/live.ini")) str = stranky(najdi(files, "Live/live.ini")).map(function (pg) {
@@ -854,9 +886,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
     Object.keys(gen).forEach(function (p) { if (!gen[p]) delete gen[p]; });
     var pocty = {}; Object.keys(svetla).forEach(function (id) { pocty[svetla[id].r] = Math.max(pocty[svetla[id].r] || 0, svetla[id].i + 1); });
-    var o0 = osy[0] || { hudba: "", delka: 0, nazev: "" };
-    return { v: 2, zdroj: prof ? prof.nazev : "", svetla: svetla, pocty: pocty, osy: osy, stranky: str, sceny: S, gen: gen,
-      hudba: o0.hudba, delka: Math.max.apply(0, [0].concat(osy.map(function (o) { return o.delka; }))), osa: osy.map(function (o) { return o.nazev; }).join(", ") || "tlačítka",
+    var o0 = osy0[0] || { hudba: "", delka: 0, nazev: "" };
+    return { v: 2, zdroj: prof ? prof.nazev : "", svetla: svetla, pocty: pocty, osy: osy0, stranky: str, sceny: S, gen: gen,
+      hudba: o0.hudba, delka: Math.max.apply(0, [0].concat(osy0.map(function (o) { return o.delka; }))), osa: osy0.map(function (o) { return o.nazev; }).join(", ") || "tlačítka",
       preskoceno: preskoceno, chybi: Object.keys(chybi), bila: bila, cizi: Object.keys(cizi).map(function (k) { return cizi[k]; }) };
   }
 
@@ -1025,12 +1057,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       for (var k = 0; k < 8; k++) L.push('TimeLine_' + (k + 3) + ' = L I G H T   S C E N E   T I M E L I N E   #   ' + (k + 1));
       var n = 0, ev = function (lines) { L.push("[Event_" + (n++) + "]"); lines.forEach(function (x) { L.push(x); }); }, lanes = {};
       if (o.hudba) ev(["TimeLineIndex = 2", "StartTime = 0:00:00.0", "Path = " + cistaCesta(o.hudba), "Length = " + casText(o.delka)]);
-      var ED = (up && up.udalosti) || {}, PS = (up && up.pasaze) || [], bloky = [];
+      var ED = (up && up.udalosti) || {}, PS = ((up && up.pasaze) || []).filter(function (s2) { return (s2.o || 0) === oi; }), bloky = [], stopy = [];
       o.udalosti.map(function (u, i) {   // edited start / length / deleted, then in time order per lane
         var e = ED[oi + ":" + i] || {}, xl = (u.x || []).filter(function (x) { return x[0] === "Length"; })[0];
         return { u: u, i: i, a: e.t != null ? Math.max(0, +e.t) : cs(u.t), len: e.len != null ? +e.len : xl ? cs(xl[1]) : null, smazat: !!e.x };
       }).sort(function (x, y) { return x.a - y.a || x.i - y.i; }).forEach(function (q) {
         var u = q.u, x = (u.x || []).filter(function (z) { return z[0] !== "Length"; }), rych = +((u.x || []).filter(function (z) { return z[0] === "Speed"; })[0] || [0, 100])[1] || 100;
+        if (u.p === "STOP") { ev(["TimeLineIndex = " + u.l, "StartTime = " + casText(q.a), "Path = STOP"]); stopy.push(q.a); return; }   // STOP ends the whole show
         if (u.p !== "OFF") bloky.push({ i: q.i, l: u.l, a: q.a, len: q.len, p: u.p, smazano: q.smazat, gen: !pr.sceny[u.p] });
         var t = casText(q.a), lenL = q.len != null ? ["Length = " + casText(q.len)] : [];
         if (u.p === "OFF" || q.smazat) { ev(["TimeLineIndex = " + u.l, "StartTime = " + t, "Path = OFF"]); (lanes[u.l] = lanes[u.l] || []).push({ a: q.a, p: null, rych: 100 }); return; }
@@ -1040,6 +1073,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         ev(["TimeLineIndex = " + u.l, "StartTime = " + t, "Path = " + p].concat(lenL, x.map(function (z) { return z[0] + " = " + z[1]; })));
         (lanes[u.l] = lanes[u.l] || []).push({ a: q.a, p: ik, rych: rych, e: q.len != null ? q.a + q.len : null, i: q.i });
       });
+      if (stopy.length) { var t0 = Math.min.apply(0, stopy); Object.keys(lanes).forEach(function (l) { lanes[l].push({ a: t0, p: null, rych: 100 }); lanes[l].sort(function (x, y) { return x.a - y.a; }); }); }
       rep.udalosti += n;
       var tp = "Live/TimeLine/timelines/" + (O.length > 1 ? verze + "-" + (ascii(o.nazev) || oi + 1) : verze) + ".tml";
       files[tp] = "\uFEFF" + L.join("\r\n") + "\r\n"; tmlPaths.push(tp); nove[o.nazev + ".tml"] = tp.split("/").pop();
@@ -1100,7 +1134,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return out;
   }
 
-  var api = { slouc: slouc, ODSTINY: ODSTINY, barvyShow: barvyShow, odstin: odstin, osy: osy, osyOf: osyOf, pridejTlacitka: pridejTlacitka, ctiOsu: ctiOsu, ctiScenu: ctiScenu, prevezmi: prevezmi, vychoziMapa: vychoziMapa, preved: preved, stav: stav, ascii: ascii, ROLE: ROLE };
+  var api = { dekoduj: dekoduj, klic: klic, najdiCil: najdiCil, slouc: slouc, ODSTINY: ODSTINY, barvyShow: barvyShow, odstin: odstin, osy: osy, osyOf: osyOf, pridejTlacitka: pridejTlacitka, ctiOsu: ctiOsu, ctiScenu: ctiScenu, prevezmi: prevezmi, vychoziMapa: vychoziMapa, preved: preved, stav: stav, ascii: ascii, ROLE: ROLE };
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.SvetlaPrevod = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
@@ -4499,7 +4533,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var d = document.createElement("div"); d.setAttribute("role", "dialog"); d.setAttribute("aria-modal", "true");
     d.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);display:grid;place-items:center;z-index:999;padding:16px";
     var moz = Z.osy.map(function (o, i) { return { v: "o" + i, t: o.nazev, s: mmss(o.delka) + " · " + o.sceny + " scén" + (o.hudba ? " · " + o.hudba.split("/").pop() : "") }; });
-    if (Z.stranky) moz.push({ v: "t", t: "Tlačítka v Live", s: Z.stranky.stranky.length + " stránek, " + Z.stranky.stranky.reduce(function (n, p) { return n + p.tlacitka.length; }, 0) + " tlačítek (scény a efekty bez časové osy)" });
+    if (Z.stranky) moz.push({ v: "t", t: "Tlačítka v Live", s: Z.stranky.stranky.length + " stránek, " + Z.stranky.stranky.reduce(function (n, p) { return n + p.tlacitka.length; }, 0) + " tlačítek (scény a efekty a časové osy, které spouštějí)" });
     var pozn = [];
     if (Z.sa) pozn.push("Složka StandAlone (" + Z.sa + " souborů) se zatím nepřevádí, neznám její formát.");
     if (Z.seq) pozn.push("Sekvence z Live/Sequential se zatím nepřevádějí.");
@@ -4527,7 +4561,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         var doc = { id: id, nazev: nazev, typ: "prevzata", sauna: sk, saunaNazev: G.sauny[sk].nazev, hudba: cistaCesta((pr.hudba || "").split("/").pop()), hudbaCesta: pr.hudba ? cistaCesta(pr.hudba) : "", delka: pr.delka, konec: pr.delka,
           pisne: [], casti: [], dropy: [], barvyDropu: {}, verze: (PR.ascii(nazev).slice(0, 14) || "SHOW") + "1", prevod: pr, mapa: PR.vychoziMapa(pr, G.sauny[sk]), upraveno: new Date().toISOString() };
         await G.db.doc("show/" + id).set(doc); G.shows[id] = doc;
-        var mz = pr.hudba && Z.hudby[pr.hudba.toLowerCase()];
+        var mz = pr.hudba && (Z.hudby[pr.hudba.toLowerCase()] || Z.hudby[Object.keys(Z.hudby).filter(function (k) { return k.split("/").pop() === pr.hudba.split("/").pop().toLowerCase(); })[0]]);
         if (mz) { st.textContent = "Beru hudbu…"; var b = await mz.blob(); if (/\.wav$/i.test(pr.hudba)) b._hotovo = true; nastavHudbu(doc, b, pr.hudba.split("/").pop()); }
         zavri(); location.hash = "#/show/" + id + "/prevod";
       } catch (e) { st.textContent = "Převzetí se nepovedlo: " + (e.message || e); btn.disabled = false; }
@@ -4560,8 +4594,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   // ----- timeline of a převzatá show: the original lanes and blocks; select a passage and edit its colours / brightness; move, stretch, delete blocks -----
   var TLSTAV = {};
   function osaPrevzate(el, show, res, sauna, S3, up, uloz) {
-    var id = show.id, O = res.plan.osy[0], B = O.bloky, T = Math.max(O.delka || 0, B.reduce(function (m, b) { return Math.max(m, b.a + (b.len || 2)); }, 0)) + 2;
-    var st = TLSTAV[id] = TLSTAV[id] || { pxs: Math.max(2, Math.min(40, 1100 / T)), sel: null, scroll: 0 };
+    var id = show.id, OI = Math.min((TLSTAV[id] || {}).oi || 0, res.plan.osy.length - 1), O = res.plan.osy[OI], B = O.bloky, T = Math.max(O.delka || 0, B.reduce(function (m, b) { return Math.max(m, b.a + (b.len || 2)); }, 0)) + 2;
+    var st = TLSTAV[id] = TLSTAV[id] || { sel: null, scroll: 0 }; if (!st.pxs) st.pxs = Math.max(2, Math.min(40, 1100 / T));
     var lanes = []; B.forEach(function (b) { if (lanes.indexOf(b.l) < 0) lanes.push(b.l); }); lanes.sort(function (a, b) { return a - b; });
     var jmeno = function (l) {   // lane name from the folder its scenes live in (LEVA, KAMNA...)
       var h = {}; B.filter(function (b) { return b.l === l; }).forEach(function (b) { var c = b.p.split("/"); var k = c.length > 1 ? c[c.length - 2] : ""; h[k] = (h[k] || 0) + 1; });
@@ -4575,16 +4609,17 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       var m = Math.max(best[0], best[1], best[2]) || 1; return bm < 3 ? "#222" : hex(best.map(function (x) { return x * 255 / m * Math.max(0.35, Math.min(1, m / 255)); }));
     };
     var RH = 26, TOP = 20, W = Math.ceil(T * st.pxs);
-    el.innerHTML = '<div class="row between" style="gap:8px;flex-wrap:wrap"><h2>Časová osa</h2><div class="row" style="gap:6px"><span class="sub">Klikni na blok = vybrat ho · Shift+klik = přidat · táhni po časové liště nahoře = vybrat pasáž · táhni blok = posunout, jeho pravý okraj = délka</span><button class="btn small" id="tl-zo" type="button" aria-label="Oddálit">−</button><button class="btn small" id="tl-zi" type="button" aria-label="Přiblížit">+</button></div></div>' +
+    el.innerHTML = '<div class="row between" style="gap:8px;flex-wrap:wrap"><h2>Časová osa</h2>' + (res.plan.osy.length > 1 ? '<select id="tl-osa" aria-label="Která časová osa">' + res.plan.osy.map(function (o, i) { return '<option value="' + i + '"' + (i === OI ? " selected" : "") + '>' + esc(o.nazev) + '</option>'; }).join("") + '</select>' : '') + '<div class="row" style="gap:6px"><span class="sub">Klikni na blok = vybrat ho · Shift+klik = přidat · táhni po časové liště nahoře = vybrat pasáž · táhni blok = posunout, jeho pravý okraj = délka</span><button class="btn small" id="tl-zo" type="button" aria-label="Oddálit">−</button><button class="btn small" id="tl-zi" type="button" aria-label="Přiblížit">+</button></div></div>' +
       '<div style="display:flex;margin-top:10px;font-size:11px"><div style="flex:0 0 70px;padding-top:' + TOP + 'px">' + lanes.map(function (l) { return '<div class="sub" style="height:' + RH + 'px;line-height:' + RH + 'px;overflow:hidden;white-space:nowrap">' + esc(jmeno(l)) + '</div>'; }).join("") + '</div>' +
       '<div id="tl" style="flex:1;overflow-x:auto;position:relative;user-select:none;touch-action:pan-y"><div id="tl-in" style="position:relative;width:' + W + 'px;height:' + (TOP + lanes.length * RH + 4) + 'px;cursor:crosshair">' +
       (function () { var h = "", krok = [1, 2, 5, 10, 15, 30, 60, 120].filter(function (k) { return k * st.pxs >= 50; })[0] || 300; for (var t = 0; t < T; t += krok) h += '<span class="sub" style="position:absolute;left:' + (t * st.pxs) + 'px;top:0;border-left:1px solid var(--line, rgba(128,128,128,.35));padding-left:3px;height:' + (TOP + lanes.length * RH) + 'px;pointer-events:none">' + mmss(t) + '</span>'; return h; })() +
       B.map(function (b) { var a = b.a, e = konec(b), y = TOP + lanes.indexOf(b.l) * RH + 2;
         return '<div class="tl-b" data-i="' + b.i + '" title="' + esc(b.p.split("/").pop() + " · " + fmt(a, true) + "–" + fmt(e, true)) + '" style="position:absolute;left:' + (a * st.pxs) + 'px;top:' + y + 'px;width:' + Math.max(3, (e - a) * st.pxs - 1) + 'px;height:' + (RH - 4) + 'px;border-radius:4px;cursor:grab;box-sizing:border-box;' +
           (b.smazano ? 'background:repeating-linear-gradient(45deg,transparent 0 4px,rgba(128,128,128,.4) 4px 8px);border:1px dashed rgba(128,128,128,.6)' : 'background:' + barvaBloku(b) + ';border:1px solid rgba(0,0,0,.35)') + '"><span style="position:absolute;right:0;top:0;bottom:0;width:6px;cursor:ew-resize" data-r="1"></span></div>'; }).join("") +
-      ((up.pasaze || []).map(function (p) { return '<div style="position:absolute;left:' + (p.od * st.pxs) + 'px;width:' + ((p.do - p.od) * st.pxs) + 'px;top:' + (TOP - 4) + 'px;height:3px;background:var(--acc, #FF8A3D);border-radius:2px;pointer-events:none" title="upravená pasáž"></div>'; }).join("")) +
+      ((up.pasaze || []).filter(function (p) { return (p.o || 0) === OI; }).map(function (p) { return '<div style="position:absolute;left:' + (p.od * st.pxs) + 'px;width:' + ((p.do - p.od) * st.pxs) + 'px;top:' + (TOP - 4) + 'px;height:3px;background:var(--acc, #FF8A3D);border-radius:2px;pointer-events:none" title="upravená pasáž"></div>'; }).join("")) +
       '<div id="tl-sel" style="position:absolute;top:0;bottom:0;background:rgba(255,138,61,.18);border:1px solid rgba(255,138,61,.7);pointer-events:none;display:none"></div>' +
       '<div id="tl-ph" style="position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.4);pointer-events:none;left:0"></div></div></div></div><div id="tl-panel" style="margin-top:12px"></div>';
+    if ($("tl-osa")) $("tl-osa").addEventListener("change", function () { st.oi = +this.value; st.sel = null; st.scroll = 0; st.pxs = null; osaPrevzate(el, show, res, sauna, S3, up, uloz); });
     var box = $("tl"), inn = $("tl-in"); box.scrollLeft = st.scroll; box.addEventListener("scroll", function () { st.scroll = box.scrollLeft; });
     var zoom = function (f) { var c = (box.scrollLeft + box.clientWidth / 2) / st.pxs; st.pxs = Math.max(1, Math.min(120, st.pxs * f)); st.scroll = c * st.pxs - box.clientWidth / 2; osaPrevzate(el, show, res, sauna, S3, up, uloz); };
     $("tl-zi").addEventListener("click", function () { zoom(1.6); }); $("tl-zo").addEventListener("click", function () { zoom(1 / 1.6); });
@@ -4617,18 +4652,18 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         kresliVyber(); panel(); seek(a); return;
       }
       if (d.typ === "vyber") { panel(); return; }
-      var k = "0:" + d.b.i, ch = {}; ch[k] = Object.assign({}, (up.udalosti || {})[k] || {}, d.typ === "posun" ? { t: d.na } : { len: Math.round(d.na * 10) / 10 });
+      var k = OI + ":" + d.b.i, ch = {}; ch[k] = Object.assign({}, (up.udalosti || {})[k] || {}, d.typ === "posun" ? { t: d.na } : { len: Math.round(d.na * 10) / 10 });
       ulozUd(ch);
     });
     function panel() {
       var p = $("tl-panel"), V = vybrane(); if (!st.sel || !V.length) { p.innerHTML = st.sel ? '<p class="note">Ve výběru nezačíná žádný blok.</p>' : '<p class="note">Vyber pasáž a uprav v ní barvy nebo jas. Úpravy celé show jsou níž v kartě Upravit světla.</p>'; return; }
-      var PS = up.pasaze || [], ix = PS.findIndex(function (q) { return Math.abs(q.od - st.sel.od) < 0.05 && Math.abs(q.do - st.sel.do) < 0.05; }), q = ix >= 0 ? PS[ix] : {};
+      var PS = up.pasaze || [], ix = PS.findIndex(function (q) { return (q.o || 0) === OI && Math.abs(q.od - st.sel.od) < 0.05 && Math.abs(q.do - st.sel.do) < 0.05; }), q = ix >= 0 ? PS[ix] : {};
       var R0 = G.recept || {}, J = R0.barvyJmena || {}, PAL = R0.paleta || {}, barvy = Object.keys(J).filter(function (c) { return c !== "OFF" && PAL[c]; });
       var jeH = function (z, c) { return z && hex(z).toLowerCase() === hex(PAL[c]).toLowerCase(); };
       var skup = PR.ROLE.filter(function (g) { return sauna.skupiny[g]; }), smaz = V.filter(function (b) { return b.smazano; }).length;
       p.innerHTML = '<div class="row between" style="gap:8px;flex-wrap:wrap"><b>Pasáž ' + fmt(st.sel.od, true) + ' – ' + fmt(st.sel.do, true) + ' · ' + V.length + ' bloků</b><div class="row" style="gap:6px;flex-wrap:wrap">' +
         (smaz < V.length ? '<button class="btn small" id="tl-del" type="button">Smazat bloky</button>' : '') + (smaz ? '<button class="btn small" id="tl-undel" type="button">Vrátit smazané</button>' : '') +
-        (V.some(function (b) { var e = (up.udalosti || {})["0:" + b.i]; return e && (e.t != null || e.len != null); }) ? '<button class="btn small" id="tl-cas" type="button">Vrátit původní časy</button>' : '') +
+        (V.some(function (b) { var e = (up.udalosti || {})[OI + ":" + b.i]; return e && (e.t != null || e.len != null); }) ? '<button class="btn small" id="tl-cas" type="button">Vrátit původní časy</button>' : '') +
         (ix >= 0 ? '<button class="btn small" id="tl-zrus" type="button">Zrušit úpravy pasáže</button>' : '') + '</div></div>' +
         '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin-top:10px">' + skup.map(function (g) {
           var z = (q.skupiny || {})[g], j = Math.round(((q.jas || {})[g] != null ? q.jas[g] : 1) * 100);
@@ -4638,8 +4673,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         '<details class="more" style="margin-top:10px"' + (q.barvy && Object.keys(q.barvy).length ? ' open' : '') + '><summary>Záměna barev jen v téhle pasáži</summary><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-top:8px">' +
           ["bila"].concat(PR.ODSTINY.map(function (o) { return o[0]; })).map(function (k) { var nm = k === "bila" ? "bílá / skoro bílá" : PR.ODSTINY.filter(function (o) { return o[0] === k; })[0][1], z = (q.barvy || {})[k];
             return '<label class="row between" style="gap:6px"><span class="sub">' + esc(nm) + '</span><select class="tl-s" data-k="' + k + '" style="width:auto"><option value="">beze změny</option>' + barvy.map(function (c) { return '<option value="' + c + '"' + (jeH(z, c) ? ' selected' : '') + '>→ ' + esc(J[c]) + '</option>'; }).join("") + '</select></label>'; }).join("") + '</div></details>';
-      var zmen = function (fn) { var u = clone(up), P2 = u.pasaze = u.pasaze || [], i2 = P2.findIndex(function (x) { return Math.abs(x.od - st.sel.od) < 0.05 && Math.abs(x.do - st.sel.do) < 0.05; });
-        var x = i2 >= 0 ? P2[i2] : { od: Math.round(st.sel.od * 100) / 100, do: Math.round(st.sel.do * 100) / 100 }; fn(x);
+      var zmen = function (fn) { var u = clone(up), P2 = u.pasaze = u.pasaze || [], i2 = P2.findIndex(function (x) { return (x.o || 0) === OI && Math.abs(x.od - st.sel.od) < 0.05 && Math.abs(x.do - st.sel.do) < 0.05; });
+        var x = i2 >= 0 ? P2[i2] : Object.assign({ od: Math.round(st.sel.od * 100) / 100, do: Math.round(st.sel.do * 100) / 100 }, OI ? { o: OI } : {}); fn(x);
         var prazdna = !Object.keys(x.skupiny || {}).length && !Object.keys(x.barvy || {}).length && !Object.keys(x.jas || {}).length;
         if (i2 >= 0) { if (prazdna) P2.splice(i2, 1); } else if (!prazdna) P2.push(x);
         uloz({ upravy: u }); };
@@ -4648,7 +4683,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       on(p, ".tl-j", "input", function (e, s) { s.nextElementSibling.textContent = s.value + " %"; });
       on(p, ".tl-j", "change", function (e, s) { zmen(function (x) { x.jas = x.jas || {}; if (+s.value >= 100) delete x.jas[s.dataset.g]; else x.jas[s.dataset.g] = +s.value / 100; }); });
       if ($("tl-zrus")) $("tl-zrus").addEventListener("click", function () { var u = clone(up); u.pasaze = (u.pasaze || []).filter(function (x, i) { return i !== ix; }); uloz({ upravy: u }); });
-      var hrom = function (fn) { var ch = {}; V.forEach(function (b) { var k = "0:" + b.i, o = Object.assign({}, (up.udalosti || {})[k] || {}); fn(o); ch[k] = o; }); ulozUd(ch); };
+      var hrom = function (fn) { var ch = {}; V.forEach(function (b) { var k = OI + ":" + b.i, o = Object.assign({}, (up.udalosti || {})[k] || {}); fn(o); ch[k] = o; }); ulozUd(ch); };
       if ($("tl-del")) $("tl-del").addEventListener("click", function () { hrom(function (o) { o.x = true; }); });
       if ($("tl-undel")) $("tl-undel").addEventListener("click", function () { hrom(function (o) { delete o.x; }); });
       if ($("tl-cas")) $("tl-cas").addEventListener("click", function () { hrom(function (o) { delete o.t; delete o.len; }); });
@@ -4717,7 +4752,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var ukaz = function (t) {
       if (!S3) return;
       if (rucne) { S3.update(PR.stav({ items: res.plan.items, modely: res.plan.modely, osy: [{ lanes: { 3: [{ a: 0, p: rucne.p, rych: 100 }] } }] }, (performance.now() - rucne.t0) / 1000)); return; }
-      S3.update(PR.stav(res.plan, t, 0)); if (OSA) OSA.cas(t);
+      S3.update(PR.stav(res.plan, t, (TLSTAV[show.id] || {}).oi || 0)); if (OSA) OSA.cas(t);
     };
     var OSA = osa ? osaPrevzate($("tl-card"), show, res, sauna, S3, up, uloz) : null;
     if (osa) { P.hooks.push(ukaz); wirePlayer(show, function () { route(); }); }
