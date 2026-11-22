@@ -4137,14 +4137,18 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
           return '<div><div class="row between sub"><span>' + esc(k.nazev) + '</span><span style="color:' + col(k.pct) + '">' + k.pct + ' %</span></div>' +
             '<div style="height:6px;border-radius:3px;background:var(--line);margin-top:4px"><div style="height:6px;border-radius:3px;width:' + k.pct + '%;background:' + col(k.pct) + '"></div></div></div>';
         }).join("") + '</div>' +
-        (d.mista && d.mista.length ? '<div style="margin-top:14px"><div class="lbl">Kde to nesedí (' + d.mista.length + ')</div><p class="note" style="margin-top:2px">Klikni a otevře se ta část na časové ose, kde ji můžeš hned upravit.</p>' +
+        (d.mista && d.mista.length ? '<div style="margin-top:14px"><div class="lbl">Kde to nesedí (' + d.mista.length + ')</div><p class="note" style="margin-top:2px">Klikni na čas a náhled to místo přehraje. „Upravit“ otevře tu část na časové ose.</p>' +
           '<div class="dlist" id="drama-mista" style="margin-top:6px">' + d.mista.map(function (m, i) {
-            return '<button type="button" class="drow" data-i="' + i + '" style="width:100%;text-align:left;background:none;border:0;color:inherit;cursor:pointer;padding:6px 0;font:inherit"><span class="t">' + esc(m.cas) + '</span><span class="m" style="white-space:normal;line-height:1.35"><b>' + esc(m.nazev) + '</b> · ' + esc(m.text) + '</span><span class="sub" aria-hidden="true">›</span></button>';
+            return '<div class="drow"><button type="button" class="mista-go" data-i="' + i + '" title="Přehrát v náhledu" style="display:flex;gap:8px;align-items:center;flex:1;min-width:0;text-align:left;background:none;border:0;color:inherit;cursor:pointer;padding:6px 0;font:inherit"><span class="t">▶ ' + esc(m.cas) + '</span><span class="m" style="white-space:normal;line-height:1.35"><b>' + esc(m.nazev) + '</b> · ' + esc(m.text) + '</span></button><button type="button" class="btn small mista-uprav" data-i="' + i + '">Upravit</button></div>';
           }).join("") + '</div></div>' : '') +
         (d.mista && d.mista.length ? '' : d.tip ? '<p class="note" style="margin-top:12px">' + esc(d.tip.text) + (d.tip.cas != null ? ' <button class="btn small" id="drama-go" type="button">Ukázat</button>' : '') + '</p>' : '<p class="note" style="margin-top:12px">Světla sedí k hudbě.</p>') +
         '<details class="more" style="margin-top:8px"><summary>Jak se to měří</summary><p class="note">Program projde scény, které dostane QuickDMX, a porovná je s rozborem hudby: jestli údery padnou na beat, jestli jas sleduje, kdy hudba sílí a slábne, jestli silné části svítí silně a klidné klidně, jestli jsou dropy na místech, kde se v hudbě něco děje, a jestli se světla při změně mění stejným směrem jako hudba. Je to kontrola řemesla, ne vkusu: záměrný kontrast (třeba tichý zlom) sníží skóre, i když je správně.</p></details>';
       if ($("drama-go")) $("drama-go").addEventListener("click", function () { seek(Math.max(0, d.tip.cas - 1)); });
-      on(el, "#drama-mista .drow", "click", function (e, b) {   // open that place on the editor timeline
+      on(el, "#drama-mista .mista-go", "click", function (e, b) {   // play that place right here in the preview, a little before it
+        var m = d.mista[+b.dataset.i]; if (!m) return; seek(Math.max(0, m.t - 2)); if (!isPlaying()) play();
+        var stg = $("stage"); if (stg && stg.scrollIntoView && window.innerWidth < 900) stg.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+      on(el, "#drama-mista .mista-uprav", "click", function (e, b) {   // open that place on the editor timeline
         var m = d.mista[+b.dataset.i]; if (!m) return; pause(); G.skokNa = { id: show.id, t: m.t, co: m.nazev + " · " + m.text };
         location.hash = "#/show/" + show.id + (simple ? "/krok2" : "/emoce");
       });
