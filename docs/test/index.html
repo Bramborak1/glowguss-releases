@@ -3569,7 +3569,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     if (k === "ai") return ["Napiš mi příběh své show a já ti ke každé části hudby navrhnu náladu světel.", [].concat([
       ["Co sem mám napsat?", "Scénář show: příběh, časy, kdo kdy mluví a co se má stát. Stačí pár řádků, třeba „0:00 mlha, Aladin bloudí. 1:30 první kolo, radost. Konec dojemný.“ Hotový text můžeš načíst i ze souboru."],
       ["Co z toho AI udělá?", "Spojí tvůj příběh s rozborem hudby (kde hrají bicí, kde je řeč nebo ticho) a ke každé části navrhne náladu a sílu, s krátkým důvodem. Každý návrh přijmeš nebo necháš."],
-      ["Co je Glowguss AI?", "Tlačítko Navrhnout přes Glowguss AI pošle tvůj scénář i rozbor hudby rovnou AI, bez kopírování. Stojí 10 Glowcoinů. Když se něco technicky pokazí, Glowcoiny se vrátí."],
+      ["Co je Glowy AI?", "Tlačítko Navrhnout přes Glowy AI pošle tvůj scénář i rozbor hudby rovnou AI, bez kopírování. Stojí 10 Glowcoinů. Když se něco technicky pokazí, Glowcoiny se vrátí."],
       ["Jak to funguje zdarma přes Claude?", "1. Klikni na Zkopírovat zadání a vlož ho do Claude (stačí verze zdarma). 2. Celou odpověď od Claude zkopíruj zpátky sem. 3. Klikni na Ukázat návrhy. Do druhého pole patří odpověď od Claude, ne tvůj scénář."],
       ["Co jsou momenty příběhu?", "Krátké efekty na přesný čas přes náladu části: náraz, zhasnutí, jiskry, tma a restart, přísvit postavy. Kamna nikdy neblikají, jen pomalu ztlumí. AI je navrhne podle scénáře, nebo je přidáš ručně."],
       ["Může AI rozbít světla?", "Nemůže. Pravidla světel hlídá generátor vždycky a AI je obejít nemůže."]]).filter(function (x) { return !(REMOTE && kredityViditelne() && /zdarma/.test(x[0])); })];
@@ -3632,7 +3632,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       '<div class="field" style="margin-top:14px"><div class="row between"><label class="lbl" for="ai-prani">Sem scénář: příběh, časy, přání</label><label class="btn small" style="cursor:pointer">Načíst text ze souboru<input type="file" id="ai-soubor" accept=".txt,.md,.csv,text/*" hidden></label></div>' +
       '<textarea id="ai-prani" rows="8" placeholder="např. 0:00 mlha, Aladin bloudí. 1:30 první kolo, radost. 5:10 džin mluví, tajemně. Konec má být dojemný."></textarea></div>' +
       (REMOTE && kredityViditelne() ? '<div id="ai-gg" style="margin-top:14px;padding:12px 14px;border-radius:14px;border:1.5px solid rgba(255,160,70,.55);background:linear-gradient(135deg,rgba(255,138,61,.10),rgba(224,51,138,.08))">' +
-        '<div class="row" style="gap:10px;flex-wrap:wrap"><button class="btn primary" id="ai-gg-go" style="display:inline-flex;align-items:center;gap:8px">Navrhnout přes Glowguss AI · 10 ' + glowcoin(18) + '</button><span class="sub">Bez kopírování, hotové obvykle do 2 minut.</span></div></div>' : '') +
+        '<div class="row" style="gap:10px;flex-wrap:wrap"><button class="btn primary" id="ai-gg-go" style="display:inline-flex;align-items:center;gap:8px">Navrhnout přes Glowy AI · 10 ' + glowcoin(18) + '</button><span class="sub">Bez kopírování, hotové obvykle do 2 minut.</span></div></div>' : '') +
       '<div id="ai-primo" hidden><div class="row" style="margin-top:12px"><button class="btn primary" id="ai-go">Navrhnout nálady</button><button class="btn" id="ai-stop" hidden>Zastavit</button></div></div>' +
       '<div id="ai-zdarma"><h3 style="margin-top:16px">Zdarma přes tvého Claude</h3><ol class="note" style="margin:8px 0 0 18px;display:flex;flex-direction:column;gap:10px">' +
         '<li><button class="btn primary small" id="ai-kop">Zkopírovat zadání</button> a vlož ho do Claude (stačí i verze zdarma): <a href="https://claude.ai/new" target="_blank" rel="noopener">otevřít Claude</a></li>' +
@@ -3818,11 +3818,11 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         } catch (e) { el.textContent = e.message || String(e); el.style.color = "var(--bad, #e66)"; obnovGlowcoiny(); konec(e && e.kod === "glowcoiny" ? null : "chyba"); }
         st.busy = false; b.disabled = false;
       });
-    }   // with Glowguss AI the free copy-paste route is gone (Milan 2026-11-21)
+    }   // with Glowy AI the free copy-paste route is gone (Milan 2026-11-21)
     if ($("ai-gg-go")) $("ai-gg-go").addEventListener("click", async function () {
       var b = this; if (st.busy) return;
       if (!$("ai-prani").value.trim()) { stav("Nejdřív napiš nahoru scénář nebo příběh show.", true); return; }
-      st.busy = true; b.disabled = true; stav("Glowguss AI přemýšlí nad tvým příběhem (obvykle 1 až 2 minuty)…");
+      st.busy = true; b.disabled = true; stav("Glowy AI přemýšlí nad tvým příběhem (obvykle 1 až 2 minuty)…");
       var konec = glowyPrace($("ai-state"), "Vyhrnuju rukávy a jdu na to…");
       try {
         var r = await K.zavolej({ akce: "ai-navrh", zadani: zadani(), nazev: show.nazev });
