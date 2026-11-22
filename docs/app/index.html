@@ -2201,6 +2201,28 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         '<b style="font-family:var(--f-num);color:' + (h.zmena > 0 ? 'var(--ok,#4ade80)' : 'inherit') + '">' + (h.zmena > 0 ? "+" : "") + h.zmena + '</b></div>';
     }).join("") + '</div></details>';
   }
+  // Glowcoin packages. Online payment is not live yet: "Koupit" sends an order e-mail, Milan adds the coins in Správa licencí.
+  // When a payment provider is set up, GC_PLATBA gets its checkout links per package and the button opens those instead.
+  var GC_BALICKY = [{ n: 100, kc: 199 }, { n: 300, kc: 499, tip: "nejvýhodnější" }], GC_PLATBA = null, GC_MAIL = "glowguss@gmail.com";
+  function nakupHtml() {
+    return '<div class="sub" style="margin-top:16px;font-weight:600">Dokoupit Glowcoiny</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:8px">' +
+      GC_BALICKY.map(function (b, i) {
+        return '<div style="padding:12px 14px;border-radius:14px;border:1px solid ' + (b.tip ? 'rgba(255,138,61,.6)' : 'var(--line)') + ';display:flex;flex-direction:column;gap:8px">' +
+          '<div class="row" style="gap:8px;align-items:center">' + glowcoin(22) + '<b style="font-size:22px;font-family:var(--f-num)">' + b.n + '</b>' + (b.tip ? '<span class="badge" style="margin-left:auto">' + b.tip + '</span>' : '') + '</div>' +
+          '<span class="sub">vystačí na ' + gcNavrhu(b.n) + '</span><button type="button" class="btn ' + (b.tip ? 'primary' : '') + ' small gc-koupit" data-i="' + i + '">Koupit za ' + b.kc + ' Kč</button></div>';
+      }).join("") + '</div>' +
+      (GC_PLATBA ? '' : '<p class="note" style="margin-top:8px">Platba kartou online brzy. Zatím ti po kliknutí připravím e-mail s objednávkou, pošleme platební údaje a Glowcoiny ti připíšeme hned po zaplacení.</p>');
+  }
+  function nakupZapoj(el) {
+    on(el, ".gc-koupit", "click", function (e, b) {
+      var x = GC_BALICKY[+b.dataset.i], ja = String((K.session() || {}).email || "");
+      if (GC_PLATBA && GC_PLATBA[x.n]) {   // Lemon Squeezy checkout; user_id tells the server function "platba" whom to credit
+        var uid = ""; try { uid = JSON.parse(atob(String((K.session() || {}).access_token || "").split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).sub || ""; } catch (er) {}
+        location.href = GC_PLATBA[x.n] + (GC_PLATBA[x.n].indexOf("?") < 0 ? "?" : "&") + "checkout[email]=" + encodeURIComponent(ja) + "&checkout[custom][user_id]=" + encodeURIComponent(uid); return; }
+      location.href = "mailto:" + GC_MAIL + "?subject=" + encodeURIComponent("Objednávka " + x.n + " Glowcoinů") + "&body=" + encodeURIComponent("Dobrý den,\n\nchci koupit " + x.n + " Glowcoinů za " + x.kc + " Kč.\nÚčet v Glowguss: " + ja + "\n\nDěkuji");
+      setStatus("Otevírám e-mail s objednávkou…", true);
+    });
+  }
   function kredityKarta() {
     var box = document.createElement("section"); box.className = "card"; box.style.marginTop = "16px"; box.id = "kr-card";
     box.innerHTML = '<h2>' + glowcoin(26) + ' Glowcoiny</h2><div id="kr" style="margin-top:10px">Načítám…</div>';
@@ -2215,7 +2237,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         '<div style="display:flex;flex-direction:column;gap:4px;margin-top:8px">' + radky.map(function (x) { return '<div class="row between"><span class="sub">' + x[0] + '</span><b style="font-family:var(--f-num)">' + x[1] + '</b></div>'; }).join("") + '</div>' +
         '<p class="note" style="margin-top:10px">Glowcoiny platíš jen práci AI, ruční úpravy v editoru jsou zdarma. Akce se platí, i když se výsledek nepovede podle představ, při technické chybě se Glowcoiny vrátí. Nejdřív se berou Glowcoiny v ceně licence (nevyčerpané na konci měsíce propadají), pak dokoupené' + (k.centrum ? ', nakonec Glowcoiny centra' : '') + '.</p>' +
         '<div class="sub" style="margin-top:12px;font-weight:600">Ceník AI</div><div style="display:grid;grid-template-columns:1fr auto;gap:4px 12px;margin-top:4px">' + [["Celý návrh show", GC_CENIK.navrh], ["Přepracovat jednu část", GC_CENIK.cast], ["Jiná barevná varianta", GC_CENIK.barvy], ["Doladění chatem", GC_CENIK.chat]].map(function (x) { return '<span class="sub">' + x[0] + '</span><b style="display:inline-flex;align-items:center;gap:5px;font-family:var(--f-num)">' + x[1] + glowcoin(16) + '</b>'; }).join("") + '</div>' +
-        kredityHistorie(k.historie);
+        nakupHtml() + kredityHistorie(k.historie);
+      nakupZapoj(el);
     }).catch(function (e) { var el = $("kr"); if (el) el.textContent = "Glowcoiny se nepodařilo načíst: " + (e.message || e); });
   }
   // the centre manager: pool, monthly credits, sharing, assigning to one saunér
@@ -3660,7 +3683,11 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       btn.addEventListener("mouseenter", function () { rec.style.opacity = "1"; });
       document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !pan.hidden) nastav(false); });
       f.nastav = nastav;
+      // on wide screens stand right next to the content, not lost in the far corner
+      var poloha = function () { var w = document.querySelector(".wrap"), fb = $("glowy-btn"); if (!w || !fb) return; var vol = window.innerWidth - w.getBoundingClientRect().right, sir = fb.querySelector("svg") ? fb.querySelector("svg").getBoundingClientRect().width : 120; f.style.right = Math.round(Math.max(14, vol - sir - 24)) + "px"; };
+      window.addEventListener("resize", poloha); setTimeout(poloha, 0); f.poloha = poloha;
     }
+    if (f.poloha) f.poloha();
     var r = glowyRady(h), pan = $("glowy-panel");
     pan.innerHTML = '<div class="row between" style="align-items:flex-start;gap:8px"><p style="margin:0;font-weight:600;line-height:1.45">' + esc(r[0]) + '</p><button type="button" class="btn small" id="glowy-x" aria-label="Zavřít">✕</button></div>' +
       r[1].map(function (x) { return '<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:600">' + esc(x[0]) + '</summary><p class="note" style="margin:6px 0 0;line-height:1.5">' + esc(x[1]) + '</p></details>'; }).join("") +
