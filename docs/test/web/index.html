@@ -108,6 +108,8 @@ h2{font-size:clamp(28px,3.6vw,42px);line-height:1.12;letter-spacing:-.02em;margi
 
 /* screenshot */
 .ukazka{margin-top:44px;display:grid;grid-template-columns:2fr 1fr;gap:18px}
+.uk-glowy{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px}
+.uk-b::after{left:50%!important;bottom:-9px!important;margin-left:-8px;transform:rotate(-45deg)!important}
 .ram{border-radius:18px;overflow:hidden;border:1px solid var(--line);background:var(--panel);box-shadow:0 24px 60px rgba(0,0,0,.45)}
 .ram figcaption{padding:12px 16px;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
 figure{margin:0}
@@ -298,8 +300,8 @@ footer .wrap{display:flex;gap:18px;flex-wrap:wrap;align-items:center;justify-con
     </div>
 
     <div class="ukazka">
-      <figure class="ram"><img src="editor.png" alt="Editor Glowguss: časová osa show rozdělená na části s náladami a náhled sauny" loading="lazy" width="1300" height="680"><figcaption>Celá show na jedné ose. Každý blok je část hudby, barva je barva stěn.</figcaption></figure>
-      <figure class="ram"><img src="nahled.png" alt="Náhled sauny ve 3D" loading="lazy" width="350" height="375"><figcaption>3D náhled sleduje hudbu a ukazuje přesně to, co právě hraje.</figcaption></figure>
+      <figure class="ram"><img src="editor.png" alt="Editor Glowguss: časová osa show rozdělená na části s náladami a náhled sauny" loading="lazy" width="1300" height="600"><figcaption>Celá show na jedné ose. Každý blok je část hudby, barva je barva stěn. Náhled sauny vpravo ukazuje přesně to, co se v tu chvíli děje na stopě.</figcaption></figure>
+      <div class="uk-glowy"><div class="bublina uk-b">Vlevo vybíráš nálady, vpravo hned vidíš, jak bude sauna svítit. Přesně v místě, kde zrovna hraje hudba.</div><div class="glowy-btn" data-glowy="palec" data-h="150"></div></div>
     </div>
   </div>
 </section>
