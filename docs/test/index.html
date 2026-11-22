@@ -2547,11 +2547,11 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   }
   // ----- guided mode: one step at a time, one "next" button -----
   var KROKY = [
-    { n: "Hudba", t: "Načti skladbu show", d: "Vyber soubor s hudbou. Glowy v něm najde beaty a části. Hraje jen v tvém počítači, nikam se neposílá." },
-    { n: "Nálada", t: "Jaká má být nálada v každé části?", d: "Glowy rozdělil show na části podle hudby. Klikni na část na ose a pod ní jí vyber náladu. Barva každého bloku ukazuje, jak budou svítit stěny." },
+    { n: "Hudba", t: "Načti skladbu show", g: "posloucha", d: "Dej mi hudbu a já v ní najdu beaty a části. Hraje jen v tvém počítači, nikam se neposílá." },
+    { n: "Nálada", t: "Jaká má být nálada v každé části?", g: "premysli", d: "Rozdělil jsem show na části podle hudby. Klikni na část na ose a pod ní jí spolu vybereme náladu. Barva bloku ukazuje, jak budou svítit stěny." },
     { n: "Dropy", skryt: true, t: "Kde má světlo bouchnout naplno?", d: "Pusť hudbu a ťukni (nebo zmáčkni mezerník) přesně v místě, kde má celá sauna bouchnout. Ťuk se sám přichytí na nejbližší beat." },
-    { n: "Náhled", t: "Podívej se, jak to bude svítit", d: "Pusť přehrávání. Světla v sauně svítí přesně tak, jak to dostane QuickDMX. Táhnutím myši saunou otáčíš." },
-    { n: "Stáhnout", t: "Stáhni světla pro QuickDMX", d: "" }
+    { n: "Náhled", t: "Podívej se, jak to bude svítit", g: "palec", d: "Pusť přehrávání a koukej se mnou. Světla svítí přesně tak, jak je dostane QuickDMX. Táhnutím myši saunou otáčíš." },
+    { n: "Stáhnout", t: "Stáhni světla pro QuickDMX", g: "bali", d: "Zabalím ti to a předám." }
   ];
   function wizard(id, show, k) {
     var ready = !!G.rozbor[id] && show.casti.length && show.pisne.length, K = KROKY[k - 1];
@@ -2559,7 +2559,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var vid = KROKY.map(function (x, i) { return i + 1; }).filter(function (n) { return !KROKY[n - 1].skryt || n === k; });   // the Dropy step lives in the advanced mode now (route krok3 still works)
     var dal = vid.filter(function (n) { return n > k; })[0], pred = vid.filter(function (n) { return n < k; }).pop();
     h.push('<ol class="steps" aria-label="Kroky">' + KROKY.map(function (x, i) { if (vid.indexOf(i + 1) < 0) return ""; return '<li><a href="#/show/' + esc(id) + '/krok' + (i + 1) + '"' + (i + 1 === k ? ' aria-current="step"' : '') + (i + 1 < k ? ' class="done"' : '') + '><span class="num">' + (i + 1 < k ? "✓" : vid.indexOf(i + 1) + 1) + '</span><span class="nm">' + x.n + '</span></a></li>'; }).join("") + '</ol>');
-    h.push('<div class="stephead"><h2>' + esc(K.t) + '</h2>' + (K.d ? '<p>' + esc(K.d) + '</p>' : '') + (k === 2 && ready ? '<p style="margin-top:8px"><a class="btn small" href="#/show/' + esc(id) + '/ai">Máš scénář nebo příběh? Nech Glowy AI navrhnout světla</a></p>' : '') + '</div>');
+    h.push('<div class="stephead" style="display:flex;gap:16px;align-items:center">' + (K.g ? glowyPoza(K.g, 96) : '') + '<div style="flex:1;min-width:0"><h2>' + esc(K.t) + '</h2>' + (K.d ? '<p>' + esc(K.d) + '</p>' : '') + (k === 2 && ready ? '<p style="margin-top:8px"><a class="btn small" href="#/show/' + esc(id) + '/ai">Máš scénář nebo příběh? Nech Glowy AI navrhnout světla</a></p>' : '') + '</div></div>');   // Glowy does every step with the saunér
     if (!ready) {
       if (k !== 1) { h.push('<div class="card empty">Nejdřív v kroku 1 vyber skladbu. Glowy v ní najde beaty a části.<div class="row" style="justify-content:center;margin-top:14px"><a class="btn primary" href="#/show/' + esc(id) + '/krok1">Krok 1: Hudba</a></div></div>'); view.innerHTML = h.join(""); return; }
       h.push('<div id="tabBody"></div>'); view.innerHTML = h.join(""); analyzeStep($("tabBody"), show); return;
@@ -3393,6 +3393,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       ".glowy .gh{animation:glH .32s ease-in-out infinite}" +
       ".glowy .gz{animation:glZ .9s steps(1) infinite}" +
       ".glowy .gb{animation:glB 2.2s ease-in-out infinite}" +
+      "@keyframes glD{0%{transform:translateY(-8px);opacity:0}20%,75%{opacity:1}100%{transform:translateY(26px);opacity:0}}" +
+      ".glowy .gd{transform-box:fill-box;animation:glD 1.4s ease-in infinite}" +
       ".glowy-btn:hover .glowy .gf{animation-duration:.8s}" +
       "@media (prefers-reduced-motion:reduce){.glowy *{animation:none!important}}";
     document.head.appendChild(st);
@@ -3447,6 +3449,27 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       ruce = ruka("M35 76q-6 8 2 14") + ruka("M65 76q6 8-2 14");
       navic = '<g class="gn" style="animation-duration:3s"><text x="74" y="22" font-size="13" font-weight="800" fill="#B9A7FF" font-family="sans-serif">z</text></g><g class="gn" style="animation-duration:3s;animation-delay:1.5s"><text x="82" y="10" font-size="10" font-weight="800" fill="#B9A7FF" font-family="sans-serif">z</text></g>';
       hlava = '<g transform="translate(18 5) rotate(10 32 40)">' + glowyHlava(i, "spi") + '</g>'; tg = "gp";
+    } else if (typ === "posloucha") {   // headphones on, listening to the music, notes floating out
+      ruce = ruka("M35 74q-10-10-9-26") + ruka("M65 74q10-10 9-26");
+      hlava += '<path d="M29 40q21-50 42 0" stroke="#B9A7FF" stroke-width="4" fill="none" stroke-linecap="round"/><rect x="22" y="33" width="11" height="17" rx="5" fill="#7B2FF7" stroke="#B9A7FF" stroke-width="1.5"/><rect x="67" y="33" width="11" height="17" rx="5" fill="#7B2FF7" stroke="#B9A7FF" stroke-width="1.5"/>' + dlan(25, 48) + dlan(75, 48);
+      navic = '<g class="gn" style="animation-duration:2.4s"><text x="84" y="22" font-size="14" font-weight="800" fill="#FFD27A" font-family="sans-serif">♪</text></g><g class="gn" style="animation-duration:2.4s;animation-delay:1.2s"><text x="6" y="26" font-size="12" font-weight="800" fill="#E0338A" font-family="sans-serif">♫</text></g>';
+      tg = "gr";
+    } else if (typ === "bali" || typ === "predava") {   // packing the lights into a box / handing the finished zip over
+      var krab = function (x, y, w, h2, otevrena) {
+        var r2 = '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h2 + '" rx="2" fill="#C98B4E" stroke="#8A5A2E" stroke-width="1.4"/>';
+        if (otevrena) return '<path d="M' + x + ' ' + y + 'l-9-9h' + (w / 2 - 2) + 'l' + (9 + 2) + ' 9z" fill="#B57A40" stroke="#8A5A2E" stroke-width="1.2"/><path d="M' + (x + w) + ' ' + y + 'l9-9h-' + (w / 2 - 2) + 'l-' + (9 + 2) + ' 9z" fill="#B57A40" stroke="#8A5A2E" stroke-width="1.2"/>' + r2;
+        return r2 + '<rect x="' + (x + w / 2 - 4) + '" y="' + y + '" width="8" height="' + h2 + '" fill="#FFD27A" opacity=".9"/>' +
+          '<rect x="' + (x + 5) + '" y="' + (y + h2 / 2 - 5) + '" width="' + (w / 2 - 12) + '" height="10" rx="2" fill="#FFF4E2"/><text x="' + (x + 5 + (w / 2 - 12) / 2) + '" y="' + (y + h2 / 2 + 2.6) + '" text-anchor="middle" font-size="7" font-weight="800" fill="#7B2FF7" font-family="sans-serif">ZIP</text>';
+      };
+      if (typ === "bali") {
+        var bb = ["#7B2FF7", "#E0338A", "#FF8A3D", "#7FD3FF"];
+        for (var q2 = 0; q2 < 4; q2++) navic += '<rect class="gd" x="' + (38 + q2 * 7) + '" y="66" width="6" height="6" rx="2" fill="' + bb[q2] + '" style="animation-delay:' + (q2 * 0.35).toFixed(2) + 's"/>';
+        ruce = navic + krab(26, 84, 48, 26, true) + '<g class="gp">' + ruka("M35 74q-9 4-8 12") + dlan(27, 86) + ruka("M65 74q9 4 8 12") + dlan(73, 86) + '</g>';
+        navic = '<path class="gs" d="M14 36q2 3 0 4.4q-2-1.4 0-4.4z" fill="#7FD3FF" style="--sx:-3px"/>';
+      } else {
+        ruce = krab(24, 72, 52, 26, false) + ruka("M35 74q-10 2-11 10") + dlan(24, 85) + ruka("M65 74q10 2 11 10") + dlan(76, 85);
+        navic = '<path class="gn" d="M90 34l2 4 4 1-4 1-2 4-2-4-4-1 4-1z" fill="#FFD27A" style="animation-duration:2.2s"/><path class="gn" d="M8 46l1.6 3 3 .8-3 .8-1.6 3-1.6-3-3-.8 3-.8z" fill="#FFD27A" style="animation-duration:2.6s;animation-delay:1s"/>';
+      }
     } else if (typ === "palec") {
       ruce = ruka("M35 74q-9 6-4 14") + dlan(31, 88) + ruka("M65 76q9-2 11-12") +
         '<g transform="rotate(-12 77 62)"><path d="M70.5 60.5c0-2.2 1.6-3.5 3.6-3.5l-1.2-6.2c-.5-2.4 2.6-3.6 3.8-1.4l3.4 7.4h3.2c1.9 0 3.2 1.4 3.2 3.2v6.6c0 1.9-1.4 3.4-3.3 3.4h-9.4c-1.9 0-3.3-1.5-3.3-3.4z" fill="#E0338A"/>' +   // fist with a fat thumb up, tilted
@@ -4212,10 +4235,12 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var dl = window.claude ? window.claude.use("downloads") : Promise.resolve(null);
     $("p-go").addEventListener("click", function () {
       var v = C.ascii($("p-verze").value.trim()).toUpperCase().replace(/[^A-Z0-9_-]+/g, ""); if (!v) { $("p-verze").focus(); return; }
-      $("p-verze").value = v; var out = $("p-out"); out.innerHTML = '<p class="sub">Vyrábím…</p>';
+      $("p-verze").value = v; var out = $("p-out");
+      var baleni = function (t) { return '<div class="row" style="gap:16px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-radius:16px;background:rgba(123,47,247,.08);border:1px solid rgba(224,51,138,.25)">' + glowyPoza("bali", 120) + '<div style="flex:1 1 180px"><b style="display:block;font-size:16px">' + t + '</b><span class="sub">Vyrábím scény, kontroluju pravidla a dávám to do zipu.</span></div></div>'; };
+      out.innerHTML = baleni("Glowy balí tvoje světla…");
       setTimeout(function () {
         var t0 = performance.now();
-        if (REMOTE) out.innerHTML = '<p class="sub">Vyrábím na serveru…</p>';
+        if (REMOTE) out.innerHTML = baleni("Glowy balí tvoje světla…");
         vyrobBalicek(show, v).then(function (x) { hotovo(x.r, x.chk); }, function (e) { out.innerHTML = '<div class="badbox">' + (REMOTE ? "" : "Generátor skončil chybou: ") + esc(serverChyba(e)) + '</div>'; });
         function hotovo(r, chk) {
         var ms = Math.round(performance.now() - t0), nsc = r.files ? Object.keys(r.files).length - 1 : "–", drops = {}; r.rep.dropy.forEach(function (x) { drops[x] = 1; });
@@ -4223,7 +4248,9 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         last = { v: v, r: r, ok: chk.nalezu === 0 };
         var h = [(simple ? '<details class="more"><summary>Podrobnosti výroby</summary>' : '') + '<div class="stats"><div><b>' + nsc + '</b><span class="sub">scén</span></div><div><b>' + r.rep.udalosti + '</b><span class="sub">událostí na ose</span></div><div><b>' + Object.keys(hits).length + '</b><span class="sub">jemných úderů</span></div><div><b>' + Object.keys(drops).length + '</b><span class="sub">dropů naplno</span></div><div><b>' + ms + ' ms</b><span class="sub">výroba</span></div></div>' + (simple ? '</details>' : '')];
         if (chk.nalezu === 0) odesliUceni(show);
-        if (chk.nalezu === 0) h.push('<div class="okbox">' + (simple ? 'Hotovo a zkontrolováno: žádná bílá, kamna jen dýchají, nikdy tma. Můžeš stáhnout.' : 'Kontrola prošla: 0 nálezů (bílá, kamna, UV ve tmě, kolize řad). Balíček je připravený.') + '</div><div class="row" style="flex-wrap:wrap">' + (slozkaJde() ? '<button class="btn primary" id="p-qd">Uložit rovnou do QuickDMX</button><button class="btn" id="p-dl">Stáhnout zip</button>' : '<button class="btn primary" id="p-dl">Stáhnout ' + esc(v) + '_svetla.zip</button>') + '<span class="sub" id="p-dls"></span></div>');
+        if (chk.nalezu === 0) h[simple ? "unshift" : "push"]('<div class="row" style="gap:16px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-radius:16px;background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.3)">' + glowyPoza("predava", 130) +   // Glowy hands the packed zip over
+          '<div style="flex:1 1 220px"><b style="display:block;font-size:17px">Tady máš, zabaleno!</b><span class="sub">' + (simple ? 'Zkontroloval jsem to: nic nesvítí bíle a kamna jen dýchají.' : 'Kontrola prošla: 0 nálezů (bílá, kamna, kolize řad).') + '</span>' +
+          '<div class="row" style="flex-wrap:wrap;margin-top:10px">' + (slozkaJde() ? '<button class="btn primary" id="p-qd">Uložit rovnou do QuickDMX</button><button class="btn" id="p-dl">Stáhnout zip</button>' : '<button class="btn primary" id="p-dl">Stáhnout ' + esc(v) + '_svetla.zip</button>') + '<span class="sub" id="p-dls"></span></div></div></div>');
         else {
           var names = { BILA: "bílá nebo skoro bílá", PRECHOD: "přechod přes bílou", STRED: "kamna/střed blikají", "UV-TMA": "jen UV ve tmě", KOLIZE: "dvě řady na stejných světlech", CHYBI: "chybí scéna" };
           h.push('<div class="badbox"><b>Kontrola našla ' + chk.nalezu + ' problémů, zip se nevyrobí.</b><ul style="margin:8px 0 0;padding-left:18px">' + Object.keys(chk.vysledky).filter(function (k) { return k !== "UV-TMA" && chk.vysledky[k].length; }).map(function (k) { return '<li>' + esc(names[k] || k) + ': ' + chk.vysledky[k].length + ' × (např. ' + esc(chk.vysledky[k][0]) + ')</li>'; }).join("") + '</ul><p style="margin:8px 0 0">Napiš mi do projektu, podívám se, co to způsobilo.</p></div>');
