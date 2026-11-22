@@ -6,6 +6,21 @@
 <title>Glowguss – světelná show pro saunový ceremoniál</title>
 <meta name="description" content="Glowguss z tvé hudby a příběhu vyrobí světelnou show pro QuickDMX. Přesně na beat, s pravidly saunérů. Vytvořeno saunérem pro saunéry.">
 <meta name="theme-color" content="#0E0F13">
+<script>
+/* Who should go straight to the app instead of this page: the installed app (it starts here), logged-in users,
+   returns from Google sign-in (?code=) and password-reset e-mails (#access_token), old app links (#/...). ?web shows the page anyway. */
+(function () {
+  var APP = "../";
+  try {
+    var q = location.search, h = location.hash;
+    if (/[?&]web\b/.test(q)) return;
+    if ((window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone ||
+        /[?&](code|error)=/.test(q) || /access_token|type=recovery|error_description|^#\//.test(h) ||
+        localStorage.getItem("svetla-session")) location.replace(APP + q + h);
+  } catch (e) {}
+})();
+</script>
+
 <meta property="og:title" content="Glowguss – světla pro saunový ceremoniál">
 <meta property="og:description" content="Z tvé hudby a příběhu hotová světelná show pro QuickDMX. Přesně na beat.">
 <meta property="og:image" content="ikona512.png">
