@@ -2365,7 +2365,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       });
     }
     var gk = document.createElement("section"); gk.className = "card";
-    gk.innerHTML = '<div class="row" style="gap:14px;align-items:center">' + glowy(44) + '<div style="flex:1"><h2>Glowyho rady</h2><p class="sub" style="margin:4px 0 0">Glowy vpravo dole s nápovědou. Když pracuje Glowy AI, ukáže se vždycky. <a href="#/napoveda">Celá nápověda</a></p></div>' +
+    gk.innerHTML = '<div class="row" style="gap:10px 14px;align-items:center;flex-wrap:wrap">' + glowy(44) + '<div style="flex:1 1 180px;min-width:0"><h2>Glowyho rady</h2><p class="sub" style="margin:4px 0 0">Glowy vpravo dole s nápovědou. Když pracuje Glowy AI, ukáže se vždycky. <a href="#/napoveda">Celá nápověda</a></p></div>' +
       '<label class="row" style="gap:8px;align-items:center;cursor:pointer;flex:none"><input type="checkbox" id="ac-glowy"' + (glowyZap() ? ' checked' : '') + ' style="width:20px;height:20px"> Zobrazovat</label></div>';
     view.querySelector(".cards").appendChild(gk);
     $("ac-glowy").addEventListener("change", function () { try { localStorage.setItem("glowguss-glowy", this.checked ? "ano" : "ne"); } catch (e) {} glowyFab(["ucet"]); setStatus(this.checked ? "Glowyho rady jsou zpátky" : "Glowyho rady jsou schované", true); });
@@ -2374,6 +2374,10 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     pk.innerHTML = '<h2>Podmínky a soukromí</h2><p class="sub" style="margin:6px 0 0"><a href="' + pravniUrl("podminky") + '" target="_blank" rel="noopener">Obchodní a licenční podmínky</a> · <a href="' + pravniUrl("soukromi") + '" target="_blank" rel="noopener">Zásady ochrany osobních údajů</a></p>' +
       '<p class="note" style="margin-top:8px">Glowguss nepoužívá cookies ani sledovací nástroje. Kopii svých údajů nebo zrušení účtu se všemi daty si vyžádáš na <a href="mailto:glowguss@gmail.com">glowguss@gmail.com</a>. Zálohu všech show si stáhneš sám na stránce Show (karta Záloha).</p>';
     view.querySelector(".cards").appendChild(pk);
+    // order (Milan): Glowcoins + invite on top, then devices and learning, at the bottom Glowy tips, terms and the e-mail / licence
+    var cg = view.querySelector(".cards"), ek = cg.firstElementChild;
+    [gk, pk, ek, typeof lk !== "undefined" ? lk : null].forEach(function (c) { if (c) cg.appendChild(c); });
+    cg.style.marginTop = "16px"; view.appendChild(cg);
     if (G.spravce) { spravaLicenci(); hlidaniKarta(); spravaCenter(); }
   }
 
