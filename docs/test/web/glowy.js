@@ -202,11 +202,51 @@
       '</svg>';
   }
   var GLOWY_PRACE = ["Poslouchám tvou hudbu…", "Hledám silné údery…", "Čtu tvůj příběh…", "Míchám barvy…", "Ťukám jak o život…", "Ladím nálady k jednotlivým částem…", "Potím se jak v sauně, ale bude to stát za to…", "Kontroluju, ať nic nesvítí bíle…", "Ještě chvilku, dolaďuju detaily…"];
+
+  // Web only: Glowy on the "how it works" cards (headphones, pencil and paper, tablet preview, download)
+  function glowyKarta(typ, h) {
+    glowyStyl(); var i = "gl" + (++glN), K = 'url(#' + i + 'k)';
+    var ruka = function (d) { return '<path d="' + d + '" stroke="' + K + '" stroke-width="6" fill="none" stroke-linecap="round"/>'; };
+    var dlan = function (x, y) { return '<circle cx="' + x + '" cy="' + y + '" r="3.6" fill="#E0338A"/>'; };
+    var nohy = '<path d="M43 100v13M57 100v13" stroke="' + K + '" stroke-width="6" stroke-linecap="round"/><ellipse cx="41" cy="115" rx="6" ry="3.2" fill="#7B2FF7"/><ellipse cx="59" cy="115" rx="6" ry="3.2" fill="#7B2FF7"/>';
+    var telo = '<path d="M34 72c0-6 7-10 16-10s16 4 16 10v22c0 6-7 10-16 10s-16-4-16-10z" fill="' + K + '"/>' +
+      '<path d="M32 86c6 3 30 3 36 0l1 12c-7 4-31 4-38 0z" fill="#FFE2B8"/><path d="M32 89c6 3 30 3 36 0" stroke="#FF8A3D" stroke-width="2" fill="none"/>';
+    var hlava = '<g transform="translate(18 1)">' + glowyHlava(i) + '</g>', pred = "", po = "", navic = "", tg = "gb";
+    if (typ === "sluchatka") {
+      po = '<path d="M30 44Q30 6 50 6T70 44" stroke="#2A2036" stroke-width="4" fill="none"/>' +
+        '<rect x="24" y="34" width="10" height="17" rx="5" fill="#7B2FF7" stroke="#2A2036" stroke-width="2"/><rect x="66" y="34" width="10" height="17" rx="5" fill="#7B2FF7" stroke="#2A2036" stroke-width="2"/>' +
+        '<rect x="27" y="38" width="3" height="9" rx="1.5" fill="#FFD27A"/><rect x="70" y="38" width="3" height="9" rx="1.5" fill="#FFD27A"/>' +
+        ruka("M35 74q-9 6-4 14") + dlan(31, 88) + ruka("M65 74q12-8 8-24") + dlan(73, 50);
+      navic = '<text class="gn" x="82" y="30" font-size="15" font-weight="800" fill="#FFD27A" font-family="sans-serif" style="animation-duration:2.4s">♪</text>' +
+        '<text class="gn" x="8" y="34" font-size="12" font-weight="800" fill="#E0338A" font-family="sans-serif" style="animation-duration:2.4s;animation-delay:1.2s">♫</text>';
+      tg = "gb wk-tep";
+    } else if (typ === "pise") {
+      po = '<g transform="rotate(-8 30 82)"><rect x="14" y="66" width="30" height="34" rx="3" fill="#FFF3DF"/>' +
+        '<path d="M19 74h18M19 80h14M19 86h18M19 92h10" stroke="#C9B9A6" stroke-width="1.6" stroke-linecap="round"/>' +
+        '<rect x="17" y="72" width="5" height="4" rx="1" fill="#7B2FF7"/><rect x="17" y="78" width="5" height="4" rx="1" fill="#E0338A"/><rect x="17" y="84" width="5" height="4" rx="1" fill="#FF8A3D"/></g>' +
+        ruka("M35 74q-6 4-8 12") + dlan(26, 86) +
+        '<g class="wk-pis">' + ruka("M65 76q-2 12-22 12") + dlan(42, 88) + '<path d="M42 88l9-15" stroke="#FFD27A" stroke-width="3.4" stroke-linecap="round"/><path d="M42 88l-1.6 3" stroke="#2A2036" stroke-width="2" stroke-linecap="round"/></g>';
+      hlava = '<g transform="translate(18 3) rotate(-6 32 40)">' + glowyHlava(i) + '</g>';
+    } else if (typ === "divase") {
+      po = '<rect x="28" y="64" width="44" height="30" rx="4" fill="#2A2036" stroke="#4A3C5C" stroke-width="2"/>' +
+        '<g class="wk-scr"><rect x="31" y="67" width="38" height="24" rx="2" fill="#7B2FF7"/><rect class="wk-s2" x="31" y="67" width="38" height="24" rx="2" fill="#E0338A"/><rect class="wk-s3" x="31" y="67" width="38" height="24" rx="2" fill="#FF8A3D"/></g>' +
+        '<path d="M35 88l8-10 8 10M47 88l8-12 10 12" stroke="#1A1220" stroke-width="2" fill="none" opacity=".45"/>' +
+        ruka("M35 74q-8 6-6 14") + dlan(29, 86) + ruka("M65 74q8 6 6 14") + dlan(71, 86);
+    } else if (typ === "stahuje") {
+      po = '<path d="M28 78h14l4 4h26v20H28z" fill="#FFC14D"/><path d="M28 84h44v18H28z" fill="#FFD27A"/>' +
+        '<text x="50" y="97" text-anchor="middle" font-size="8" font-weight="800" fill="#8A4B00" font-family="sans-serif">.zip</text>' +
+        '<g class="wk-sip"><path d="M50 58v14M44 66l6 6 6-6" stroke="#7EE2B0" stroke-width="3.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>' +
+        ruka("M35 74q-8 6-6 14") + dlan(29, 88) + ruka("M65 74q8 6 6 14") + dlan(71, 88);
+    }
+    return '<svg class="glowy" width="' + Math.round(h * 0.8) + '" height="' + h + '" viewBox="0 0 100 125" aria-hidden="true" style="flex:none;display:block;overflow:visible">' + glowyDefs(i) +
+      '<ellipse cx="50" cy="121" rx="22" ry="3" fill="#000" opacity=".3"/><circle cx="50" cy="40" r="38" fill="url(#' + i + 'g)"/>' +
+      navic + '<g class="' + tg + '">' + nohy + telo + pred + hlava + po + '</g></svg>';
+  }
   window.Glowy = { postava: glowyPostava, poza: glowyPoza, pracuje: glowyPracuje, hlava: glowy };
   function vykresli() {
     document.querySelectorAll("[data-glowy]").forEach(function (el) {
       var t = el.getAttribute("data-glowy"), h = +el.getAttribute("data-h") || 120;
-      el.innerHTML = t === "postava" ? glowyPostava(h) : t === "pracuje" ? glowyPracuje(h) : t === "hlava" ? glowy(h) : glowyPoza(t, h);
+      el.innerHTML = /^(sluchatka|pise|divase|stahuje)$/.test(t) ? glowyKarta(t, h) : t === "postava" ? glowyPostava(h) : t === "pracuje" ? glowyPracuje(h) : t === "hlava" ? glowy(h) : glowyPoza(t, h);
     });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", vykresli); else vykresli();

@@ -92,6 +92,17 @@ h2{font-size:clamp(28px,3.6vw,42px);line-height:1.12;letter-spacing:-.02em;margi
 .kroky{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;counter-reset:k}
 .krok{position:relative;padding:26px 22px;border-radius:18px;background:var(--panel);border:1px solid var(--line)}
 .krok::before{counter-increment:k;content:counter(k);display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:var(--grad);font-weight:800;color:#fff;margin-bottom:16px}
+.krok .gk{position:absolute;right:14px;top:10px;width:76px;height:96px}
+.krok h3,.krok::before{position:relative}
+.wk-tep{animation:wkT .5s ease-in-out infinite!important}
+@keyframes wkT{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+.wk-pis{animation:wkP .7s ease-in-out infinite}
+@keyframes wkP{0%,100%{transform:translate(0,0)}25%{transform:translate(-3px,1px)}50%{transform:translate(1px,2px)}75%{transform:translate(-2px,-1px)}}
+.wk-s2{animation:wkS 4.5s infinite}.wk-s3{animation:wkS 4.5s infinite 1.5s}
+@keyframes wkS{0%,30%{opacity:0}36%,62%{opacity:1}68%,100%{opacity:0}}
+.wk-sip{animation:wkD 1.4s ease-in infinite}
+@keyframes wkD{0%{transform:translateY(-6px);opacity:0}30%{opacity:1}80%{transform:translateY(8px);opacity:1}100%{transform:translateY(10px);opacity:0}}
+@media (prefers-reduced-motion:reduce){.wk-tep,.wk-pis,.wk-s2,.wk-s3,.wk-sip{animation:none!important}}
 .krok h3{margin:0 0 8px;font-size:19px}
 .krok p{margin:0;color:var(--fg2);font-size:15.5px}
 
@@ -280,10 +291,10 @@ footer .wrap{display:flex;gap:18px;flex-wrap:wrap;align-items:center;justify-con
       <p>Nahraješ hudbu, vybereš nálady, podíváš se na náhled a stáhneš. Víc práce s tím nemáš.</p>
     </div>
     <div class="kroky">
-      <div class="krok"><h3>Hudba</h3><p>Nahraješ skladby, které chceš mít při aufgussu. Glowy je rozebere a najde v nich beaty, takty, ticho i místa, kde se v nahrávce mluví.</p></div>
-      <div class="krok"><h3>Nálada</h3><p>Show se rozdělí na části a každá dostane náladu světel. Napíšeš-li příběh, Glowguss AI nálady navrhne podle něj.</p></div>
-      <div class="krok"><h3>Náhled</h3><p>Pustíš hudbu a díváš se na svou saunu ve 3D. Co se nelíbí, změníš kliknutím nebo přetažením na časové ose.</p></div>
-      <div class="krok"><h3>Stáhnout</h3><p>Hotovou show uložíš rovnou do QuickDMX nebo stáhneš jako zip. Scény, časová osa i hudba jsou připravené.</p></div>
+      <div class="krok"><div class="gk" data-glowy="sluchatka" data-h="96"></div><h3>Hudba</h3><p>Nahraješ skladby, které chceš mít při aufgussu. Glowy je rozebere a najde v nich beaty, takty, ticho i místa, kde se v nahrávce mluví.</p></div>
+      <div class="krok"><div class="gk" data-glowy="pise" data-h="96"></div><h3>Nálada</h3><p>Show rozdělím na části a každé přiřadím náladu světel. Napíšeš-li příběh, Glowy ti nálady navrhne podle něj.</p></div>
+      <div class="krok"><div class="gk" data-glowy="divase" data-h="96"></div><h3>Náhled</h3><p>Pustíš hudbu a díváš se na svou saunu ve 3D. Co se nelíbí, změníš kliknutím nebo přetažením na časové ose.</p></div>
+      <div class="krok"><div class="gk" data-glowy="stahuje" data-h="96"></div><h3>Stáhnout</h3><p>Hotovou show uložíš rovnou do QuickDMX nebo stáhneš jako zip. Scény, časová osa i hudba jsou připravené.</p></div>
     </div>
 
     <div class="ukazka">
