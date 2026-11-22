@@ -2152,10 +2152,10 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       '<p class="note" style="margin-top:8px">' + esc(G.centrum ? "Licenci prodlužuje centrum." : kontaktText()) + '</p><p class="note" style="margin-top:6px">Po odhlášení se tvoje show zálohují na server a z tohohle zařízení zmizí, takže je další saunér neuvidí. Po přihlášení se vrátí. Hudbu pak jen znovu vybereš.</p><div class="row" style="margin-top:14px"><button class="btn" id="ac-out" type="button">Odhlásit</button></div></section></div>';
     $("ac-out").addEventListener("click", odhlasitSe);
     var gk = document.createElement("section"); gk.className = "card";
-    gk.innerHTML = '<div class="row" style="gap:14px;align-items:center">' + glowy(44) + '<div style="flex:1"><h2>Glowy</h2><p class="sub" style="margin:4px 0 0">Pomocník vpravo dole s radami a animace, když pracuje AI.</p></div>' +
+    gk.innerHTML = '<div class="row" style="gap:14px;align-items:center">' + glowy(44) + '<div style="flex:1"><h2>Glowyho rady</h2><p class="sub" style="margin:4px 0 0">Glowy vpravo dole s nápovědou. Když pracuje Glowy AI, ukáže se vždycky.</p></div>' +
       '<label class="row" style="gap:8px;align-items:center;cursor:pointer;flex:none"><input type="checkbox" id="ac-glowy"' + (glowyZap() ? ' checked' : '') + ' style="width:20px;height:20px"> Zobrazovat</label></div>';
     view.querySelector(".cards").appendChild(gk);
-    $("ac-glowy").addEventListener("change", function () { try { localStorage.setItem("glowguss-glowy", this.checked ? "ano" : "ne"); } catch (e) {} glowyFab(["ucet"]); setStatus(this.checked ? "Glowy je zpátky" : "Glowy je schovaný", true); });
+    $("ac-glowy").addEventListener("change", function () { try { localStorage.setItem("glowguss-glowy", this.checked ? "ano" : "ne"); } catch (e) {} glowyFab(["ucet"]); setStatus(this.checked ? "Glowyho rady jsou zpátky" : "Glowyho rady jsou schované", true); });
     if (REMOTE) { if (kredityViditelne()) kredityKarta(); centrumKarta(); zarizeniKarta(view); uceniKarta(); }
     if (G.spravce) { spravaLicenci(); hlidaniKarta(); spravaCenter(); }
   }
@@ -3564,9 +3564,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       ruka(69, 58, "gh", 0) + ruka(99, 110, "gh", 0.16) +
       '</svg>';
   }
-  var GLOWY_PRACE = ["Poslouchám tvou hudbu…", "Hledám silné údery…", "Čtu tvůj příběh…", "Míchám barvy…", "Ťukám jak o život…", "Ladím nálady k jednotlivým částem…", "Potím se jak v sauně, ale bude to stát za to…", "Kontroluju, ať nic nesvítí bíle…", "Ještě chvilku, dolaďuju detaily…"];
+  var GLOWY_PRACE = ["Poslouchám tvou hudbu…", "Hledám beaty…", "Čtu tvůj příběh…", "Míchám barvy…", "Ťukám jak o život…", "Ladím nálady k jednotlivým částem…", "Potím se jak v sauně, ale bude to stát za to…", "Kontroluju, ať nic nesvítí bíle…", "Ještě chvilku, dolaďuju detaily…"];
   function glowyPrace(za, prvni) {   // shows working Glowy after element za, returns a stop function
-    if (!glowyZap()) return function () {};
     var box = document.createElement("div"); box.className = "glowy-prace";
     box.style.cssText = "display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:12px;padding:12px 16px;border-radius:16px;background:rgba(123,47,247,.08);border:1px solid rgba(224,51,138,.25)";
     box.innerHTML = glowyPracuje(140) + '<div style="flex:1 1 180px"><b class="gl-t" style="display:block;font-size:16px"></b><span class="sub">Glowy na tom pracuje s tebou. Můžeš zatím zůstat tady.</span></div>';
