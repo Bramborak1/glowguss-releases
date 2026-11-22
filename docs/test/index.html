@@ -2373,8 +2373,9 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     if (REMOTE) { if (kredityViditelne()) { kredityKarta(); pozvankaKarta(); } centrumKarta(); zarizeniKarta(view); uceniKarta(); }
     var pk = document.createElement("section"); pk.className = "card";
     pk.innerHTML = '<h2>Podmínky a soukromí</h2><p class="sub" style="margin:6px 0 0"><a href="' + pravniUrl("podminky") + '" target="_blank" rel="noopener">Obchodní a licenční podmínky</a> · <a href="' + pravniUrl("soukromi") + '" target="_blank" rel="noopener">Zásady ochrany osobních údajů</a></p>' +
-      '<p class="note" style="margin-top:8px">Glowguss nepoužívá cookies ani sledovací nástroje. Kopii svých údajů nebo zrušení účtu se všemi daty si vyžádáš na <a href="mailto:glowguss@gmail.com">glowguss@gmail.com</a>. Zálohu všech show si stáhneš sám na stránce Show (karta Záloha).</p>';
+      '<p class="note" style="margin-top:8px">Glowguss nepoužívá cookies ani sledovací nástroje. Kopii svých údajů nebo zrušení účtu se všemi daty si vyžádáš přes <a href="#" class="nn-open">Napiš nám</a> nebo na glowguss@gmail.com. Zálohu všech show si stáhneš sám na stránce Show (karta Záloha).</p>';
     view.querySelector(".cards").appendChild(pk);
+    on(pk, ".nn-open", "click", function (e) { e.preventDefault(); napisNam("Dotaz", ""); });
     // order (Milan): Glowcoins + invite on top, then devices and learning, at the bottom Glowy tips, terms and the e-mail / licence
     var cg = view.querySelector(".cards"), ek = cg.firstElementChild;
     [gk, pk, ek, typeof lk !== "undefined" && lk ? lk : null].forEach(function (c) { if (c) cg.appendChild(c); });
@@ -2417,14 +2418,13 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       dl(aktivni.length, "Aktivní saunéři", "přihlásili se za 30 dní · " + (Cl.length - prihl.length) + " ještě nikdy", "#B9A7FF", "#/centrum/sauneri") +
       dl(show, "Show centra", "dohromady u všech saunérů", "#E0338A") +
       (kr && kredityViditelne() ? dl(kr.balik, "Glowcoiny v balíku", kr.mesic.celkem ? "tento měsíc ještě " + kr.mesic.zbyva + " z " + kr.mesic.celkem + " v ceně" : (kr.sdilet ? "čerpají všichni" : "jen přidělené"), "#FFD27A", "#/centrum/glowcoiny") : '') + '</div>' +
-      '<section class="card" style="margin-top:16px"><h2>Prodloužit nebo přikoupit</h2><p class="note" style="margin-top:6px">Cenu pro centrum domlouváme individuálně. Klikni a pošli nám e-mail, ozveme se s nabídkou.</p>' +
+      '<section class="card" style="margin-top:16px"><h2>Prodloužit nebo přikoupit</h2><p class="note" style="margin-top:6px">Cenu pro centrum domlouváme individuálně. Klikni, napiš pár slov a ozveme se s nabídkou.</p>' +
       '<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn primary cp-o" data-co="prodloužit licenci centra" type="button">Prodloužit licenci</button><button class="btn cp-o" data-co="přikoupit místa pro další saunéry" type="button">Přikoupit místa</button>' +
       (kredityViditelne() ? '<button class="btn cp-o" data-co="přikoupit Glowcoiny do balíku centra" type="button">Přikoupit Glowcoiny</button>' : '') + '</div></section>';
     box.innerHTML = h;
     on(box, ".cp-o", "click", function (e, b) {
       var ja = String((K.session() || {}).email || "");
-      location.href = "mailto:" + GC_MAIL + "?subject=" + encodeURIComponent("Centrum " + c.nazev + ": " + b.dataset.co) + "&body=" + encodeURIComponent("Dobrý den,\n\nza centrum " + c.nazev + " bych chtěl " + b.dataset.co + ".\nTeď: " + Cl.length + "/" + c.mist + " míst, licence do " + kdy(c.plati_do) + ".\nSprávce: " + ja + "\n\nDěkuji");
-      setStatus("Otevírám e-mail…", true);
+      napisNam("Centrum " + c.nazev + ": " + b.dataset.co, "Dobrý den,\n\nza centrum " + c.nazev + " bych chtěl " + b.dataset.co + ".\nTeď: " + Cl.length + "/" + c.mist + " míst, licence do " + kdy(c.plati_do) + ".\n\n");
     });
   }
 
@@ -2606,21 +2606,37 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       objednavkaMailem("Objednávka: " + popis.toLowerCase(), "chci koupit " + popis.toLowerCase() + ".", sn, "licence-" + l.d);
     });
   }
+  function napisNam(predmet, text) {   // in-app contact form: the server e-mails it to us, our reply goes to the user's e-mail
+    var ja = String((K.session() || {}).email || "");
+    var d = document.createElement("div"); d.setAttribute("role", "dialog"); d.setAttribute("aria-modal", "true");
+    d.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);display:grid;place-items:center;z-index:1000;padding:16px";
+    d.innerHTML = '<section class="card" style="max-width:520px;width:100%"><div class="row" style="gap:14px;align-items:center">' + glowyPoza("premysli", 70) + '<div style="flex:1;min-width:0"><h2 style="margin:0">Napiš nám</h2><p class="sub" style="margin:4px 0 0">Odpovíme ti na <b>' + esc(ja) + '</b></p></div></div>' +
+      '<input type="text" id="nn-p" value="' + esc(predmet || "") + '" placeholder="O co jde" style="margin-top:14px"><textarea id="nn-t" rows="6" style="margin-top:8px" placeholder="Tvoje zpráva">' + esc(text || "") + '</textarea>' +
+      '<p class="sub" id="nn-st" style="margin:8px 0 0"></p><div class="row" style="gap:8px;justify-content:flex-end;margin-top:12px"><button type="button" class="btn" data-x>Zavřít</button><button type="button" class="btn primary" id="nn-ok">Odeslat</button></div></section>';
+    var zavri = function () { document.removeEventListener("keydown", key); d.remove(); }, key = function (e) { if (e.key === "Escape") zavri(); };
+    d.addEventListener("click", function (e) { if (e.target === d || e.target.closest("[data-x]")) zavri(); });
+    document.addEventListener("keydown", key); document.body.appendChild(d);
+    var t = $("nn-t"); t.focus(); t.setSelectionRange(t.value.length, t.value.length);
+    $("nn-ok").addEventListener("click", async function () {
+      var b = this; b.disabled = true; $("nn-st").textContent = "Odesílám…";
+      try { await K.zavolej({ akce: "zprava", predmet: $("nn-p").value, text: t.value });
+        d.querySelector("section").innerHTML = '<div class="row" style="gap:14px;align-items:center">' + glowyPoza("palec", 70) + '<div style="flex:1;min-width:0"><h2 style="margin:0">Odesláno</h2><p class="sub" style="margin:4px 0 0">Ozveme se ti na ' + esc(ja) + ', obvykle do 24 hodin.</p></div></div><div class="row" style="justify-content:flex-end;margin-top:14px"><button type="button" class="btn primary" data-x>Hotovo</button></div>';
+      } catch (er) { $("nn-st").textContent = er.message || String(er); b.disabled = false; }
+    });
+  }
   async function objednavkaMailem(predmet, co, sn, produkt) {   // the order is saved on the server; no mail program needed (many people have none set up)
     var ja = String((K.session() || {}).email || ""), cislo = "", chyba = "";
     if (produkt && REMOTE) { try { var o = await K.zavolej({ akce: "objednavka", produkt: produkt, souhlas: sn.text + " (" + sn.kdy + ")" }); if (o && o.objednavka) cislo = String(o.objednavka.id); } catch (e) { chyba = e.message || String(e); } }
     if (cislo) predmet += " (č. " + cislo + ")";
-    var mail = "mailto:" + GC_MAIL + "?subject=" + encodeURIComponent(predmet) + "&body=" + encodeURIComponent("Dobrý den,\n\n" + co + "\nÚčet v Glowguss: " + ja +
-      "\n\nPotvrzuji (zaškrtnuto v aplikaci " + new Date(sn.kdy).toLocaleString("cs-CZ", { timeZone: "Europe/Prague" }) + "): " + sn.text + "\nSouhlasím s obchodními podmínkami (verze 2026-11-22).\n\nDěkuji");
     var d = document.createElement("div"); d.setAttribute("role", "dialog"); d.setAttribute("aria-modal", "true");
     d.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);display:grid;place-items:center;z-index:999;padding:16px";
     d.innerHTML = '<section class="card" style="max-width:480px;width:100%"><div class="row" style="gap:14px;align-items:center">' + glowyPoza(cislo ? "palec" : "premysli", 80) + '<div style="flex:1;min-width:0">' +
       (cislo ? '<h2 style="margin:0">Objednávka č. ' + esc(cislo) + ' je přijatá</h2><p class="sub" style="margin:6px 0 0">' + esc(co.replace(/^chci koupit /, "").replace(/\.$/, "")) + '</p></div></div>' +
         '<p style="margin:14px 0 0;line-height:1.5">Platební údaje ti pošleme na <b>' + esc(ja) + '</b>, obvykle do 24 hodin. Hned po zaplacení se ti všechno připíše samo.</p>'
       : '<h2 style="margin:0">Objednávku se nepodařilo odeslat</h2></div></div><p style="margin:14px 0 0;line-height:1.5">' + (chyba ? esc(chyba) + ' ' : '') + 'Napiš nám prosím na <b>' + esc(GC_MAIL) + '</b>, co chceš koupit, a vyřídíme to ručně.</p>') +
-      '<div class="row" style="gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap"><a class="btn" href="' + esc(mail) + '">' + (cislo ? 'Máš dotaz? Napiš nám' : 'Otevřít e-mail') + '</a><button type="button" class="btn primary" data-ok>Rozumím</button></div></section>';
+      '<div class="row" style="gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap"><button type="button" class="btn" data-dotaz>' + (cislo ? 'Máš dotaz? Napiš nám' : 'Napsat nám') + '</button><button type="button" class="btn primary" data-ok>Rozumím</button></div></section>';
     var zavri = function () { document.removeEventListener("keydown", key); d.remove(); }, key = function (e) { if (e.key === "Escape") zavri(); };
-    d.addEventListener("click", function (e) { if (e.target === d || e.target.closest("[data-ok]")) zavri(); });
+    d.addEventListener("click", function (e) { if (e.target === d || e.target.closest("[data-ok]")) zavri(); else if (e.target.closest("[data-dotaz]")) { zavri(); napisNam(predmet, cislo ? "" : "Dobrý den,\n\n" + co + "\n"); } });
     document.addEventListener("keydown", key); document.body.appendChild(d); d.querySelector("[data-ok]").focus();
     setStatus(cislo ? "Objednávka č. " + cislo + " přijatá" : "Objednávka neodešla", !!cislo);
   }
@@ -4192,10 +4208,11 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var r = glowyRady(h), pan = $("glowy-panel");
     pan.innerHTML = '<div class="row between" style="align-items:flex-start;gap:8px"><p style="margin:0;font-weight:600;line-height:1.45">' + esc(r[0]) + '</p><button type="button" class="btn small" id="glowy-x" aria-label="Zavřít">✕</button></div>' +
       r[1].map(function (x) { return '<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:600">' + esc(x[0]) + '</summary><p class="note" style="margin:6px 0 0;line-height:1.5">' + esc(x[1]) + '</p></details>'; }).join("") +
-      '<p class="row" style="margin:14px 0 0;gap:8px;flex-wrap:wrap"><a class="btn small" href="#/napoveda" id="glowy-navod">Celá nápověda a návod</a><button type="button" class="btn small" id="glowy-schovat">Schovat Glowyho</button></p>';
+      '<p class="row" style="margin:14px 0 0;gap:8px;flex-wrap:wrap"><a class="btn small" href="#/napoveda" id="glowy-navod">Celá nápověda a návod</a>' + (REMOTE ? '<button type="button" class="btn small" id="glowy-napis">Napiš nám</button>' : '') + '<button type="button" class="btn small" id="glowy-schovat">Schovat Glowyho</button></p>';
     $("glowy-x").addEventListener("click", function () { f.nastav(false); });
     $("glowy-navod").addEventListener("click", function () { f.nastav(false); });
     $("glowy-schovat").addEventListener("click", glowySchovat);
+    if ($("glowy-napis")) $("glowy-napis").addEventListener("click", function () { f.nastav(false); napisNam("Dotaz", ""); });
     if (!pan.hidden) f.nastav(true);
     // the bubble greets on each screen, then fades so it doesn't cover content
     var rec = $("glowy-rec"); rec.style.opacity = "1"; clearTimeout(glowyFab.t); glowyFab.t = setTimeout(function () { if (pan.hidden) rec.style.opacity = "0"; }, 6000);
