@@ -2352,24 +2352,12 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       '<p class="sub" style="margin:8px 0 0">' + (G.centrum ? "Licenci ti platí centrum " + esc(G.centrum.nazev) + ", do " + esc(new Date(G.centrum.plati_do).toLocaleDateString("cs-CZ")) + "." : s.plati_do ? "Předplatné platí do " + esc(new Date(s.plati_do).toLocaleDateString("cs-CZ")) + "." : "Platnost předplatného se ukáže po prvním náhledu nebo stažení.") + '</p>' +
       '<p class="note" style="margin-top:8px">' + esc(G.centrum ? "Licenci prodlužuje centrum." : kontaktText()) + '</p><p class="note" style="margin-top:6px">Po odhlášení se tvoje show zálohují na server a z tohohle zařízení zmizí, takže je další saunér neuvidí. Po přihlášení se vrátí. Hudbu pak jen znovu vybereš.</p><div class="row" style="margin-top:14px"><button class="btn" id="ac-out" type="button">Odhlásit</button></div></section></div>';
     $("ac-out").addEventListener("click", odhlasitSe);
-    if (REMOTE && !G.centrum && kredityViditelne()) {
-      var lk = document.createElement("section"); lk.className = "card";
-      lk.innerHTML = '<h2>Licence</h2><p class="sub" style="margin:6px 0 0">Obě obsahují 30 Glowcoinů každý měsíc, roční navíc 100 Glowcoinů hned po zaplacení.</p>' +
-        '<div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap"><button type="button" class="btn lic-koupit" data-d="mesic">Měsíční za 400 Kč</button><button type="button" class="btn primary lic-koupit" data-d="rok">Roční za 3 900 Kč</button></div>' +
-        '<p class="note" style="margin-top:8px">Zatím se objednává e-mailem, platba kartou bude brzy.</p>';
-      view.querySelector(".cards").appendChild(lk);
-      on(lk, ".lic-koupit", "click", async function (e, b) {
-        var rok = b.dataset.d === "rok", popis = rok ? "Roční licence za 3 900 Kč" : "Měsíční licence za 400 Kč";
-        var sn = await souhlasNakupu("licence", popis); if (!sn) return;
-        objednavkaMailem("Objednávka: " + popis.toLowerCase(), "chci koupit " + popis.toLowerCase() + ".", sn);
-      });
-    }
     var gk = document.createElement("section"); gk.className = "card";
     gk.innerHTML = '<div class="row" style="gap:14px;align-items:center">' + glowy(44) + '<div style="flex:1"><h2>Glowyho rady</h2><p class="sub" style="margin:4px 0 0">Glowy vpravo dole s nápovědou. Když pracuje Glowy AI, ukáže se vždycky. <a href="#/napoveda">Celá nápověda</a></p></div>' +
       '<label class="row" style="gap:8px;align-items:center;cursor:pointer;flex:none"><input type="checkbox" id="ac-glowy"' + (glowyZap() ? ' checked' : '') + ' style="width:20px;height:20px"> Zobrazovat</label></div>';
     view.querySelector(".cards").appendChild(gk);
     $("ac-glowy").addEventListener("change", function () { try { localStorage.setItem("glowguss-glowy", this.checked ? "ano" : "ne"); } catch (e) {} glowyFab(["ucet"]); setStatus(this.checked ? "Glowyho rady jsou zpátky" : "Glowyho rady jsou schované", true); });
-    if (REMOTE) { if (kredityViditelne()) kredityKarta(); centrumKarta(); zarizeniKarta(view); uceniKarta(); }
+    if (REMOTE) { if (kredityViditelne()) { kredityKarta(); pozvankaKarta(); } centrumKarta(); zarizeniKarta(view); uceniKarta(); }
     var pk = document.createElement("section"); pk.className = "card";
     pk.innerHTML = '<h2>Podmínky a soukromí</h2><p class="sub" style="margin:6px 0 0"><a href="' + pravniUrl("podminky") + '" target="_blank" rel="noopener">Obchodní a licenční podmínky</a> · <a href="' + pravniUrl("soukromi") + '" target="_blank" rel="noopener">Zásady ochrany osobních údajů</a></p>' +
       '<p class="note" style="margin-top:8px">Glowguss nepoužívá cookies ani sledovací nástroje. Kopii svých údajů nebo zrušení účtu se všemi daty si vyžádáš na <a href="mailto:glowguss@gmail.com">glowguss@gmail.com</a>. Zálohu všech show si stáhneš sám na stránce Show (karta Záloha).</p>';
@@ -2432,43 +2420,32 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       }).join("") + '</div>' +
       (GC_PLATBA ? '' : '<p class="note" style="margin-top:8px">Zatím se objednává e-mailem, platba kartou bude brzy.</p>');
   }
-  // before any purchase: the buyer asks for immediate performance and confirms what that means for the 14-day withdrawal right
-  // (Glowcoins = digital content: right lost once credited, Directive 2011/83/EU art. 16(m), § 1837 l) OZ; licence = service: proportional payment, § 1834 OZ)
-  function souhlasNakupu(druh, popis) {   // -> Promise of null (cancelled) or {kdy, text}
-    var text = druh === "glowcoiny"
-      ? "Žádám o okamžité připsání Glowcoinů na můj účet. Beru na vědomí, že jejich připsáním ztrácím právo odstoupit od smlouvy do 14 dnů a že Glowcoiny se nevracejí ani nevyměňují za peníze."
-      : "Žádám, aby licence začala běžet hned, ještě během 14denní lhůty pro odstoupení. Beru na vědomí, že když odstoupím, zaplatím poměrnou část ceny za dobu, kdy licence běžela, a že Glowcoiny z licence, které jsem už použil, se nevracejí.";
-    return new Promise(function (res) {
-      var d = document.createElement("div");
-      d.setAttribute("role", "dialog"); d.setAttribute("aria-modal", "true");
-      d.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);display:grid;place-items:center;z-index:999;padding:16px";
-      d.innerHTML = '<section class="card" style="max-width:480px;width:100%"><h2 style="margin:0">Před nákupem</h2><p class="sub" style="margin:6px 0 0"><b>' + esc(popis) + '</b></p>' +
-        '<label class="row" style="flex-wrap:nowrap;gap:10px;align-items:flex-start;margin-top:14px;cursor:pointer"><input type="checkbox" class="sn-ok" style="width:20px;height:20px;flex:none;margin-top:2px"><span>' + esc(text) + '</span></label>' +
-        '<label class="row" style="flex-wrap:nowrap;gap:10px;align-items:flex-start;margin-top:10px;cursor:pointer"><input type="checkbox" class="sn-ok" style="width:20px;height:20px;flex:none;margin-top:2px"><span>' + souhlasText() + '</span></label>' +
-        '<div class="row" style="gap:8px;justify-content:flex-end;margin-top:16px"><button type="button" class="btn" data-v="0">Zrušit</button><button type="button" class="btn primary" data-v="1" disabled>Pokračovat k objednávce</button></div></section>';
-      var ok = d.querySelector('[data-v="1"]'), boxy = d.querySelectorAll(".sn-ok");
-      Array.prototype.forEach.call(boxy, function (b) { b.addEventListener("change", function () { ok.disabled = !Array.prototype.every.call(boxy, function (x) { return x.checked; }); }); });
-      var hotovo = function (v) { document.removeEventListener("keydown", key); d.remove(); res(v ? { kdy: new Date().toISOString(), text: text } : null); };
-      var key = function (e) { if (e.key === "Escape") hotovo(false); };
-      d.addEventListener("click", function (e) { var b = e.target.closest("button[data-v]"); if (b && !b.disabled) hotovo(b.dataset.v === "1"); else if (e.target === d) hotovo(false); });
-      document.addEventListener("keydown", key); document.body.appendChild(d); boxy[0].focus();
-    });
-  }
-  function objednavkaMailem(predmet, co, sn) {
-    var ja = String((K.session() || {}).email || "");
-    location.href = "mailto:" + GC_MAIL + "?subject=" + encodeURIComponent(predmet) + "&body=" + encodeURIComponent("Dobrý den,\n\n" + co + "\nÚčet v Glowguss: " + ja +
-      "\n\nPotvrzuji (zaškrtnuto v aplikaci " + new Date(sn.kdy).toLocaleString("cs-CZ", { timeZone: "Europe/Prague" }) + "): " + sn.text + "\nSouhlasím s obchodními podmínkami (verze 2026-11-22).\n\nDěkuji");
-    setStatus("Otevírám e-mail s objednávkou…", true);
-  }
   function nakupZapoj(el) {
-    on(el, ".gc-koupit", "click", async function (e, b) {
+    on(el, ".gc-koupit", "click", function (e, b) {
       var x = GC_BALICKY[+b.dataset.i], ja = String((K.session() || {}).email || "");
-      var sn = await souhlasNakupu("glowcoiny", x.n + " Glowcoinů za " + x.kc + " Kč"); if (!sn) return;
       if (GC_PLATBA && GC_PLATBA[x.n]) {   // Lemon Squeezy checkout; user_id tells the server function "platba" whom to credit
         var uid = ""; try { uid = JSON.parse(atob(String((K.session() || {}).access_token || "").split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).sub || ""; } catch (er) {}
-        location.href = GC_PLATBA[x.n] + (GC_PLATBA[x.n].indexOf("?") < 0 ? "?" : "&") + "checkout[email]=" + encodeURIComponent(ja) + "&checkout[custom][user_id]=" + encodeURIComponent(uid) + "&checkout[custom][okamzite_plneni]=" + encodeURIComponent(sn.kdy); return; }
-      objednavkaMailem("Objednávka " + x.n + " Glowcoinů", "chci koupit " + x.n + " Glowcoinů za " + x.kc + " Kč.", sn);
+        location.href = GC_PLATBA[x.n] + (GC_PLATBA[x.n].indexOf("?") < 0 ? "?" : "&") + "checkout[email]=" + encodeURIComponent(ja) + "&checkout[custom][user_id]=" + encodeURIComponent(uid); return; }
+      location.href = "mailto:" + GC_MAIL + "?subject=" + encodeURIComponent("Objednávka " + x.n + " Glowcoinů") + "&body=" + encodeURIComponent("Dobrý den,\n\nchci koupit " + x.n + " Glowcoinů za " + x.kc + " Kč.\nÚčet v Glowguss: " + ja + "\n\nDěkuji");
+      setStatus("Otevírám e-mail s objednávkou…", true);
     });
+  }
+  function pozvankaKarta() {   // the saunér's own invite link; both get Glowcoins when the friend pays for a licence
+    var box = document.createElement("section"); box.className = "card"; box.style.marginTop = "16px";
+    box.innerHTML = '<div class="row" style="gap:14px;align-items:center">' + glowyPoza("palec", 70) + '<div style="flex:1;min-width:0"><h2>Pozvi kamaráda</h2><p class="sub" style="margin:4px 0 0" id="pz-t">Načítám…</p></div></div><div id="pz" style="margin-top:10px"></div>';
+    view.appendChild(box);
+    K.zavolej({ akce: "pozvanka-muj" }).then(function (r) {
+      var odkaz = "https://glowguss.com/app/?pozvanka=" + encodeURIComponent(r.kod);
+      $("pz-t").textContent = "Když si kamarád přes tvůj odkaz založí účet a zaplatí licenci, dostanete oba " + gcSlovo(r.odmena) + ".";
+      $("pz").innerHTML = '<div class="row" style="gap:8px;flex-wrap:wrap"><input type="text" id="pz-odkaz" readonly value="' + esc(odkaz) + '" style="flex:1 1 260px;font-family:var(--f-num)"><button class="btn primary small" id="pz-kop" type="button">Zkopírovat odkaz</button></div>' +
+        (r.pozvano ? '<p class="sub" style="margin-top:8px">Pozvaní kamarádi: ' + r.pozvano + ' · z toho zaplatili: ' + r.odmeneno + '</p>' : '');
+      $("pz-odkaz").addEventListener("focus", function () { this.select(); });
+      $("pz-kop").addEventListener("click", function () {
+        var b = this, hotovo = function () { b.textContent = "Zkopírováno ✓"; setTimeout(function () { b.textContent = "Zkopírovat odkaz"; }, 2000); };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(odkaz).then(hotovo, function () { $("pz-odkaz").select(); document.execCommand("copy"); hotovo(); });
+        else { $("pz-odkaz").select(); document.execCommand("copy"); hotovo(); }
+      });
+    }).catch(function (e) { var t = $("pz-t"); if (t) t.textContent = "Pozvánku se nepodařilo načíst: " + (e.message || e); });
   }
   function kredityKarta() {
     var box = document.createElement("section"); box.className = "card"; box.style.marginTop = "16px"; box.id = "kr-card";
@@ -2677,7 +2654,16 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
           return '<div style="border:1px solid var(--line,#2a2d36);border-left:4px solid ' + st[1] + ';border-radius:12px;padding:10px 12px"><div class="row between" style="gap:8px;flex-wrap:wrap"><b style="overflow-wrap:anywhere">' + esc(u.email) + '</b><span class="badge" style="color:' + st[1] + '">skóre ' + u.skore + ' · ' + st[0] + '</span></div>' +
             '<ul style="margin:6px 0 0 18px;padding:0">' + u.duvody.map(function (d) { return '<li>' + esc(d) + '</li>'; }).join("") + '</ul>' +
             '<div class="sub" style="margin-top:6px">' + (u.zkusebni ? "zkušební verze · " : "") + u.zarizeni + ' zař. · ' + u.site + (u.site === 1 ? ' síť' : u.site < 5 ? ' sítě' : ' sítí') + (u.zeme.length ? ' · ' + esc(u.zeme.join(", ")) : '') + (u.mesta.length ? ' · ' + esc(u.mesta.join(", ")) : '') + (u.naposledy ? ' · naposledy ' + new Date(u.naposledy).toLocaleDateString("cs-CZ") : '') + '</div></div>';
-        }).join("") + '</div>' : '<p class="sub">Nic podezřelého. Sledováno účtů: ' + (r.sledovano || 0) + '.</p>');
+        }).join("") + '</div>' : '<p class="sub">Nic podezřelého. Sledováno účtů: ' + (r.sledovano || 0) + '.</p>') +
+          ((r.pozvanky || []).length ? '<h3 style="margin:16px 0 8px">Odměny za pozvání ke schválení</h3><div style="display:flex;flex-direction:column;gap:8px">' + r.pozvanky.map(function (x, i) {
+            return '<div style="border:1px solid var(--line,#2a2d36);border-left:4px solid #FF8A3D;border-radius:12px;padding:10px 12px"><b style="overflow-wrap:anywhere">' + esc(x.zve) + '</b> pozval <b style="overflow-wrap:anywhere">' + esc(x.email) + '</b><div class="sub" style="margin-top:4px">' + esc(x.duvod || "") + ' · oba by dostali ' + gcSlovo(x.odmena) + '</div>' +
+              '<div class="row" style="gap:6px;margin-top:8px"><button class="btn small hl-pz" data-i="' + i + '" data-a="1" type="button">Schválit</button><button class="btn small hl-pz" data-i="' + i + '" data-a="0" type="button">Zamítnout</button></div></div>';
+          }).join("") + '</div>' : '');
+        Array.prototype.forEach.call(el.querySelectorAll(".hl-pz"), function (b) { b.addEventListener("click", async function () {
+          var x = r.pozvanky[+b.dataset.i]; b.disabled = true;
+          try { await K.zavolej({ akce: "spravce-pozvanka", pozvany: x.pozvany, schvalit: b.dataset.a === "1" }); setStatus(b.dataset.a === "1" ? "Odměna připsána oběma" : "Odměna zamítnuta", true); nacist(); }
+          catch (er) { b.disabled = false; setStatus("Nepovedlo se: " + (er.message || er)); }
+        }); });
       } catch (e) { el.textContent = "Přehled se nepodařilo načíst: " + (e.message || e); }
     }
     $("hl-obnov").addEventListener("click", nacist); nacist();
@@ -2755,8 +2741,16 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     bar.innerHTML = '<span style="flex:1 1 260px">' + t.join("<br>") + '</span>' + (G.vedlejsi ? '<a class="btn small" href="#/ucet">Zařízení</a>' : '');
     view.parentNode.insertBefore(bar, view);
   }
+  // invite a friend: glowguss.com/app?pozvanka=KOD is remembered until the friend logs in, then saved to their new account
+  (function () { try { var q = new URLSearchParams(location.search), kod = q.get("pozvanka"); if (!kod) return; localStorage.setItem("glowguss-pozvanka", kod.slice(0, 16)); q["delete"]("pozvanka"); history.replaceState(null, "", location.pathname + (String(q) ? "?" + q : "") + location.hash); } catch (e) {} })();
+  async function ulozPozvanku() {
+    var kod = null; try { kod = localStorage.getItem("glowguss-pozvanka"); } catch (e) {} if (!kod || !REMOTE) return;
+    try { var r = await K.zavolej({ akce: "pozvanka-uloz", kod: kod }); try { localStorage.removeItem("glowguss-pozvanka"); } catch (e) {} if (r && r.ok) G.pozvan = true; }
+    catch (e) { if (e && e.kod !== "sit") try { localStorage.removeItem("glowguss-pozvanka"); } catch (x) {} }
+  }
   async function nactiRecept() {   // public part of the recipe (moods, colours) from the server, cached for offline editing
     var KEY = "svetla-recept-verejny";
+    await ulozPozvanku();
     try { var j = await K.zavolej({ akce: "recept" }); try { localStorage.setItem(KEY, JSON.stringify(j.recept)); } catch (e) {} G.spravce = !!j.spravce; G.vedlejsi = j.hlavni === false; G.zkusebni = j.zkusebni || null; return { recept: j.recept }; }
     catch (e) {
       var c = null; try { c = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (x) {}
