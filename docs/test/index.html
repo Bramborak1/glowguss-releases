@@ -2203,13 +2203,13 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   }
   // Glowcoin packages. Online payment is not live yet: "Koupit" sends an order e-mail, Milan adds the coins in Správa licencí.
   // When a payment provider is set up, GC_PLATBA gets its checkout links per package and the button opens those instead.
-  var GC_BALICKY = [{ n: 100, kc: 199 }, { n: 300, kc: 499, tip: "nejvýhodnější" }], GC_PLATBA = null, GC_MAIL = "glowguss@gmail.com";
+  var GC_BALICKY = [{ n: 30, kc: 79 }, { n: 100, kc: 199 }, { n: 300, kc: 499, tip: "nejoblíbenější" }, { n: 1000, kc: 1490, tip: "nejvýhodnější" }], GC_PLATBA = null, GC_MAIL = "glowguss@gmail.com";
   function nakupHtml() {
     return '<div class="sub" style="margin-top:16px;font-weight:600">Dokoupit Glowcoiny</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:8px">' +
       GC_BALICKY.map(function (b, i) {
-        return '<div style="padding:12px 14px;border-radius:14px;border:1px solid ' + (b.tip ? 'rgba(255,138,61,.6)' : 'var(--line)') + ';display:flex;flex-direction:column;gap:8px">' +
+        return '<div style="padding:12px 14px;border-radius:14px;border:1px solid ' + (b.tip === "nejoblíbenější" ? 'rgba(255,138,61,.6)' : 'var(--line)') + ';display:flex;flex-direction:column;gap:8px">' +
           '<div class="row" style="gap:8px;align-items:center">' + glowcoin(22) + '<b style="font-size:22px;font-family:var(--f-num)">' + b.n + '</b>' + (b.tip ? '<span class="badge" style="margin-left:auto">' + b.tip + '</span>' : '') + '</div>' +
-          '<span class="sub">vystačí na ' + gcNavrhu(b.n) + '</span><button type="button" class="btn ' + (b.tip ? 'primary' : '') + ' small gc-koupit" data-i="' + i + '">Koupit za ' + b.kc + ' Kč</button></div>';
+          '<span class="sub">vystačí na ' + gcNavrhu(b.n) + ' · ' + (b.kc / b.n).toFixed(2).replace(".", ",") + ' Kč za kus</span><button type="button" class="btn ' + (b.tip === "nejoblíbenější" ? 'primary' : '') + ' small gc-koupit" data-i="' + i + '">Koupit za ' + b.kc + ' Kč</button></div>';
       }).join("") + '</div>' +
       (GC_PLATBA ? '' : '<p class="note" style="margin-top:8px">Platba kartou online brzy. Zatím ti po kliknutí připravím e-mail s objednávkou, pošleme platební údaje a Glowcoiny ti připíšeme hned po zaplacení.</p>');
   }
