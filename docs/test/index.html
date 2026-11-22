@@ -1515,7 +1515,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       mimo.forEach(function (t) { var g = sk[sk.length - 1]; if (g && t - g.z < 4) { g.z = t; g.n++; } else sk.push({ a: t, z: t, n: 1 }); });   // off-beat hits close together = one place
       sk.forEach(function (g) { misto(g.a, "rytmus", g.n > 1 ? g.n + " bliknutí světel mimo beat" : "bliknutí světel mimo beat", g.n); });
       var ok = hits.filter(function (t) { return near(t) <= 0.06; }).length;
-      out.push({ id: "rytmus", nazev: "Údery na beat", pct: Math.round(100 * ok / hits.length), text: ok === hits.length ? "Všechny údery světla padnou na beat." : (hits.length - ok) + " z " + hits.length + " úderů je mimo beat." });
+      out.push({ id: "rytmus", nazev: "Světla na beat", pct: Math.round(100 * ok / hits.length), text: ok === hits.length ? "Všechna bliknutí světel padnou na beat." : (hits.length - ok) + " z " + hits.length + " bliknutí je mimo beat." });
     }
     // 2) light follows loudness (per 2 bars, smoothed)
     var bar = function (a) { var r = []; for (var i = 0; i + 8 <= a.length; i += 4) r.push(mean(a.slice(i, i + 8))); return r; };
@@ -1566,7 +1566,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     out.forEach(function (o) { s += o.pct * W[o.id]; sw += W[o.id]; });
     var tip = out.filter(function (o) { return o.pct < 75; }).sort(function (a, b) { return a.pct - b.pct; })[0] || null;
     // keep at most 5 worst places per check, then list them in time order
-    var NZ = { rytmus: "Údery", energie: "Síla hudby", casti: "Nálada části", dropy: "Drop", prechody: "Změna" };
+    var NZ = { rytmus: "Beat", energie: "Síla hudby", casti: "Nálada části", dropy: "Drop", prechody: "Změna" };
     var vyber = []; Object.keys(NZ).forEach(function (id) { vyber = vyber.concat(mista.filter(function (m) { return m.id === id; }).sort(function (a, b) { return b.w - a.w; }).slice(0, 5)); });
     vyber.forEach(function (m) { m.nazev = NZ[m.id]; m.cas = mmss(m.t); });
     vyber.sort(function (a, b) { return a.t - b.t; });
@@ -2548,7 +2548,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   }
   // ----- guided mode: one step at a time, one "next" button -----
   var KROKY = [
-    { n: "Hudba", t: "Načti skladbu show", d: "Vyber soubor s hudbou. Program v něm sám najde beaty a části. Hraje jen v tvém počítači, nikam se neposílá." },
+    { n: "Hudba", t: "Načti skladbu show", d: "Vyber soubor s hudbou. Glowy v něm najde beaty a části. Hraje jen v tvém počítači, nikam se neposílá." },
     { n: "Nálada", t: "Jaká má být nálada v každé části?", d: "Nahoře je celá show rozdělená na části. Klikni na část a dole jí vyber náladu. Barva bloku je barva stěn." },
     { n: "Dropy", skryt: true, t: "Kde má světlo bouchnout naplno?", d: "Pusť hudbu a ťukni (nebo zmáčkni mezerník) přesně v místě, kde má celá sauna bouchnout. Ťuk se sám přichytí na nejbližší beat." },
     { n: "Náhled", t: "Podívej se, jak to bude svítit", d: "Pusť přehrávání. Světla v sauně svítí přesně tak, jak to dostane QuickDMX. Táhnutím myši saunou otáčíš." },
@@ -2562,7 +2562,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     h.push('<ol class="steps" aria-label="Kroky">' + KROKY.map(function (x, i) { if (vid.indexOf(i + 1) < 0) return ""; return '<li><a href="#/show/' + esc(id) + '/krok' + (i + 1) + '"' + (i + 1 === k ? ' aria-current="step"' : '') + (i + 1 < k ? ' class="done"' : '') + '><span class="num">' + (i + 1 < k ? "✓" : vid.indexOf(i + 1) + 1) + '</span><span class="nm">' + x.n + '</span></a></li>'; }).join("") + '</ol>');
     h.push('<div class="stephead"><h2>' + esc(K.t) + '</h2><p>' + esc(K.d) + '</p>' + (k === 2 && ready ? '<p style="margin-top:8px"><a class="btn small" href="#/show/' + esc(id) + '/ai">Máš scénář nebo příběh? Ať nálady navrhne AI</a></p>' : '') + '</div>');
     if (!ready) {
-      if (k !== 1) { h.push('<div class="card empty">Nejdřív v kroku 1 vyber skladbu. Program v ní najde beaty a části.<div class="row" style="justify-content:center;margin-top:14px"><a class="btn primary" href="#/show/' + esc(id) + '/krok1">Krok 1: Hudba</a></div></div>'); view.innerHTML = h.join(""); return; }
+      if (k !== 1) { h.push('<div class="card empty">Nejdřív v kroku 1 vyber skladbu. Glowy v ní najde beaty a části.<div class="row" style="justify-content:center;margin-top:14px"><a class="btn primary" href="#/show/' + esc(id) + '/krok1">Krok 1: Hudba</a></div></div>'); view.innerHTML = h.join(""); return; }
       h.push('<div id="tabBody"></div>'); view.innerHTML = h.join(""); analyzeStep($("tabBody"), show); return;
     }
     h.push('<div id="tabBody"></div><div class="stepnav">' + (pred ? '<a class="btn" href="#/show/' + esc(id) + '/krok' + pred + '">← Zpět</a>' : '<span></span>') +
