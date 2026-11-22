@@ -2035,7 +2035,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     return (e && e.message) || "Chyba";
   }
   var ALFA = '<div class="warnbox" style="margin-top:14px"><b>Uzavřený alfa test.</b> Glowguss je zatím jen pro pozvané saunéry. Chceš to vyzkoušet? Napiš Milanovi na Instagram <a href="https://www.instagram.com/milan_dvorak/" target="_blank" rel="noopener">@milan_dvorak</a> a pošli e-mail, kterým se přihlašuješ.</div>';
-  function kontaktText() { var k = (window.SVETLA_SERVER || {}).kontakt; return k ? "Pro prodloužení napiš na " + k + "." : "Pro prodloužení se ozvi tomu, kdo ti účet založil."; }
+  function kontaktText() { var k = (window.SVETLA_SERVER || {}).kontakt; return "Licenci koupíš nebo prodloužíš v kartě Licence, s čímkoli napiš na " + (k || "glowguss@gmail.com") + "."; }
   function nextVersion(v) { var m = String(v || "").match(/^(.*?)(\d+)$/); return m ? m[1] + (+m[2] + 1) : (v || "SHOW") + "2"; }
 
   // ---------- router ----------
@@ -2352,17 +2352,12 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       '<p class="sub" style="margin:8px 0 0">' + (G.centrum ? "Licenci ti platí centrum " + esc(G.centrum.nazev) + ", do " + esc(new Date(G.centrum.plati_do).toLocaleDateString("cs-CZ")) + "." : s.plati_do ? "Předplatné platí do " + esc(new Date(s.plati_do).toLocaleDateString("cs-CZ")) + "." : "Platnost předplatného se ukáže po prvním náhledu nebo stažení.") + '</p>' +
       '<p class="note" style="margin-top:8px">' + esc(G.centrum ? "Licenci prodlužuje centrum." : kontaktText()) + '</p><p class="note" style="margin-top:6px">Po odhlášení se tvoje show zálohují na server a z tohohle zařízení zmizí, takže je další saunér neuvidí. Po přihlášení se vrátí. Hudbu pak jen znovu vybereš.</p><div class="row" style="margin-top:14px"><button class="btn" id="ac-out" type="button">Odhlásit</button></div></section></div>';
     $("ac-out").addEventListener("click", odhlasitSe);
-    if (REMOTE && !G.centrum && kredityViditelne()) {
-      var lk = document.createElement("section"); lk.className = "card";
-      lk.innerHTML = '<h2>Licence</h2><p class="sub" style="margin:6px 0 0">Obě obsahují 30 Glowcoinů každý měsíc, roční navíc 100 Glowcoinů hned po zaplacení.</p>' +
-        '<div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap"><button type="button" class="btn lic-koupit" data-d="mesic">Měsíční za 400 Kč</button><button type="button" class="btn primary lic-koupit" data-d="rok">Roční za 3 900 Kč</button></div>' +
-        '<p class="note" style="margin-top:8px">Zatím se objednává e-mailem, platba kartou bude brzy.</p>';
-      view.querySelector(".cards").appendChild(lk);
-      on(lk, ".lic-koupit", "click", async function (e, b) {
-        var rok = b.dataset.d === "rok", popis = rok ? "Roční licence za 3 900 Kč" : "Měsíční licence za 400 Kč";
-        var sn = await souhlasNakupu("licence", popis); if (!sn) return;
-        objednavkaMailem("Objednávka: " + popis.toLowerCase(), "chci koupit " + popis.toLowerCase() + ".", sn);
-      });
+    // licence: on top while the trial runs or the licence ends within 30 days, otherwise at the bottom with the e-mail
+    var konci = s.plati_do && new Date(s.plati_do).getTime() - Date.now() < 30 * 864e5, licNahore = REMOTE && !G.centrum && (G.zkusebni || konci);
+    if (REMOTE && !G.centrum && (kredityViditelne() || licNahore)) {
+      var lk = document.createElement("section"); lk.className = "card"; lk.innerHTML = licenceHtml(G.zkusebni ? "zkusebni" : konci ? "konci" : ""); licenceZapoj(lk);
+      if (licNahore) { lk.style.marginTop = "16px"; view.querySelector(".cards").parentNode.insertBefore(lk, view.querySelector(".cards")); lk = null; }
+      else view.querySelector(".cards").appendChild(lk);
     }
     var gk = document.createElement("section"); gk.className = "card";
     gk.innerHTML = '<div class="row" style="gap:10px 14px;align-items:center;flex-wrap:wrap">' + glowy(44) + '<div style="flex:1 1 180px;min-width:0"><h2>Glowyho rady</h2><p class="sub" style="margin:4px 0 0">Glowy vpravo dole s nápovědou. Když pracuje Glowy AI, ukáže se vždycky. <a href="#/napoveda">Celá nápověda</a></p></div>' +
@@ -2376,7 +2371,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     view.querySelector(".cards").appendChild(pk);
     // order (Milan): Glowcoins + invite on top, then devices and learning, at the bottom Glowy tips, terms and the e-mail / licence
     var cg = view.querySelector(".cards"), ek = cg.firstElementChild;
-    [gk, pk, ek, typeof lk !== "undefined" ? lk : null].forEach(function (c) { if (c) cg.appendChild(c); });
+    [gk, pk, ek, typeof lk !== "undefined" && lk ? lk : null].forEach(function (c) { if (c) cg.appendChild(c); });
     cg.style.marginTop = "16px"; view.appendChild(cg);
     if (G.spravce) { spravaLicenci(); hlidaniKarta(); spravaCenter(); }
   }
@@ -2456,6 +2451,19 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       var key = function (e) { if (e.key === "Escape") hotovo(false); };
       d.addEventListener("click", function (e) { var b = e.target.closest("button[data-v]"); if (b && !b.disabled) hotovo(b.dataset.v === "1"); else if (e.target === d) hotovo(false); });
       document.addEventListener("keydown", key); document.body.appendChild(d); boxy[0].focus();
+    });
+  }
+  function licenceHtml(proc) {   // buy a licence: in Účet, and on the "no active licence" screen
+    var nadpis = proc === "zkusebni" ? "Zkušební verze běží, licenci si kup včas" : proc === "konci" ? "Licence brzy končí" : proc === "vyprsela" ? "Kup si licenci" : "Licence";
+    return '<h2>' + nadpis + '</h2><p class="sub" style="margin:6px 0 0">Obě obsahují 30 Glowcoinů každý měsíc, roční navíc 100 Glowcoinů hned po zaplacení.</p>' +
+      '<div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap"><button type="button" class="btn lic-koupit" data-d="mesic">Měsíční za 400 Kč</button><button type="button" class="btn primary lic-koupit" data-d="rok">Roční za 3 900 Kč</button></div>' +
+      '<p class="note" style="margin-top:8px">Zatím se objednává e-mailem, platba kartou bude brzy.</p>';
+  }
+  function licenceZapoj(el) {
+    on(el, ".lic-koupit", "click", async function (e, b) {
+      var rok = b.dataset.d === "rok", popis = rok ? "Roční licence za 3 900 Kč" : "Měsíční licence za 400 Kč";
+      var sn = await souhlasNakupu("licence", popis); if (!sn) return;
+      objednavkaMailem("Objednávka: " + popis.toLowerCase(), "chci koupit " + popis.toLowerCase() + ".", sn);
     });
   }
   function objednavkaMailem(predmet, co, sn) {
@@ -5206,9 +5214,9 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
           $("ex-out").addEventListener("click", odhlasitSe);
           zarizeniKarta($("zr-wrap"), nr.chyba.stav); setStatus("Limit zařízení"); return;
         }
-        view.innerHTML = '<section class="card" style="max-width:520px;margin:40px auto"><h2>' + (nr.chyba.kod === "licence" ? "Předplatné není aktivní" : "Nejde se spojit se serverem") + '</h2><p class="sub" style="margin:8px 0 0">' + esc(serverChyba(nr.chyba)) + '</p>' + (nr.chyba.kod === "licence" ? ALFA : '') + (K.session() && K.session().email ? '<p class="note" style="margin-top:8px">Přihlášen jako <b>' + esc(K.session().email) + '</b></p>' : '') +
+        view.innerHTML = '<section class="card" style="max-width:520px;margin:40px auto"><h2>' + (nr.chyba.kod === "licence" ? "Předplatné není aktivní" : "Nejde se spojit se serverem") + '</h2><p class="sub" style="margin:8px 0 0">' + esc(serverChyba(nr.chyba)) + '</p>' + (nr.chyba.kod === "licence" ? '<div id="ex-lic" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">' + licenceHtml("vyprsela") + '</div>' : '') + (K.session() && K.session().email ? '<p class="note" style="margin-top:8px">Přihlášen jako <b>' + esc(K.session().email) + '</b></p>' : '') +
           '<div class="row" style="margin-top:14px;gap:8px"><button class="btn" type="button" onclick="location.reload()">Zkusit znovu</button><button class="btn" type="button" id="ex-out">Odhlásit</button></div></section>';
-        $("ex-out").addEventListener("click", odhlasitSe);
+        $("ex-out").addEventListener("click", odhlasitSe); if ($("ex-lic")) licenceZapoj($("ex-lic"));
         setStatus(nr.chyba.kod === "licence" ? "Bez předplatného" : nr.chyba.kod === "sit" ? "Bez internetu" : "Chyba serveru"); return;
       }
       G.recept = nr.recept;
