@@ -72,6 +72,9 @@ h1{font-size:clamp(36px,5.2vw,60px);line-height:1.06;letter-spacing:-.025em;marg
 .sauna .kamna-svit{animation:dech 6s ease-in-out infinite}
 @keyframes dech{0%,100%{opacity:.55}50%{opacity:.85}}
 .sauna .glowy-hero{position:absolute;right:11%;bottom:4%;width:18%}.sauna .glowy-hero svg{width:100%!important;height:auto!important}
+.sauna .rec{position:absolute;right:28%;bottom:24%;max-width:min(260px,58%);padding:10px 14px;border-radius:14px 14px 4px 14px;background:rgba(255,255,255,.95);color:#1A1220;font-weight:700;font-size:15px;line-height:1.35;box-shadow:0 8px 24px rgba(0,0,0,.4);transition:opacity .35s,transform .35s}
+.sauna .rec.pryc{opacity:0;transform:translateY(6px)}
+@media (max-width:640px){.sauna .rec{font-size:13px;padding:8px 11px;right:27%;bottom:26%}}
 .sauna .stitek{position:absolute;left:14px;top:14px;display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:10px;background:rgba(14,15,19,.72);font-size:13px;font-weight:700;color:var(--fg2)}
 .sauna .stitek i{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent)}
 .sauna .stitek i.bum{animation:bum .25s ease-out}
@@ -263,6 +266,7 @@ footer .wrap{display:flex;gap:18px;flex-wrap:wrap;align-items:center;justify-con
         </g>
       </svg>
       <div class="stitek"><i id="tep"></i><span id="nalada">Rituální rytmus · 120 BPM</span></div>
+      <div class="rec" id="rec" aria-live="polite">Ahoj, já jsem Glowy!</div>
       <div class="glowy-hero glowy-btn" data-glowy="postava" data-h="150"></div>
     </div>
   </div>
@@ -433,6 +437,17 @@ footer .wrap{display:flex;gap:18px;flex-wrap:wrap;align-items:center;justify-con
 
 <script src="glowy.js"></script>
 <script>
+// Glowy introduces himself in the demo, then comments on what the sauna does
+(function () {
+  var rec = document.getElementById("rec"), n = 0;
+  var vety = ["Ahoj, já jsem Glowy!", "Pomáhám saunérům se světly.", "Slyšíš ten úder? Světla ho chytí přesně.", "Kamna jen pomalu dýchají. To je pravidlo.", "Bílou? Tu ti nikdy nepustím.", "Přines hudbu a příběh, zbytek mám za pár minut."];
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  setInterval(function () {
+    rec.classList.add("pryc");
+    setTimeout(function () { n = (n + 1) % vety.length; rec.textContent = vety[n]; rec.classList.remove("pryc"); }, 380);
+  }, 4200);
+})();
+
 // Demo sauna: walls change slowly per "part", spots and bench strips hit on the beat. Saturated colours only, stove breathes on its own.
 (function () {
   var nalady = [
