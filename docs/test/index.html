@@ -3448,31 +3448,34 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     return '<svg class="glowy" width="' + px + '" height="' + px + '" viewBox="0 0 64 64" aria-hidden="true" style="flex:none;display:block;overflow:visible">' + glowyDefs(i) +
       '<circle cx="32" cy="38" r="26" fill="url(#' + i + 'g)"/>' + glowyHlava(i) + '</svg>';
   }
-  // the aufguss "figure 8": the hand draws a lying 8 in front of Glowy, the arm follows it and the towel flies and flutters
-  // behind the hand. Driven from JS (SMIL does not start in SVG added after load); in the corner two eights every ~11 s, stale = non-stop
-  var G8 = { S: [65, 76], C: [83, 55], A: 13, B: 12, bezi: false };
-  function g8Rucnik(s1, s2, r) {   // towel hanging from (0,0): width 17, length 32; s1/s2 = sideways sway of middle/bottom, r = ripple
-    var L = 32, w = 8.5, bx = s2, mx = s1;
-    var tel = "M" + (-w) + " 0H" + w + "Q" + (w + mx * 0.6).toFixed(1) + " " + (L / 2) + " " + (w + 1 + bx).toFixed(1) + " " + L +
-      "Q" + (bx * 0.5).toFixed(1) + " " + (L + 2 + r).toFixed(1) + " " + (-w - 1 + bx).toFixed(1) + " " + L + "Q" + (-w + mx * 0.6).toFixed(1) + " " + (L / 2) + " " + (-w) + " 0z";
-    var pr = [7, 11, 24, 27.5].map(function (y) { var f = y / L, d = mx * Math.sin(Math.PI * f) * 0.6 + bx * f * f, ww = w + f; return "M" + (-ww + d).toFixed(1) + " " + y + "H" + (ww + d).toFixed(1); }).join("");
-    var tr = ""; for (var q = 0; q < 6; q++) { var x = -w + 1.5 + q * 3.2 + bx; tr += "M" + x.toFixed(1) + " " + (L + 0.6) + "l" + (bx * 0.08).toFixed(1) + " 3"; }
-    return [tel, pr, tr];
+  // the aufguss "figure 8" (Milan): a big bath towel folded in half, held in one hand about 20 % from its end; the hand goes
+  // straight up and down and the towel travels with it, spinning flat round the hand like a pizzaiolo's dough.
+  // Driven from JS (SMIL does not start in SVG added after load); in the corner two turns every ~11 s, stale = non-stop
+  var G8 = { S: [65, 76], X: 82, Y: 50, V: 14, bezi: false };
+  function g8Rucnik(fl) {   // folded towel in its own plane: grip at (0,0), 20 % from the near end; fl = flutter of the far end
+    var a = -11, b = 46, h = 13, e = fl, q = function (v) { return v.toFixed(1); };
+    // soft cloth: the long edges sag a little, the far end waves
+    var tel = "M" + a + " " + (-h + 1) + "Q" + q((a + b) / 2) + " " + q(-h - 2 + e * 0.4) + " " + (b - 3) + " " + q(-h + e * 0.6) +
+      "Q" + (b + 3) + " " + q(-h / 2 + e) + " " + q(b + e * 0.3) + " " + q(e * 0.5) + "Q" + (b + 3) + " " + q(h / 2 + e) + " " + (b - 3) + " " + q(h + e * 0.6) +
+      "Q" + q((a + b) / 2) + " " + q(h + 2 + e * 0.4) + " " + a + " " + (h - 1) + "Q" + (a - 2) + " 0 " + a + " " + (-h + 1) + "z";
+    var pr = "M" + (a + 5) + " " + (-h + 1.5) + "Q" + (a + 4) + " 0 " + (a + 5) + " " + (h - 1.5) + "M" + (b - 9) + " " + q(-h + 1 + e * 0.5) + "Q" + q(b - 8 + e * 0.3) + " " + q(e * 0.5) + " " + (b - 9) + " " + q(h - 1 + e * 0.5);
+    var sv = "M" + (a + 1) + " " + (h - 5) + "Q" + q((a + b) / 2) + " " + q(h - 3 + e * 0.4) + " " + q(b - 1 + e * 0.2) + " " + q(h - 4 + e * 0.6);   // the fold: second layer along one edge
+    return [tel, pr, sv];
   }
-  function g8Snimek(t, pohyb, tt) {   // t = angle on the 8, pohyb 0..1 = how fast the towel flies, tt = time for the flutter
-    var A = G8.A, B = G8.B, x = G8.C[0] + A * Math.sin(t), y = G8.C[1] + B * Math.sin(t) * Math.cos(t);
-    var vx = A * Math.cos(t) * pohyb, vy = B * Math.cos(2 * t) * pohyb, an = Math.max(-38, Math.min(38, vx * 2.2 - vy * 0.6));   // the towel trails behind the hand but keeps hanging down, it never spins round
-    var mx = (G8.S[0] + x) / 2 + 7, my = (G8.S[1] + y) / 2 + 5, fl = 0.35 + pohyb;
-    var R = g8Rucnik(3.2 * fl * Math.sin(tt * 7 + 1) - vx * 0.25, 4 * fl * Math.sin(tt * 7) - vx * 0.45, 2.2 * fl * Math.sin(tt * 11));
-    return { ruka: "M" + G8.S[0] + " " + G8.S[1] + "Q" + mx.toFixed(1) + " " + my.toFixed(1) + " " + x.toFixed(1) + " " + y.toFixed(1), tr: "translate(" + x.toFixed(1) + " " + y.toFixed(1) + ") rotate(" + an.toFixed(1) + ")", R: R };
+  function g8Snimek(c, po, tt) {   // c = 0..1 within one turn, po 0..1 = how much he is spinning (0 = towel hangs at rest)
+    var w = 2 * Math.PI * c, x = G8.X + 1.5 * Math.sin(w) * po, y = G8.Y + G8.V * Math.sin(w) * po;
+    var th = ((c * 360 + 180) % 360) - 180, ang = th * po + 90 * (1 - po), flat = 1 - 0.55 * po;   // spins flat (seen a bit from above) or hangs down
+    var mx = (G8.S[0] + x) / 2 + 8, my = (G8.S[1] + y) / 2 + 4;
+    return { ruka: "M" + G8.S[0] + " " + G8.S[1] + "Q" + mx.toFixed(1) + " " + my.toFixed(1) + " " + x.toFixed(1) + " " + y.toFixed(1),
+      tr: "translate(" + x.toFixed(1) + " " + y.toFixed(1) + ") scale(1 " + flat.toFixed(3) + ") rotate(" + ang.toFixed(1) + ")", R: g8Rucnik((1.5 + 3 * po) * Math.sin(tt * 9)) };
   }
   function g8Tik(now) {
     var els = document.querySelectorAll(".g8"); if (!els.length) { G8.bezi = false; return; }
     var T = now / 1000;
     for (var k = 0; k < els.length; k++) {
       var el = els[k], btn = el.closest(".glowy-btn"), stale = el.getAttribute("data-s") === "1" || (btn && btn.matches(":hover")), t, po;
-      if (stale) { t = 2 * Math.PI * (T % 1.8) / 1.8; po = 1; }
-      else { var c = T % 11; t = c < 3.6 ? 2 * Math.PI * c / 1.8 : 0; po = c < 3.6 ? Math.min(1, c / 0.4, (3.6 - c) / 0.4) : 0; }
+      if (stale) { t = (T % 1.4) / 1.4; po = 1; }
+      else { var c = T % 11; t = c < 2.8 ? (c % 1.4) / 1.4 : 0; po = c < 2.8 ? Math.min(1, c / 0.35, (2.8 - c) / 0.35) : 0; }
       var f = g8Snimek(t, po, T), ch = el.children;
       ch[0].setAttribute("d", f.ruka); ch[1].setAttribute("transform", f.tr);
       var tw = ch[1].children; tw[0].setAttribute("d", f.R[0]); tw[1].setAttribute("d", f.R[1]); tw[2].setAttribute("d", f.R[2]);
@@ -3483,8 +3486,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     var f = g8Snimek(0, 0, 0);
     if (!G8.bezi && !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)) { G8.bezi = true; setTimeout(function () { requestAnimationFrame(g8Tik); }, 0); }
     return '<g class="g8" data-s="' + (stale ? 1 : 0) + '"><path d="' + f.ruka + '" stroke="url(#' + i + 'k)" stroke-width="6" fill="none" stroke-linecap="round"/>' +
-      '<g transform="' + f.tr + '"><path d="' + f.R[0] + '" fill="#FFE2B8"/><path d="' + f.R[1] + '" stroke="#FF8A3D" stroke-width="1.8"/>' +
-        '<path d="' + f.R[2] + '" stroke="#F2C894" stroke-width="1.2" stroke-linecap="round"/><rect x="-9" y="-1.6" width="18" height="3.4" rx="1.7" fill="#F6D2A2"/><circle r="3.6" fill="#E0338A"/></g></g>';
+      '<g transform="' + f.tr + '"><path d="' + f.R[0] + '" fill="#FFE8C6" stroke="#EBC08E" stroke-width="1"/><path d="' + f.R[1] + '" stroke="#FF8A3D" stroke-width="2.4" fill="none" stroke-linecap="round"/>' +
+        '<path d="' + f.R[2] + '" stroke="#E2AE77" stroke-width="1.4" fill="none" stroke-linecap="round"/><circle r="4" fill="#E0338A"/></g></g>';
   }
   function glowyPostava(h, stale) {   // the whole character, h = height in px
     glowyStyl(); var i = "gl" + (++glN);
