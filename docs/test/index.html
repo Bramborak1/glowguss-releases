@@ -1,8 +1,7 @@
 <!doctype html><html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Glowguss</title><meta name="theme-color" content="#0E0F13"><link rel="manifest" href="manifest.json"><link rel="icon" href="ikona.png"><script>window.GLOWGUSS_WEB = true; if ("serviceWorker" in navigator) addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });</script></head><body><title>Glowguss</title>
 <script>try{if(localStorage.getItem("glowguss-motiv")==="svetly")document.documentElement.dataset.motiv="svetly";}catch(e){}</script>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../fonty/fonty.css">
 <style>
 /* Light-show studio. Dark by default (light colours read best on dark); a light mode is switchable in the top bar (html[data-motiv="svetly"]). Layout: top bar with sections, per-show tabs, main + side columns that stack on phone. */
 :root{
@@ -410,7 +409,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw err("auth", "Zadej platný e-mail.");
     if (String(heslo || "").length < 6) throw err("auth", "Heslo musí mít aspoň 6 znaků.");
     var j;
-    try { j = await auth(novy ? "signup?redirect_to=" + encodeURIComponent(obnovaAdresa()) : "token?grant_type=password", { email: email, password: heslo }); }
+    try { j = await auth(novy ? "signup?redirect_to=" + encodeURIComponent(obnovaAdresa()) : "token?grant_type=password", novy ? { email: email, password: heslo, data: souhlasData() } : { email: email, password: heslo }); }
     catch (e) {
       if (e.kod === "sit") throw e;
       var m = String(e.message || "");
@@ -471,6 +470,35 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       throw err("auth", "Heslo se nepodařilo uložit (" + m + ").");
     }
     try { sessionStorage.removeItem(NOVE_HESLO); } catch (e) {}
+  }
+  // terms + privacy consent: version and time go into the account (Supabase user_metadata), this device remembers it per e-mail
+  var PODMINKY_VERZE = "2026-11-22", SOUHLAS_TED = "glowguss-souhlas-ted";
+  function souhlasData() { return { podminky_verze: PODMINKY_VERZE, podminky_souhlas: new Date().toISOString() }; }
+  function souhlasMistne(email) { try { localStorage.setItem("glowguss-souhlas", JSON.stringify({ email: String(email || "").toLowerCase(), verze: PODMINKY_VERZE })); } catch (e) {} }
+  function souhlasPredem() { try { sessionStorage.setItem(SOUHLAS_TED, PODMINKY_VERZE); } catch (e) {} }   // ticked on the login page before Google
+  async function souhlasOk() {   // true = may continue; on a network or server error never locks the user out
+    var s = load(); if (!s) return true;
+    var em = String(s.email || "").toLowerCase(), v = null;
+    try { v = JSON.parse(localStorage.getItem("glowguss-souhlas") || "null"); } catch (e) {}
+    if (v && v.email === em && v.verze === PODMINKY_VERZE) return true;
+    try {
+      var t = await token(), r = await fetch(cfg().url + "/auth/v1/user", { headers: { apikey: cfg().anon, Authorization: "Bearer " + t } });
+      if (!r.ok) return true;
+      var u = await r.json(), m = (u && u.user_metadata) || {};
+      if (m.podminky_verze === PODMINKY_VERZE) { souhlasMistne(em); return true; }
+      var ted = null; try { ted = sessionStorage.getItem(SOUHLAS_TED); } catch (e) {}
+      if (ted === PODMINKY_VERZE) { await souhlasim(); return true; }
+      return false;
+    } catch (e) { return true; }
+  }
+  async function souhlasim() {
+    var s = load(); if (!s) throw err("odhlasen", "Nejsi přihlášený.");
+    var t = await token(), r;
+    try { r = await fetch(cfg().url + "/auth/v1/user", { method: "PUT", headers: { apikey: cfg().anon, Authorization: "Bearer " + t, "Content-Type": "application/json" }, body: JSON.stringify({ data: souhlasData() }) }); }
+    catch (e) { throw err("sit", "Bez připojení k internetu."); }
+    if (!r.ok) throw err("auth", "Souhlas se nepodařilo uložit (" + r.status + "). Zkus to znovu.");
+    try { sessionStorage.removeItem(SOUHLAS_TED); } catch (e) {}
+    souhlasMistne(s.email);
   }
   async function token() {
     var s = load(); if (!s) throw err("odhlasen", "Nejsi přihlášený.");
@@ -544,7 +572,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
   // after each change: upload a few seconds later
   root.__dbZmena = function () { clearTimeout(syncCasovac); syncCasovac = setTimeout(function () { synchronizuj().catch(function () {}); }, 4000); };
-  var api = { synchronizuj: synchronizuj, ascii: ascii, sec: sec, stavV: stavV, prihlasit: prihlasitGoogle, prihlasitHeslem: prihlasitHeslem, dokoncit: dokoncitPrihlaseni, zapomenuteHeslo: zapomenuteHeslo, dokoncitObnovu: dokoncitObnovu, cekaNoveHeslo: cekaNoveHeslo, noveHeslo: noveHeslo, odhlasit: odhlasit, zavolej: zavolej, zarizeni: zarizeni, session: load, zapnuto: function () { return !!cfg().url; } };
+  var api = { synchronizuj: synchronizuj, ascii: ascii, sec: sec, stavV: stavV, prihlasit: prihlasitGoogle, prihlasitHeslem: prihlasitHeslem, dokoncit: dokoncitPrihlaseni, zapomenuteHeslo: zapomenuteHeslo, dokoncitObnovu: dokoncitObnovu, cekaNoveHeslo: cekaNoveHeslo, noveHeslo: noveHeslo, souhlasOk: souhlasOk, souhlasim: souhlasim, souhlasPredem: souhlasPredem, odhlasit: odhlasit, zavolej: zavolej, zarizeni: zarizeni, session: load, zapnuto: function () { return !!cfg().url; } };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.SvetlaKlient = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
 
@@ -2070,6 +2098,33 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   }
 
   // ---------- login + account (paid program) ----------
+  // legal pages live on the website: /test/ -> /test/web/, live /app/ -> /web/, desktop program -> glowguss.com
+  function pravniUrl(str) {
+    var f = str + ".html";   // the app is in Czech, so are its legal links (each page links to its English version)
+    if (!/^https?:$/.test(location.protocol)) return "https://glowguss.com/web/" + f;
+    return (/\/test\//.test(location.pathname) ? "web/" : "../web/") + f;
+  }
+  function souhlasText() {
+    return 'Souhlasím s <a href="' + pravniUrl("podminky") + '" target="_blank" rel="noopener">obchodními a licenčními podmínkami</a> a beru na vědomí <a href="' + pravniUrl("soukromi") + '" target="_blank" rel="noopener">zásady ochrany osobních údajů</a>.';
+  }
+  function souhlasPage() {
+    var nav = document.querySelector("nav.main"); if (nav) nav.style.display = "none";
+    var se = K.session() || {};
+    view.innerHTML = '<section class="card" style="max-width:480px;margin:40px auto"><h1 class="page" style="font-size:26px">Ještě jedna věc</h1>' +
+      (se.email ? '<p class="sub" style="margin:6px 0 0">Účet <b>' + esc(se.email) + '</b></p>' : '') +
+      '<p class="sub" style="margin:10px 0 0">Než začneš, potvrď prosím podmínky používání Glowgussu. Hudbu nikam neposíláme, na serveru jsou jen tvoje show a údaje k účtu.</p>' +
+      '<label class="row" style="flex-wrap:nowrap;gap:10px;align-items:flex-start;margin-top:16px;cursor:pointer"><input type="checkbox" id="sh-ok" style="width:20px;height:20px;flex:none;margin-top:2px"><span>' + souhlasText() + '</span></label>' +
+      '<div class="row" style="gap:10px;margin-top:16px"><button class="btn primary" type="button" id="sh-go" disabled>Pokračovat</button><button class="btn" type="button" id="sh-out">Odhlásit</button></div>' +
+      '<p class="note" id="sh-st"></p></section>';
+    setStatus("Potvrď podmínky");
+    $("sh-ok").addEventListener("change", function () { $("sh-go").disabled = !this.checked; });
+    $("sh-out").addEventListener("click", async function () { await K.odhlasit(); location.hash = "#/"; location.reload(); });
+    $("sh-go").addEventListener("click", async function () {
+      var st = $("sh-st"), b = this; b.disabled = true; st.className = "note"; st.textContent = "Ukládám…";
+      try { await K.souhlasim(); if (nav) nav.style.display = ""; await nacti(); }
+      catch (er) { if (er.kod === "odhlasen") return loginPage(er.message); st.className = "badbox"; st.textContent = er.message; b.disabled = false; }
+    });
+  }
   function loginPage(msg) {
     var nav = document.querySelector("nav.main"); if (nav) nav.style.display = "none";
     view.innerHTML = '<section class="card" style="max-width:420px;margin:40px auto"><h1 class="page" style="font-size:26px">Přihlášení</h1>' +
@@ -2080,11 +2135,13 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       '<div style="border-top:1px solid var(--line,#8884);margin-top:18px;padding-top:14px"><p class="sub" style="margin:0 0 10px">Nemáš Google? Přihlas se e-mailem a heslem.</p>' +
       '<form id="lg-form" style="display:flex;flex-direction:column;gap:10px"><input type="email" id="lg-em" placeholder="E-mail" autocomplete="email" required>' +
       '<input type="password" id="lg-pw" placeholder="Heslo (aspoň 6 znaků)" autocomplete="current-password" minlength="6" required>' +
+      '<label class="row" style="flex-wrap:nowrap;gap:10px;align-items:flex-start;cursor:pointer;font-size:14px"><input type="checkbox" id="lg-ok" style="width:18px;height:18px;flex:none;margin-top:3px"><span>' + souhlasText() + ' <span class="note">(potřeba při vytvoření účtu)</span></span></label>' +
       '<div class="row" style="gap:10px"><button class="btn primary" type="submit" id="lg-in">Přihlásit</button><button class="btn" type="button" id="lg-new">Vytvořit účet</button></div>' +
       (K.zapomenuteHeslo ? '<button type="button" id="lg-forgot" style="align-self:flex-start;background:none;border:0;padding:2px 0;color:var(--fg2);font:13px var(--f-ui);text-decoration:underline;cursor:pointer">Zapomněl jsem heslo</button>' : '') +
       '<p class="note" id="lg-st2"></p></form></div></section>';
     $("lg-go").addEventListener("click", async function () {
       var st = $("lg-st"), b = $("lg-go"); b.disabled = true; st.className = "note"; st.textContent = "Dokonči přihlášení v prohlížeči…";
+      if ($("lg-ok") && $("lg-ok").checked && K.souhlasPredem) K.souhlasPredem();
       try { await K.prihlasit(); st.textContent = "Načítám…"; await nacti(); }
       catch (er) { st.className = "badbox"; st.textContent = er.message; b.disabled = false; }
     });
@@ -2094,7 +2151,12 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       catch (er) { st.className = "badbox"; st.textContent = er.message; bi.disabled = bn.disabled = false; }
     };
     $("lg-form").addEventListener("submit", function (e) { e.preventDefault(); heslem(false); });
-    $("lg-new").addEventListener("click", function () { if ($("lg-form").reportValidity()) heslem(true); });
+    $("lg-new").addEventListener("click", function () {
+      if (!$("lg-form").reportValidity()) return;
+      if (!$("lg-ok").checked) { var st = $("lg-st2"); st.className = "badbox"; st.textContent = "Pro vytvoření účtu zaškrtni souhlas s podmínkami."; $("lg-ok").focus(); return; }
+      if (K.souhlasPredem) K.souhlasPredem();
+      heslem(true);
+    });
     if ($("lg-forgot")) $("lg-forgot").addEventListener("click", async function () {
       var st = $("lg-st2"), b = this; b.disabled = true; st.className = "note"; st.textContent = "Posílám e-mail…";
       try { await K.zapomenuteHeslo($("lg-em").value); st.className = "okbox"; st.textContent = "Hotovo. Pokud k e-mailu " + $("lg-em").value.trim() + " existuje účet, přijde na něj odkaz pro nové heslo. Mrkni i do spamu."; }
@@ -2156,6 +2218,10 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     view.querySelector(".cards").appendChild(gk);
     $("ac-glowy").addEventListener("change", function () { try { localStorage.setItem("glowguss-glowy", this.checked ? "ano" : "ne"); } catch (e) {} glowyFab(["ucet"]); setStatus(this.checked ? "Glowyho rady jsou zpátky" : "Glowyho rady jsou schované", true); });
     if (REMOTE) { if (kredityViditelne()) kredityKarta(); centrumKarta(); zarizeniKarta(view); uceniKarta(); }
+    var pk = document.createElement("section"); pk.className = "card";
+    pk.innerHTML = '<h2>Podmínky a soukromí</h2><p class="sub" style="margin:6px 0 0"><a href="' + pravniUrl("podminky") + '" target="_blank" rel="noopener">Obchodní a licenční podmínky</a> · <a href="' + pravniUrl("soukromi") + '" target="_blank" rel="noopener">Zásady ochrany osobních údajů</a></p>' +
+      '<p class="note" style="margin-top:8px">Glowguss nepoužívá cookies ani sledovací nástroje. Kopii svých údajů nebo zrušení účtu se všemi daty si vyžádáš na <a href="mailto:glowguss@gmail.com">glowguss@gmail.com</a>. Zálohu všech show si stáhneš sám na stránce Show (karta Záloha).</p>';
+    view.querySelector(".cards").appendChild(pk);
     if (G.spravce) { spravaLicenci(); hlidaniKarta(); spravaCenter(); }
   }
 
@@ -4385,7 +4451,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     if (Z.seq) pozn.push("Sekvence z Live/Sequential se zatím nepřevádějí.");
     d.innerHTML = '<section class="card" style="max-width:560px;width:100%;max-height:90vh;overflow:auto"><h2>Show v projektu „' + esc(Z.prof ? Z.prof.nazev : "QuickDMX") + '“</h2>' +
       (moz.length ? '<p class="sub" style="margin:6px 0 0">Vyber jednu show. Ostatní se nikam neuloží.</p><div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">' + moz.map(function (m, i) {
-        return '<label class="row" style="gap:10px;align-items:flex-start;cursor:pointer"><input type="radio" name="pz-v" value="' + m.v + '"' + (i ? '' : ' checked') + ' style="margin-top:4px"><span><b>' + esc(m.t) + '</b><br><span class="sub">' + esc(m.s) + '</span></span></label>'; }).join("") + '</div>' +
+        return '<label class="row" style="flex-wrap:nowrap;gap:10px;align-items:flex-start;cursor:pointer"><input type="radio" name="pz-v" value="' + m.v + '"' + (i ? '' : ' checked') + ' style="margin-top:4px"><span><b>' + esc(m.t) + '</b><br><span class="sub">' + esc(m.s) + '</span></span></label>'; }).join("") + '</div>' +
         '<div class="field" style="margin-top:14px"><label class="lbl" for="pz-sauna">Pro kterou saunu</label><select id="pz-sauna">' + sa.map(function (k) { return '<option value="' + esc(k) + '">' + esc(G.sauny[k].nazev) + '</option>'; }).join("") + '</select></div>' +
         '<div class="field" style="margin-top:10px"><label class="lbl" for="pz-nazev">Název</label><input type="text" id="pz-nazev"></div>'
         : '<p class="sub" style="margin:8px 0 0">V projektu není žádná show, kterou umím převzít (časová osa se scénami nebo tlačítka v Live).</p>') +
@@ -4756,6 +4822,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       if (chybaPrihlaseni) { loginPage(chybaPrihlaseni.message); setStatus("Nepřihlášeno"); return; }
       if (!K.session()) { loginPage(); setStatus("Nepřihlášeno"); return; }
       if (K.cekaNoveHeslo && K.cekaNoveHeslo()) { noveHesloPage(); return; }
+      if (K.souhlasOk && !(await K.souhlasOk())) { souhlasPage(); return; }
       zkontrolujAktualizaci();
       var nr = await nactiRecept();
       if (nr.chyba) {
