@@ -3451,7 +3451,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   // the aufguss "figure 8" (Milan): a big bath towel folded in half, held in one hand about 20 % from its end; the hand goes
   // straight up and down and the towel travels with it, spinning flat round the hand like a pizzaiolo's dough.
   // Driven from JS (SMIL does not start in SVG added after load); in the corner two turns every ~11 s, stale = non-stop
-  var G8 = { S: [65, 76], X: 82, Y: 50, V: 14, bezi: false };
+  var G8 = { S: [65, 76], X: 86, Y: 56, V: 12, bezi: false };
   function g8Rucnik(fl) {   // folded towel in its own plane: grip at (0,0), 20 % from the near end; fl = flutter of the far end
     var a = -11, b = 46, h = 13, e = fl, q = function (v) { return v.toFixed(1); };
     // soft cloth: the long edges sag a little, the far end waves
@@ -3464,10 +3464,10 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   }
   function g8Snimek(c, po, tt) {   // c = 0..1 within one turn, po 0..1 = how much he is spinning (0 = towel hangs at rest)
     var w = 2 * Math.PI * c, x = G8.X + 1.5 * Math.sin(w) * po, y = G8.Y + G8.V * Math.sin(w) * po;
-    var th = ((c * 360 + 180) % 360) - 180, ang = th * po + 90 * (1 - po), flat = 1 - 0.55 * po;   // spins flat (seen a bit from above) or hangs down
+    var th = ((c * 360 + 180) % 360) - 180, ang = th * po + 90 * (1 - po), flat = 1 - 0.6 * po;   // spins beside him (seen from the front, so it is narrow sideways and never hits his head) or hangs down
     var mx = (G8.S[0] + x) / 2 + 8, my = (G8.S[1] + y) / 2 + 4;
     return { ruka: "M" + G8.S[0] + " " + G8.S[1] + "Q" + mx.toFixed(1) + " " + my.toFixed(1) + " " + x.toFixed(1) + " " + y.toFixed(1),
-      tr: "translate(" + x.toFixed(1) + " " + y.toFixed(1) + ") scale(1 " + flat.toFixed(3) + ") rotate(" + ang.toFixed(1) + ")", R: g8Rucnik((1.5 + 3 * po) * Math.sin(tt * 9)) };
+      tr: "translate(" + x.toFixed(1) + " " + y.toFixed(1) + ") scale(" + flat.toFixed(3) + " 1) rotate(" + ang.toFixed(1) + ")", R: g8Rucnik((1.5 + 3 * po) * Math.sin(tt * 9)) };
   }
   function g8Tik(now) {
     var els = document.querySelectorAll(".g8"); if (!els.length) { G8.bezi = false; return; }
