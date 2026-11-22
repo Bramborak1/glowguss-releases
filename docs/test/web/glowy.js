@@ -21,14 +21,6 @@
       "@keyframes glN{0%{transform:translate(0,0);opacity:0}20%{opacity:1}100%{transform:translate(-8px,-26px);opacity:0}}" +
       "@keyframes glP{0%,100%{transform:translateY(0)}50%{transform:translateY(2px)}}" +
       "@keyframes glR{0%,100%{transform:translateX(0)}50%{transform:translateX(5px)}}" +
-      // the aufguss "figure 8": the arm swings side to side while it reaches out and back, the towel trails behind
-      "@keyframes glO{0.0%{transform:rotate(-14.0deg) scale(1.000)}6.25%{transform:rotate(-1.0deg) scale(1.156)}12.5%{transform:rotate(10.0deg) scale(1.220)}18.75%{transform:rotate(17.4deg) scale(1.156)}25.0%{transform:rotate(20.0deg) scale(1.000)}31.25%{transform:rotate(17.4deg) scale(0.844)}37.5%{transform:rotate(10.0deg) scale(0.780)}43.75%{transform:rotate(-1.0deg) scale(0.844)}50.0%{transform:rotate(-14.0deg) scale(1.000)}56.25%{transform:rotate(-27.0deg) scale(1.156)}62.5%{transform:rotate(-38.0deg) scale(1.220)}68.75%{transform:rotate(-45.4deg) scale(1.156)}75.0%{transform:rotate(-48.0deg) scale(1.000)}81.25%{transform:rotate(-45.4deg) scale(0.844)}87.5%{transform:rotate(-38.0deg) scale(0.780)}93.75%{transform:rotate(-27.0deg) scale(0.844)}100.0%{transform:rotate(-14.0deg) scale(1.000)}}" +
-      "@keyframes glOt{0.0%{transform:rotate(28.0deg)}6.25%{transform:rotate(25.9deg)}12.5%{transform:rotate(19.8deg)}18.75%{transform:rotate(10.7deg)}25.0%{transform:rotate(0.0deg)}31.25%{transform:rotate(-10.7deg)}37.5%{transform:rotate(-19.8deg)}43.75%{transform:rotate(-25.9deg)}50.0%{transform:rotate(-28.0deg)}56.25%{transform:rotate(-25.9deg)}62.5%{transform:rotate(-19.8deg)}68.75%{transform:rotate(-10.7deg)}75.0%{transform:rotate(-0.0deg)}81.25%{transform:rotate(10.7deg)}87.5%{transform:rotate(19.8deg)}93.75%{transform:rotate(25.9deg)}100.0%{transform:rotate(28.0deg)}}" +
-      "@keyframes glO2{0.0%{transform:rotate(-14.0deg) scale(1.000)}0.94%{transform:rotate(-1.0deg) scale(1.156)}1.88%{transform:rotate(10.0deg) scale(1.220)}2.81%{transform:rotate(17.4deg) scale(1.156)}3.75%{transform:rotate(20.0deg) scale(1.000)}4.69%{transform:rotate(17.4deg) scale(0.844)}5.62%{transform:rotate(10.0deg) scale(0.780)}6.56%{transform:rotate(-1.0deg) scale(0.844)}7.5%{transform:rotate(-14.0deg) scale(1.000)}8.44%{transform:rotate(-27.0deg) scale(1.156)}9.38%{transform:rotate(-38.0deg) scale(1.220)}10.31%{transform:rotate(-45.4deg) scale(1.156)}11.25%{transform:rotate(-48.0deg) scale(1.000)}12.19%{transform:rotate(-45.4deg) scale(0.844)}13.12%{transform:rotate(-38.0deg) scale(0.780)}14.06%{transform:rotate(-27.0deg) scale(0.844)}15.0%{transform:rotate(-14.0deg) scale(1.000)}15.94%{transform:rotate(-1.0deg) scale(1.156)}16.88%{transform:rotate(10.0deg) scale(1.220)}17.81%{transform:rotate(17.4deg) scale(1.156)}18.75%{transform:rotate(20.0deg) scale(1.000)}19.69%{transform:rotate(17.4deg) scale(0.844)}20.62%{transform:rotate(10.0deg) scale(0.780)}21.56%{transform:rotate(-1.0deg) scale(0.844)}22.5%{transform:rotate(-14.0deg) scale(1.000)}23.44%{transform:rotate(-27.0deg) scale(1.156)}24.38%{transform:rotate(-38.0deg) scale(1.220)}25.31%{transform:rotate(-45.4deg) scale(1.156)}26.25%{transform:rotate(-48.0deg) scale(1.000)}27.19%{transform:rotate(-45.4deg) scale(0.844)}28.12%{transform:rotate(-38.0deg) scale(0.780)}29.06%{transform:rotate(-27.0deg) scale(0.844)}30.0%{transform:rotate(-14.0deg) scale(1.000)}100%{transform:rotate(-14.0deg) scale(1.000)}}" +
-      "@keyframes glOt2{0.0%{transform:rotate(28.0deg)}0.94%{transform:rotate(25.9deg)}1.88%{transform:rotate(19.8deg)}2.81%{transform:rotate(10.7deg)}3.75%{transform:rotate(0.0deg)}4.69%{transform:rotate(-10.7deg)}5.62%{transform:rotate(-19.8deg)}6.56%{transform:rotate(-25.9deg)}7.5%{transform:rotate(-28.0deg)}8.44%{transform:rotate(-25.9deg)}9.38%{transform:rotate(-19.8deg)}10.31%{transform:rotate(-10.7deg)}11.25%{transform:rotate(-0.0deg)}12.19%{transform:rotate(10.7deg)}13.12%{transform:rotate(19.8deg)}14.06%{transform:rotate(25.9deg)}15.0%{transform:rotate(28.0deg)}15.94%{transform:rotate(25.9deg)}16.88%{transform:rotate(19.8deg)}17.81%{transform:rotate(10.7deg)}18.75%{transform:rotate(0.0deg)}19.69%{transform:rotate(-10.7deg)}20.62%{transform:rotate(-19.8deg)}21.56%{transform:rotate(-25.9deg)}22.5%{transform:rotate(-28.0deg)}23.44%{transform:rotate(-25.9deg)}24.38%{transform:rotate(-19.8deg)}25.31%{transform:rotate(-10.7deg)}26.25%{transform:rotate(-0.0deg)}27.19%{transform:rotate(10.7deg)}28.12%{transform:rotate(19.8deg)}29.06%{transform:rotate(25.9deg)}30.0%{transform:rotate(28.0deg)}100%{transform:rotate(28.0deg)}}" +
-      ".glowy .ga{transform-box:fill-box;transform-origin:0% 100%;animation:glO2 11s linear infinite}" +
-      ".glowy .gt{transform-box:fill-box;transform-origin:50% 0%;animation:glOt2 11s linear infinite}" +
-      ".glowy-btn:hover .glowy .ga,.glowy.osm .ga{animation:glO 1.6s linear infinite}.glowy-btn:hover .glowy .gt,.glowy.osm .gt{animation:glOt 1.6s linear infinite}" +
       ".glowy .gs{transform-box:fill-box;animation:glS 1.6s ease-in infinite}" +
       ".glowy .gk{transform-box:fill-box;transform-origin:50% 50%;animation:glK 2.4s linear infinite}" +
       ".glowy .gq{transform-box:fill-box;transform-origin:50% 100%;animation:glQ .64s ease-in-out infinite}" +
@@ -114,7 +106,54 @@
     return '<svg class="glowy" width="' + px + '" height="' + px + '" viewBox="0 0 64 64" aria-hidden="true" style="flex:none;display:block;overflow:visible">' + glowyDefs(i) +
       '<circle cx="32" cy="38" r="26" fill="url(#' + i + 'g)"/>' + glowyHlava(i) + '</svg>';
   }
-  function glowyPostava(h) {   // the whole character, h = height in px
+  // the aufguss "figure 8" (from Milan's video): one hand holds a big bath towel folded in half, about 20 % from its end.
+  // The hand rises past the far side, goes over the head with the towel spread flat above (like a pizzaiolo's dough),
+  // comes down on its own side and sweeps low across the front, the towel always flying outwards from the circle.
+  // Driven from JS (SMIL does not start in SVG added after load); in the corner two turns every ~11 s, stale = non-stop
+  var G8 = { S: [65, 76], C: [62, 46], R: 31, klid: [80, 92], bezi: false };
+  function g8Ruka(a) { return [G8.C[0] + G8.R * Math.cos(a), G8.C[1] - G8.R * 1.05 * Math.sin(a)]; }
+  function g8Rucnik(fl) {   // towel in its own plane: grip at (0,0); x = out from the circle (-8..40), y = trailing side (0..30); two layers
+    var a = -10, b = 48, w = 36, e = fl, q = function (v) { return v.toFixed(1); };
+    var tel = "M" + a + " 0Q" + q((a + b) / 2) + " " + q(-2 + e * 0.3) + " " + b + " " + q(e * 0.4) + "Q" + q(b + 2 + e) + " " + q(w / 2) + " " + q(b + e * 0.6) + " " + q(w + e * 0.5) +
+      "Q" + q((a + b) / 2) + " " + q(w + 3 + e) + " " + a + " " + w + "Q" + (a - 2) + " " + q(w / 2) + " " + a + " 0z";
+    var pr = "M" + (a + 5) + " 1V" + (w - 1) + "M" + (b - 7) + " " + q(1 + e * 0.3) + "Q" + q(b - 6 + e * 0.5) + " " + q(w / 2) + " " + q(b - 7 + e * 0.6) + " " + q(w - 1 + e * 0.5);
+    var sv = "M" + (a + 1) + " 4Q" + q((a + b) / 2) + " " + q(2.5 + e * 0.3) + " " + q(b - 1 + e * 0.2) + " " + q(4 + e * 0.4);   // the fold along the held edge
+    return [tel, pr, sv];
+  }
+  function g8Snimek(c, po, tt) {   // c = 0..1 within one turn, po 0..1 = how much he is swinging (0 = towel hangs at rest)
+    var a = 1.25 * Math.PI - 2 * Math.PI * c, h = g8Ruka(a), h2 = g8Ruka(a - 0.05);   // starts low on the far side, goes up, over, down
+    var x = G8.klid[0] + (h[0] - G8.klid[0]) * po, y = G8.klid[1] + (h[1] - G8.klid[1]) * po;
+    var rx = Math.cos(a), ry = -Math.sin(a), vx = h2[0] - h[0], vy = h2[1] - h[1], vl = Math.hypot(vx, vy) || 1, tx = -vx / vl, ty = -vy / vl;
+    var sr = 1 - 0.65 * Math.max(0, Math.sin(a));   // overhead the towel lies flat (seen from below): short outwards
+    // at rest: hanging straight down from the hand, the held edge on the left
+    var X = [rx * sr * po + 0 * (1 - po), ry * sr * po + 1 * (1 - po)], Y = [tx * po + 1 * (1 - po), ty * po + 0 * (1 - po)];
+    var mx = (G8.S[0] + x) / 2 + 6, my = (G8.S[1] + y) / 2 + 6, q = function (v) { return v.toFixed(3); };
+    return { ruka: "M" + G8.S[0] + " " + G8.S[1] + "Q" + mx.toFixed(1) + " " + my.toFixed(1) + " " + x.toFixed(1) + " " + y.toFixed(1), predni: y > 70 && po > 0.5,
+      tr: "matrix(" + q(X[0]) + " " + q(X[1]) + " " + q(Y[0] * 0.8) + " " + q(Y[1] * 0.8) + " " + x.toFixed(1) + " " + y.toFixed(1) + ")", R: g8Rucnik((1.2 + 3 * po) * Math.sin(tt * 9)) };
+  }
+  function g8Tik(now) {
+    var els = document.querySelectorAll(".g8"); if (!els.length) { G8.bezi = false; return; }
+    var T = now / 1000;
+    for (var k = 0; k < els.length; k++) {
+      var el = els[k], btn = el.closest(".glowy-btn"), stale = el.getAttribute("data-s") === "1" || (btn && btn.matches(":hover")), t, po;
+      if (stale) { t = (T % 1.6) / 1.6; po = 1; }
+      else { var c = T % 11; t = c < 3.2 ? (c % 1.6) / 1.6 : 0; po = c < 3.2 ? Math.min(1, c / 0.4, (3.2 - c) / 0.4) : 0; }
+      var f = g8Snimek(t, po, T), ch = el.children;
+      ch[0].setAttribute("d", f.ruka); ch[1].setAttribute("transform", f.tr);
+      var tw = ch[1].children; tw[0].setAttribute("d", f.R[0]); tw[1].setAttribute("d", f.R[1]); tw[2].setAttribute("d", f.R[2]);
+      var hl = el.parentNode.querySelector(".g8h");   // low in front the towel covers his body, otherwise it flies behind his head
+      if (hl) { var vpredu = el.compareDocumentPosition(hl) & 2; if (f.predni && !vpredu) el.parentNode.appendChild(el); else if (!f.predni && vpredu) el.parentNode.insertBefore(el, hl); }
+    }
+    requestAnimationFrame(g8Tik);
+  }
+  function glowyOsmicka(i, stale) {
+    var f = g8Snimek(0, 0, 0);
+    if (!G8.bezi && !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)) { G8.bezi = true; setTimeout(function () { requestAnimationFrame(g8Tik); }, 0); }
+    return '<g class="g8" data-s="' + (stale ? 1 : 0) + '"><path d="' + f.ruka + '" stroke="url(#' + i + 'k)" stroke-width="6" fill="none" stroke-linecap="round"/>' +
+      '<g transform="' + f.tr + '"><path d="' + f.R[0] + '" fill="#FFE8C6" stroke="#EBC08E" stroke-width="1"/><path d="' + f.R[1] + '" stroke="#FF8A3D" stroke-width="2.4" fill="none" stroke-linecap="round"/>' +
+        '<path d="' + f.R[2] + '" stroke="#E2AE77" stroke-width="1.4" fill="none" stroke-linecap="round"/><circle r="4" fill="#E0338A"/></g></g>';
+  }
+  function glowyPostava(h, stale) {   // the whole character, h = height in px
     glowyStyl(); var i = "gl" + (++glN);
     return '<svg class="glowy" width="' + Math.round(h * 0.8) + '" height="' + h + '" viewBox="0 0 100 125" aria-hidden="true" style="flex:none;display:block;overflow:visible">' + glowyDefs(i) +
       '<ellipse cx="50" cy="121" rx="22" ry="3" fill="#000" opacity=".3"/><circle cx="50" cy="40" r="38" fill="url(#' + i + 'g)"/>' +
@@ -130,13 +169,9 @@
         // left arm on the hip
         '<path d="M35 74q-9 6-4 14" stroke="url(#' + i + 'k)" stroke-width="6" fill="none" stroke-linecap="round"/>' +
         // right arm waving an aufguss towel
-        '<g class="ga"><path d="M65 76q10-4 12-16" stroke="url(#' + i + 'k)" stroke-width="6" fill="none" stroke-linecap="round"/><circle cx="77" cy="59" r="3.6" fill="#E0338A"/>' +
-          '<g class="gt"><path d="M69 60h17l2 30c-4 2-17 2-21 0z" fill="#FFE2B8"/><path d="M71 62q1 14-1 27" stroke="#F2C894" stroke-width="1.4" fill="none" opacity=".7"/>' +
-            '<path d="M69.6 66h15.8M69.2 70h16.4M68.6 83h17.4M68.4 86.5h17.8" stroke="#FF8A3D" stroke-width="1.8"/>' +
-            '<path d="M70 91v3M73 91.4v3M76 91.6v3M79 91.6v3M82 91.4v3M85 91v3" stroke="#F2C894" stroke-width="1.2" stroke-linecap="round"/>' +
-            '<rect x="69" y="58" width="17" height="3.4" rx="1.7" fill="#F6D2A2"/></g></g>' +
+        glowyOsmicka(i, stale) +
         // head
-        '<g transform="translate(18 1)">' + glowyHlava(i) + '</g>' +
+        '<g class="g8h" transform="translate(18 1)">' + glowyHlava(i) + '</g>' +
       '</g></svg>';
   }
   // Glowy at work while the AI designs: sweating like in a sauna, hammering the keyboard, steam rising off his head
