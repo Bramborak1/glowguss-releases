@@ -2174,6 +2174,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   }
   var GC_CENIK = { navrh: 10, cast: 3, barvy: 2, chat: 2 };   // server sends the real price list
   function gcNavrhu(n) { var x = Math.floor((+n || 0) / GC_CENIK.navrh); return x + (x === 1 ? " návrh" : x >= 2 && x <= 4 ? " návrhy" : " návrhů"); }
+  function gcShow(n) { var x = Math.floor((+n || 0) / GC_CENIK.navrh); return "až na " + x + (x === 1 ? " celou show" : x >= 2 && x <= 4 ? " celé show" : " celých show") + " od Glowy AI"; }
   function gcSlovo(n) { n = +n || 0; return n + (n === 1 ? " Glowcoin" : n >= 2 && n <= 4 ? " Glowcoiny" : " Glowcoinů"); }
   function glowcoinLista(k) {   // balance next to the logo in the header; click -> account
     var p = $("gc-pill");
@@ -2209,7 +2210,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       GC_BALICKY.map(function (b, i) {
         return '<div style="padding:12px 14px;border-radius:14px;border:1px solid ' + (b.tip === "nejoblíbenější" ? 'rgba(255,138,61,.6)' : 'var(--line)') + ';display:flex;flex-direction:column;gap:8px">' +
           '<div class="row" style="gap:8px;align-items:center">' + glowcoin(22) + '<b style="font-size:22px;font-family:var(--f-num)">' + b.n + '</b>' + (b.tip ? '<span class="badge" style="margin-left:auto">' + b.tip + '</span>' : '') + '</div>' +
-          '<span class="sub">vystačí na ' + gcNavrhu(b.n) + ' · ' + (b.kc / b.n).toFixed(2).replace(".", ",") + ' Kč za kus</span><button type="button" class="btn ' + (b.tip === "nejoblíbenější" ? 'primary' : '') + ' small gc-koupit" data-i="' + i + '">Koupit za ' + b.kc + ' Kč</button></div>';
+          '<span class="sub">' + gcShow(b.n) + '</span><button type="button" class="btn ' + (b.tip === "nejoblíbenější" ? 'primary' : '') + ' small gc-koupit" data-i="' + i + '">Koupit za ' + b.kc + ' Kč</button></div>';
       }).join("") + '</div>' +
       (GC_PLATBA ? '' : '<p class="note" style="margin-top:8px">Platba kartou online brzy. Zatím ti po kliknutí připravím e-mail s objednávkou, pošleme platební údaje a Glowcoiny ti připíšeme hned po zaplacení.</p>');
   }
@@ -2233,7 +2234,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       if (k.mesic.celkem) radky.push(['V ceně licence tento měsíc', k.mesic.zbyva + ' z ' + k.mesic.celkem]);
       radky.push(['Dokoupené a přidělené', String(k.vlastni)]);
       if (k.centrum) radky.push(['Z centra ' + esc(k.centrum.nazev), (k.centrum.mesic.celkem ? k.centrum.mesic.zbyva + ' měsíčních + ' : '') + k.centrum.balik + ' v balíku']);
-      el.innerHTML = '<div class="row" style="gap:10px;align-items:baseline"><b style="font-size:32px;font-family:var(--f-num)">' + k.celkem + '</b><span class="sub">' + gcSlovo(k.celkem).replace(/^\d+ /, "") + " k dispozici · vystačí na " + gcNavrhu(k.celkem) + '</span></div>' +
+      el.innerHTML = '<div class="row" style="gap:10px;align-items:baseline"><b style="font-size:32px;font-family:var(--f-num)">' + k.celkem + '</b><span class="sub">' + gcSlovo(k.celkem).replace(/^\d+ /, "") + " k dispozici · " + gcShow(k.celkem) + '</span></div>' +
         '<div style="display:flex;flex-direction:column;gap:4px;margin-top:8px">' + radky.map(function (x) { return '<div class="row between"><span class="sub">' + x[0] + '</span><b style="font-family:var(--f-num)">' + x[1] + '</b></div>'; }).join("") + '</div>' +
         '<p class="note" style="margin-top:10px">Glowcoiny platíš jen práci AI, ruční úpravy v editoru jsou zdarma. Akce se platí, i když se výsledek nepovede podle představ, při technické chybě se Glowcoiny vrátí. Nejdřív se berou Glowcoiny v ceně licence (nevyčerpané na konci měsíce propadají), pak dokoupené' + (k.centrum ? ', nakonec Glowcoiny centra' : '') + '.</p>' +
         '<div class="sub" style="margin-top:12px;font-weight:600">Ceník AI</div><div style="display:grid;grid-template-columns:1fr auto;gap:4px 12px;margin-top:4px">' + [["Celý návrh show", GC_CENIK.navrh], ["Přepracovat jednu část", GC_CENIK.cast], ["Jiná barevná varianta", GC_CENIK.barvy], ["Doladění chatem", GC_CENIK.chat]].map(function (x) { return '<span class="sub">' + x[0] + '</span><b style="display:inline-flex;align-items:center;gap:5px;font-family:var(--f-num)">' + x[1] + glowcoin(16) + '</b>'; }).join("") + '</div>' +
