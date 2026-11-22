@@ -4777,7 +4777,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       var opt = Object.keys(PR).map(function (k) { return '<option value="' + k + '">' + esc(PR[k].jm) + ' · ' + kc(PR[k].kc) + '</option>'; }).join("");
       box.innerHTML = '<div class="row between" style="flex-wrap:wrap;gap:10px"><h2>Objednávky</h2><div class="seg" id="ob-f" style="display:flex;flex-wrap:wrap">' + [["ceka", "Čekají"], ["zaplaceno", "Zaplacené"], ["zruseno", "Zrušené"], ["vse", "Vše"]].map(function (f) {
           return '<button type="button" data-f="' + f[0] + '" aria-pressed="' + (filtr === f[0]) + '" style="width:auto;padding:0 12px">' + f[1] + ' (' + (f[0] === "vse" ? O.length : O.filter(function (o) { return o.stav === f[0]; }).length) + ')</button>'; }).join("") + '</div></div>' +
-        '<p class="note" style="margin-top:6px">Když saunér v aplikaci klikne na licenci nebo Glowcoiny, objednávka se objeví tady a přijde ti e-mail s jejím číslem. Až peníze dorazí, klikni na <b>Zaplaceno</b>: licence se prodlouží nebo se připíšou Glowcoiny (u roční licence i 100 bonusových).</p>' +
+        '<p class="note" style="margin-top:6px">Když saunér v aplikaci klikne na licenci nebo Glowcoiny, objednávka se objeví tady a přijde ti e-mail s jejím číslem. Až peníze dorazí, klikni na <b>Zaplaceno</b>: licence se prodlouží nebo se připíšou Glowcoiny (u roční licence i 100 bonusových) a zákazníkovi sám odejde e-mail s dokladem (kopie přijde tobě).</p>' +
         '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">' + (V.length ? V.map(function (o) {
           var p = PR[o.produkt] || { jm: o.produkt }, st = STAV[o.stav] || [o.stav, "#9AA0AE"];
           return '<div style="border:1px solid var(--line);border-left:4px solid ' + st[1] + ';border-radius:12px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center">' +
@@ -4790,7 +4790,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       on($("ob-f"), "button", "click", function (e, b) { filtr = b.dataset.f; kresli(); });
       var zmen = async function (id, stav, ot) {
         if (ot && !(await potvrd(ot[0], ot[1]))) return;
-        try { var r = await K.zavolej({ akce: "spravce-objednavka", id: id, stav: stav }); setStatus(stav === "zaplaceno" ? (r.uz ? "Už bylo připsané dřív" : "Zaplaceno, připsáno" + (r.plati_do ? ": licence do " + new Date(r.plati_do).toLocaleDateString("cs-CZ") : "")) : "Uloženo", true); nacist(); }
+        try { var r = await K.zavolej({ akce: "spravce-objednavka", id: id, stav: stav }); setStatus(stav === "zaplaceno" ? (r.uz ? "Už bylo připsané dřív" : "Zaplaceno, připsáno" + (r.plati_do ? ": licence do " + new Date(r.plati_do).toLocaleDateString("cs-CZ") : "") + (r.doklad && /^odeslán /.test(r.doklad) ? ". Zákazníkovi odešel doklad " + r.doklad.slice(8) : r.doklad ? ". Doklad " + r.doklad : "")) : "Uloženo", true); nacist(); }
         catch (er) { setStatus("Nepovedlo se: " + (er.message || er)); }
       };
       on(box, ".ob-z", "click", function (e, b) { var o = O.filter(function (x) { return String(x.id) === b.dataset.id; })[0]; zmen(+b.dataset.id, "zaplaceno", ["Opravdu dorazila platba " + kc(o.kc) + " od " + o.email + "? " + ((PR[o.produkt] || {}).jm || "") + " se hned připíše.", "Zaplaceno"]); });
