@@ -2796,6 +2796,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     view.parentNode.insertBefore(bar, view);
   }
   // invite a friend: glowguss.com/app?pozvanka=KOD is remembered until the friend logs in, then saved to their new account
+  // ?glowcoiny=1 / =0: show or hide Glowcoins and Glowy AI on this browser (to see a normal saunér's view after the AI launch)
+  (function () { try { var q = new URLSearchParams(location.search), v = q.get("glowcoiny"); if (v == null) return; localStorage.setItem("glowguss-kredity", v === "0" ? "ne" : "ano"); q["delete"]("glowcoiny"); history.replaceState(null, "", location.pathname + (String(q) ? "?" + q : "") + location.hash); } catch (e) {} })();
   (function () { try { var q = new URLSearchParams(location.search), kod = q.get("pozvanka"); if (!kod) return; localStorage.setItem("glowguss-pozvanka", kod.slice(0, 16)); q["delete"]("pozvanka"); history.replaceState(null, "", location.pathname + (String(q) ? "?" + q : "") + location.hash); } catch (e) {} })();
   async function ulozPozvanku() {
     var kod = null; try { kod = localStorage.getItem("glowguss-pozvanka"); } catch (e) {} if (!kod || !REMOTE) return;
