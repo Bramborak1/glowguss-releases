@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Zásady ochrany osobních údajů · Glowguss</title><link rel="icon" href="../ikona.png"><link rel="stylesheet" href="../fonty/fonty.css">
+<style>
+:root{--bg:#0E0F13;--panel:#16181E;--line:#262A33;--fg:#EDEEF2;--fg2:#C9CDD6;--muted:#9AA0AD;--accent:#FF8A3D}
+*{box-sizing:border-box}html,body{overflow-x:clip}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.65}
+a{color:var(--accent)}
+.wrap{max-width:860px;margin:0 auto;padding:0 22px}
+header{border-bottom:1px solid var(--line);background:rgba(14,15,19,.9)}
+header .wrap{display:flex;align-items:center;gap:16px;height:64px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:19px;text-decoration:none;color:var(--fg)}
+.brand img{width:32px;height:32px;border-radius:8px}
+header nav{margin-left:auto;display:flex;gap:16px;font-weight:600;font-size:14px}
+header nav a{color:var(--fg2);text-decoration:none}header nav a:hover{color:var(--fg)}
+main{padding:36px 0 60px}
+h1{font-size:34px;line-height:1.2;margin:0 0 6px}
+h2{font-size:21px;margin:34px 0 8px}
+.ver{color:var(--muted);font-size:14px;margin:0 0 18px}
+.lead{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;color:var(--fg2)}
+ul{padding-left:22px}li{margin:6px 0}
+table{width:100%;border-collapse:collapse;font-size:14.5px;margin:10px 0;display:block;overflow-x:auto}
+th,td{text-align:left;vertical-align:top;border-bottom:1px solid var(--line);padding:9px 10px}
+th{color:var(--muted);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.04em}
+mark.d{background:#5a3a00;color:#FFD27A;border-radius:4px;padding:0 4px}
+footer{border-top:1px solid var(--line);padding:22px 0;color:var(--muted);font-size:14px}
+footer .wrap{display:flex;flex-wrap:wrap;gap:8px 18px;justify-content:space-between}
+footer a{color:var(--fg2)}
+</style></head><body>
+<header><div class="wrap"><a class="brand" href="../"><img src="../ikona192.png" alt=""><span>Glowguss</span></a>
+<nav><a href="../">Web</a><a href="../app/">Aplikace</a><a href="privacy.html" lang="en">English</a></nav></div></header>
+<main><div class="wrap">
+<h1>Zásady ochrany osobních údajů</h1>
+<p class="ver">Verze 2026-11-22 · platné od <mark class="d">[datum spuštění]</mark></p>
+<p class="lead">Krátce: hudbu nikam neposíláme, rozbor probíhá jen ve tvém prohlížeči. Na serveru máme jen to, co je potřeba k účtu, licenci a uložení tvých show. Nepoužíváme reklamní ani analytické cookies a nikomu tvoje data neprodáváme.</p>
+
+<h2>1. Kdo tvoje údaje zpracovává</h2>
+<p>Správcem osobních údajů je Milan Dvořák, IČO 08596123, se sídlem U Zlatého potoka 270, 251 63 Kunice, fyzická osoba podnikající podle živnostenského zákona (dále „Glowguss“ nebo „my“). Napsat nám můžeš na <a href="mailto:glowguss@gmail.com">glowguss@gmail.com</a>. Pověřence pro ochranu osobních údajů nemáme, protože to zákon u takto malé služby nevyžaduje.</p>
+
+<h2>2. Jaké údaje, k čemu a proč smíme</h2>
+<table>
+<tr><th>Údaje</th><th>K čemu</th><th>Právní důvod (GDPR čl. 6)</th></tr>
+<tr><td><b>Účet:</b> e-mail, heslo (uložené jen jako šifrovaný otisk), u přihlášení přes Google také jméno a profilová fotka z Google účtu</td><td>přihlášení, obnova hesla, komunikace o službě</td><td>plnění smlouvy, odst. 1 písm. b)</td></tr>
+<tr><td><b>Licence a Glowcoiny:</b> typ licence, platnost, zkušební verze, pohyby Glowcoinů, údaje o platbách a fakturách</td><td>poskytnutí placené služby, účetnictví</td><td>plnění smlouvy, písm. b); u účetních dokladů právní povinnost, písm. c)</td></tr>
+<tr><td><b>Tvoje práce:</b> show, nastavení saun, složky, rozbor hudby jako čísla (tempo, beaty, hlasitost částí), názvy skladeb, texty a scénáře, které do aplikace sám vložíš</td><td>uložení a záloha, abys měl show na všech svých zařízeních</td><td>plnění smlouvy, písm. b)</td></tr>
+<tr><td><b>Zařízení:</b> náhodné ID prohlížeče a popis typu „Windows, Chrome (aplikace)“, čas posledního použití</td><td>limit zařízení na jednu licenci (2 zařízení)</td><td>plnění smlouvy, písm. b)</td></tr>
+<tr><td><b>Hlídání sdílení licence:</b> u každého požadavku na server účet, ID zařízení, <b>zkrácená</b> IP adresa (bez posledního čísla, např. 89.24.113.x), země a případně město odvozené z IP, hodina a počet požadavků; „otisk“ analyzované hudby (počet a poloha beatů, ne hudba)</td><td>odhalení sdílení jedné licence více lidmi, ochrana proti zneužití zkušební verze, bezpečnost</td><td>oprávněný zájem, písm. f): ochrana před zneužitím placené služby</td></tr>
+<tr><td><b>Učení programu</b> (jen když ho zapneš): čísla o hudbě a co jsi v návrhu zvolil nebo změnil</td><td>zlepšování návrhů světel pro všechny</td><td>souhlas, písm. a); jde kdykoli vypnout v aplikaci</td></tr>
+<tr><td><b>Glowy AI</b> (jen když ho použiješ): rozbor hudby, tvůj scénář/příběh a pokyny, které Glowymu napíšeš</td><td>vytvoření návrhu světel umělou inteligencí</td><td>plnění smlouvy, písm. b)</td></tr>
+<tr><td><b>E-mailová komunikace:</b> co nám napíšeš</td><td>odpověď, podpora</td><td>oprávněný zájem, písm. f), u objednávky plnění smlouvy</td></tr>
+<tr><td><b>Technické záznamy hostingu:</b> IP adresa, čas, prohlížeč (záznamy vedené poskytovateli hostingu)</td><td>provoz a bezpečnost webu</td><td>oprávněný zájem, písm. f)</td></tr>
+</table>
+<p><b>Hudbu samotnou neukládáme ani nikam neposíláme.</b> Soubory zůstávají ve tvém zařízení, server dostává jen čísla z rozboru.</p>
+<p>Do textů a scénářů pro Glowyho prosím nepiš citlivé údaje o sobě ani o jiných lidech, nejsou k ničemu potřeba.</p>
+
+<h2>3. Automatické rozhodování</h2>
+<p>Limit zařízení se kontroluje automaticky: nové zařízení nad limit se nepřipojí, dokud jiné neodebereš. Přehled možného sdílení licence vidí jen provozovatel a každý případ posuzuje člověk. Žádný jiný postih se neděje automaticky. Proti hlídání sdílení můžeš vznést námitku (viz bod 7).</p>
+
+<h2>4. Komu údaje předáváme</h2>
+<p>Údaje nikomu neprodáváme. K provozu používáme tyto zpracovatele, kteří s nimi smí pracovat jen podle našich pokynů:</p>
+<ul>
+<li><b>Supabase Inc.</b>: databáze, přihlášení a serverové funkce (data uložena v regionu <mark class="d">[region, např. EU – Frankfurt]</mark>)</li>
+<li><b>Anthropic PBC</b> (USA): zpracování požadavků Glowy AI</li>
+<li><b>Resend</b> (USA): odesílání e-mailů (potvrzení účtu, obnova hesla)</li>
+<li><b>GitHub Inc.</b> (USA): hosting webu a aplikace</li>
+<li><b>Google</b>: přihlášení přes Google (jen když ho použiješ) a e-mailová schránka glowguss@gmail.com</li>
+<li>účetní nebo daňový poradce, pokud ho využijeme, a úřady, když to vyžaduje zákon</li>
+</ul>
+<p>Až spustíme online platby, bude je zajišťovat prodejce <mark class="d">[Lemon Squeezy / Paddle]</mark> jako samostatný správce; tvoje platební karta k nám nikdy nedojde. Tyto zásady pak doplníme.</p>
+<p><b>Předání mimo EU:</b> u příjemců v USA se předání opírá o rámec EU–USA pro ochranu osobních údajů (Data Privacy Framework), pokud je příjemce certifikován, jinak o standardní smluvní doložky schválené Evropskou komisí.</p>
+
+<h2>5. Jak dlouho údaje držíme</h2>
+<ul>
+<li>účet, show a nastavení: po dobu trvání účtu; po jeho zrušení je smažeme do 30 dnů (ze záloh hostingu zmizí nejpozději po <mark class="d">[30]</mark> dnech)</li>
+<li>záznamy hlídání sdílení: 90 dnů, pak se automaticky mažou</li>
+<li>údaje o zařízeních: dokud zařízení neodebereš nebo nezrušíš účet</li>
+<li>faktury a účetní doklady: po dobu, kterou ukládají zákony o účetnictví a daních (obvykle 5 až 10 let)</li>
+<li>data pro učení: dokud učení nevypneš a nepožádáš o smazání, nebo do zrušení účtu</li>
+<li>e-maily: dokud jsou potřeba k vyřízení věci, nejvýš 3 roky</li>
+</ul>
+
+<h2 id="cookies">6. Cookies a úložiště v prohlížeči</h2>
+<p><b>Web ani aplikace nepoužívají žádné cookies</b> a žádné analytické, reklamní ani sledovací nástroje. Písma máme uložená přímo na našem webu, takže se při načtení stránky nic neposílá Googlu ani nikomu dalšímu. Proto nezobrazujeme lištu se souhlasem s cookies.</p>
+<p>Aplikace si do úložiště tvého prohlížeče (localStorage, sessionStorage, IndexedDB) ukládá jen to, co potřebuje k fungování, o které jsi sám požádal:</p>
+<table>
+<tr><th>Položka</th><th>K čemu</th></tr>
+<tr><td>svetla-session, glowguss-pkce, glowguss-nove-heslo</td><td>přihlášení (tvůj přihlašovací token), dokončení přihlášení přes Google, obnova hesla</td></tr>
+<tr><td>glowguss-zarizeni</td><td>náhodné ID tohoto prohlížeče pro limit zařízení</td></tr>
+<tr><td>glowguss-vlastnik</td><td>aby po přihlášení jiného účtu na stejném zařízení nezůstala vidět data předchozího</td></tr>
+<tr><td>databáze „glowguss“ (IndexedDB)</td><td>tvoje show, sauny a rozbory, aby aplikace fungovala rychle a i bez připojení</td></tr>
+<tr><td>glowguss-motiv, glowguss-hlasitost, glowguss-glowy, glowguss-slozky-zavrene, glowguss-uceni, glowguss-kredity, glowguss-souhlas</td><td>tvoje volby: světlý/tmavý vzhled, hlasitost, zapnutý Glowy, zavřené složky, zapnuté učení, zobrazený zůstatek, potvrzení podmínek</td></tr>
+</table>
+<p>Všechno můžeš smazat v nastavení prohlížeče (vymazání dat webu). Odhlášením se data účtu z prohlížeče smažou.</p>
+
+<h2>7. Tvoje práva</h2>
+<p>Máš právo na přístup ke svým údajům, jejich opravu, výmaz, omezení zpracování, přenositelnost (zálohu všech show si stáhneš sám v aplikaci jako soubor) a právo vznést námitku proti zpracování z oprávněného zájmu. Souhlas s učením můžeš kdykoli odvolat vypnutím v aplikaci. Stačí napsat na <a href="mailto:glowguss@gmail.com">glowguss@gmail.com</a> z e-mailu, kterým se přihlašuješ; odpovíme nejpozději do jednoho měsíce. Zrušení účtu se všemi daty vyřídíme na stejné adrese.</p>
+<p>Pokud si myslíš, že s údaji zacházíme špatně, můžeš si stěžovat u Úřadu pro ochranu osobních údajů, Pplk. Sochora 27, 170 00 Praha 7, <a href="https://uoou.gov.cz" target="_blank" rel="noopener">uoou.gov.cz</a>. Budeme rádi, když se nejdřív ozveš nám.</p>
+
+<h2>8. Věk</h2>
+<p>Glowguss je určený pro dospělé saunéry a saunová centra. Účet si nesmí založit nikdo mladší 16 let.</p>
+
+<h2>9. Změny</h2>
+<p>Tyto zásady můžeme upravit, například když přidáme nového poskytovatele nebo platby. O podstatné změně tě dopředu informujeme e-mailem nebo v aplikaci.</p>
+</div></main>
+<footer><div class="wrap"><span>© 2026 Glowguss</span><span>Obchodní podmínky: <a href="podminky.html">zobrazit</a> · Ochrana osobních údajů: <a href="soukromi.html">zobrazit</a> · <a href="mailto:glowguss@gmail.com">glowguss@gmail.com</a></span></div></footer>
+</body></html>
