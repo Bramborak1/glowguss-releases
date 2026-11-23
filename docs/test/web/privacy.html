@@ -32,7 +32,7 @@ footer a{color:var(--fg2)}
 <main><div class="wrap">
 <h1>Privacy Policy</h1>
 <p class="ver">Version 2026-11-23 · effective from 23 November 2026 · The Czech version is the binding one; this is a translation.</p>
-<p class="lead">In short: your music never leaves your device, it is analysed only in your browser. Our server keeps only what is needed for your account, licence and saved shows. We use no advertising or analytics cookies and we never sell your data.</p>
+<p class="lead">In short: music is analysed only in your browser. We store the music of your shows in your private storage so it works on your other devices too; only your account can access it. Our server keeps only what is needed for your account, licence and saved shows. We use no advertising or analytics cookies and we never sell your data.</p>
 
 <h2>1. Who processes your data</h2>
 <p>The controller is Milan Dvořák, company ID (IČO) 08596123, registered address U Zlatého potoka 270, 251 63 Kunice, Czech Republic, a sole trader (natural person doing business under the Czech Trade Licensing Act) (“Glowguss”, “we”). Contact: <a href="mailto:glowguss@gmail.com">glowguss@gmail.com</a>. We have not appointed a Data Protection Officer as the law does not require one for a service of this size.</p>
@@ -42,7 +42,7 @@ footer a{color:var(--fg2)}
 <tr><th>Data</th><th>Purpose</th><th>Legal basis (GDPR Art. 6)</th></tr>
 <tr><td><b>Account:</b> e-mail, password (stored only as a secure hash), and with Google sign-in also your name and profile picture from Google</td><td>sign-in, password reset, service messages</td><td>contract, Art. 6(1)(b)</td></tr>
 <tr><td><b>Licence and Glowcoins:</b> licence type and validity, trial, Glowcoin transactions, orders (including the country you state when ordering and the country of your connection, for VAT), payment and receipt records</td><td>providing the paid service, accounting</td><td>contract (b); invoices: legal obligation (c)</td></tr>
-<tr><td><b>Your work:</b> shows, sauna setups, folders, music analysis as numbers (tempo, beats, loudness of parts), song titles, scripts and texts you enter</td><td>storage and backup so your shows are on all your devices</td><td>contract (b)</td></tr>
+<tr><td><b>Your work:</b> shows, sauna setups, folders, music analysis as numbers (tempo, beats, loudness of parts), song titles, scripts and texts you enter; <b>show music</b> (an MP3 file, or FLAC if you turn on lossless saving)</td><td>storage and backup so your shows are on all your devices</td><td>contract (b)</td></tr>
 <tr><td><b>Devices:</b> a random browser ID and a label such as “Windows, Chrome (app)”, last use</td><td>device limit per licence (2 devices)</td><td>contract (b)</td></tr>
 <tr><td><b>Licence-sharing protection:</b> for each server request the account, device ID, a <b>shortened</b> IP address (last number removed, e.g. 89.24.113.x), country and possibly city derived from the IP, the hour and number of requests; a “fingerprint” of analysed music (number and position of beats, not the music)</td><td>detecting a licence shared by several people, preventing trial abuse, security</td><td>legitimate interest (f): protecting a paid service from misuse</td></tr>
 <tr><td><b>Learning</b> (only if you switch it on): numbers about the music and what you chose or changed in a design</td><td>improving light designs for everyone</td><td>consent (a); can be switched off in the app at any time</td></tr>
@@ -50,7 +50,7 @@ footer a{color:var(--fg2)}
 <tr><td><b>E-mails</b> you send us</td><td>replies and support</td><td>legitimate interest (f), for orders contract (b)</td></tr>
 <tr><td><b>Hosting logs:</b> IP address, time, browser (kept by hosting providers)</td><td>running and securing the site</td><td>legitimate interest (f)</td></tr>
 </table>
-<p><b>We never store or upload the music itself.</b> Audio files stay on your device; the server only receives numbers from the analysis.</p>
+<p><b>Show music:</b> the analysis runs on your device. The finished show track is then saved to private storage (Supabase Storage, EU) in a folder only your account can access, so you have the show with its music on all your devices. We never give the music to anyone, never listen to it and never use it for learning or for Glowy AI. It is deleted when you delete the show or your account. Music storage is limited to 2 GB per account.</p>
 <p>Please don’t put sensitive personal information about yourself or others into texts and scripts for Glowy; it is never needed.</p>
 
 <h2>3. Automated decisions</h2>
@@ -72,7 +72,7 @@ footer a{color:var(--fg2)}
 
 <h2>5. How long we keep data</h2>
 <ul>
-<li>account, shows and settings: while the account exists; deleted within 30 days after closing it (gone from hosting backups within 30 days at the latest)</li>
+<li>account, shows with their music and settings: while the account exists (deleting a show also deletes its music); deleted within 30 days after closing it (gone from hosting backups within 30 days at the latest)</li>
 <li>sharing-protection records: 90 days, then deleted automatically</li>
 <li>device records: until you remove the device or close the account</li>
 <li>invoices and accounting records: as long as Czech accounting and tax law requires (usually 5 to 10 years)</li>
@@ -88,8 +88,8 @@ footer a{color:var(--fg2)}
 <tr><td>svetla-session, glowguss-pkce, glowguss-nove-heslo</td><td>sign-in (your login token), completing Google sign-in, password reset</td></tr>
 <tr><td>glowguss-zarizeni</td><td>random ID of this browser for the device limit</td></tr>
 <tr><td>glowguss-vlastnik</td><td>so another account signing in on the same device does not see the previous user’s data</td></tr>
-<tr><td>database “glowguss” (IndexedDB)</td><td>your shows, saunas and analyses, so the app is fast and works offline</td></tr>
-<tr><td>glowguss-motiv, glowguss-hlasitost, glowguss-glowy, glowguss-slozky-zavrene, glowguss-uceni, glowguss-kredity, glowguss-souhlas</td><td>your choices: light/dark look, volume, Glowy on/off, closed folders, learning on/off, displayed balance, accepted terms</td></tr>
+<tr><td>database “glowguss” (IndexedDB)</td><td>your shows, saunas, analyses and show music, so the app is fast and works offline</td></tr>
+<tr><td>glowguss-motiv, glowguss-hlasitost, glowguss-glowy, glowguss-slozky-zavrene, glowguss-uceni, glowguss-kredity, glowguss-souhlas, glowguss-bezztratove</td><td>your choices: light/dark look, volume, Glowy on/off, closed folders, learning on/off, displayed balance, accepted terms, lossless music saving</td></tr>
 </table>
 <p>You can delete all of it in your browser settings (clear site data). Signing out removes the account’s data from the browser.</p>
 
