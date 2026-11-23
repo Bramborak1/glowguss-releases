@@ -6,6 +6,9 @@
 <title>Glowguss – světelná show pro saunový ceremoniál</title>
 <meta name="description" content="Glowguss z tvé hudby a příběhu vyrobí světelnou show pro QuickDMX. Přesně na beat, s pravidly saunérů. Vytvořeno saunérem pro saunéry.">
 <meta name="theme-color" content="#0E0F13">
+<link rel="alternate" hreflang="cs" href="https://glowguss.com/">
+<link rel="alternate" hreflang="en" href="https://glowguss.com/en.html">
+
 <script>
 /* Who should go straight to the app instead of this page: the installed app (it starts here), logged-in users,
    returns from Google sign-in (?code=) and password-reset e-mails (#access_token), old app links (#/...). ?web shows the page anyway. */
@@ -20,13 +23,23 @@
   } catch (e) {}
 })();
 </script>
+<script>
+/* First visit from a browser that isn't Czech or Slovak: show the English page (a choice made with the CZ/EN button wins). */
+(function () {
+  try {
+    var j = localStorage.getItem("glowguss-jazyk");
+    if (j === "cs") return;
+    var l = (navigator.languages || [navigator.language || ""]).join(",").toLowerCase();
+    if (j === "en" || (l && !/(^|,)(cs|sk)/.test(l))) location.replace("en.html" + location.search + location.hash);
+  } catch (e) {}
+})();
+</script>
 
 <meta property="og:title" content="Glowguss – světla pro saunový ceremoniál">
 <meta property="og:description" content="Z tvé hudby a příběhu hotová světelná show pro QuickDMX. Přesně na beat.">
 <meta property="og:image" content="ikona512.png">
 <link rel="icon" href="ikona.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="fonty/fonty.css">
 <style>
 :root{--bg:#0E0F13;--panel:#16181E;--panel2:#1E2129;--line:#262A33;--fg:#EDEEF2;--fg2:#C9CDD6;--muted:#9AA0AD;--accent:#FF8A3D;--pink:#E0338A;--violet:#7B2FF7;--gold:#FFD27A;
   --grad:linear-gradient(100deg,#7B2FF7 0%,#E0338A 50%,#FF8A3D 100%)}
@@ -39,6 +52,11 @@ img{max-width:100%;height:auto;display:block}
 .grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 
 /* top bar */
+.jazyk{margin-left:auto;padding:7px 11px;border:1px solid #3A3F4B;border-radius:10px;font-weight:700;font-size:14px;text-decoration:none;color:var(--fg2)}.jazyk:hover{color:var(--fg);border-color:#5A6070}
+header nav{margin-left:0!important}
+@media (max-width:980px){header .btn{margin-left:10px!important}}
+@media (min-width:981px){header nav{margin-left:auto!important}.jazyk{margin-left:0}}
+
 header{position:sticky;top:0;z-index:20;background:rgba(14,15,19,.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
 header .wrap{display:flex;align-items:center;gap:24px;height:68px}
 .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;text-decoration:none}
@@ -158,6 +176,8 @@ figure{margin:0}
 .cena li{display:flex;gap:10px}
 .cena li::before{content:"";flex:none;width:18px;height:18px;margin-top:3px;border-radius:50%;background:rgba(126,226,176,.15) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 12.5l4 4 8-9' fill='none' stroke='%237EE2B0' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/12px no-repeat}
 .cena .btn{margin-top:auto;justify-content:center}
+.centrum-pas{margin-top:26px;display:flex;flex-wrap:wrap;gap:14px 24px;align-items:center;justify-content:space-between;padding:20px 24px;border-radius:18px;border:1px dashed #3A3F4B}
+.centrum-pas b{display:block;font-size:17px}.centrum-pas span{color:var(--fg2);font-size:15px}
 .coins{margin-top:28px;display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:center;padding:24px 26px;border-radius:18px;background:rgba(255,193,77,.06);border:1px solid rgba(255,193,77,.22)}
 .coins .tab{display:grid;grid-template-columns:repeat(4,auto);justify-content:start;gap:6px 18px;font-size:15px;color:var(--fg2)}
 .coins .tab b{color:var(--fg)}
@@ -223,6 +243,7 @@ footer .wrap{display:flex;gap:18px;flex-wrap:wrap;align-items:center;justify-con
       <a href="#cenik">Ceník</a>
       <a href="#otazky">Otázky</a>
     </nav>
+    <a class="jazyk" href="en.html" hreflang="en" onclick="try{localStorage.setItem('glowguss-jazyk','en')}catch(e){}">EN</a>
     <a class="btn btn-main" href="app/">Otevřít aplikaci</a>
   </div>
 </header>
@@ -397,8 +418,15 @@ footer .wrap{display:flex;gap:18px;flex-wrap:wrap;align-items:center;justify-con
         <h3>Měsíčně</h3>
         <p class="kdo">Pro saunéra, který chce začít hned a bez závazku.</p>
         <div class="cislo">400 Kč <small>/ měsíc</small></div>
-        <p class="kdo" style="margin-top:6px">nebo <b style="color:var(--fg)">1 050 Kč na 3 měsíce</b> (350 Kč měsíčně)</p>
         <ul><li>Neomezeně show a saun</li><li>30 Glowcoinů každý měsíc na Glowy AI</li><li>Až 2 zařízení, třeba počítač a mobil</li><li>Všechny nové funkce v ceně</li><li>Zrušíš kdykoli</li></ul>
+        <a class="btn btn-ghost" href="app/">Vyzkoušet zdarma</a>
+      </div>
+      <div class="cena">
+        <span class="stit" style="background:#2E323C">Ušetříš 150 Kč</span>
+        <h3>Na 3 měsíce</h3>
+        <p class="kdo">Na jednu sezónu nebo přípravu na soutěž.</p>
+        <div class="cislo">1 050 Kč <small>/ 3 měsíce</small></div>
+        <ul><li>Všechny měsíční výhody</li><li>Vychází na 350 Kč měsíčně</li></ul>
         <a class="btn btn-ghost" href="app/">Vyzkoušet zdarma</a>
       </div>
       <div class="cena hl">
@@ -408,13 +436,6 @@ footer .wrap{display:flex;gap:18px;flex-wrap:wrap;align-items:center;justify-con
         <div class="cislo">3 900 Kč <small>/ rok</small></div>
         <ul><li>Všechny měsíční výhody</li><li><b style="color:var(--fg)">+100 Glowcoinů navíc hned na start</b></li></ul>
         <a class="btn btn-main" href="app/">Vyzkoušet zdarma</a>
-      </div>
-      <div class="cena">
-        <h3>Centrum</h3>
-        <p class="kdo">Pro wellness s více saunami a saunéry.</p>
-        <div class="cislo">Na míru</div>
-        <ul><li>Licence pro všechny saunéry centra</li><li>Sdílené sauny a správa týmu</li><li>Glowcoiny ve velkém balení</li></ul>
-        <a class="btn btn-ghost" href="mailto:glowguss@gmail.com?subject=Glowguss%20pro%20centrum">Napsat nám</a>
       </div>
     </div>
 
@@ -430,7 +451,11 @@ footer .wrap{display:flex;gap:18px;flex-wrap:wrap;align-items:center;justify-con
         </div>
       </div>
     </div>
-    <p class="info">Online platby právě připravujeme. Do té doby licenci domluvíme e-mailem.</p>
+    <p class="info">Licenci si objednáš přímo v aplikaci a zaplatíš převodem přes QR kód.</p>
+    <div class="centrum-pas">
+      <div><b>Provozujete wellness centrum?</b><span>Licence pro celý tým saunérů, sdílené sauny a Glowcoiny ve velkém. Cenu připravíme na míru.</span></div>
+      <a class="btn btn-ghost" href="#centra">Licence pro centra</a>
+    </div>
   </div>
 </section>
 
@@ -465,7 +490,7 @@ footer .wrap{display:flex;gap:18px;flex-wrap:wrap;align-items:center;justify-con
 <footer>
   <div class="wrap">
     <span>© 2026 Glowguss · Vytvořeno saunérem pro saunéry</span>
-    <span><a href="mailto:glowguss@gmail.com">glowguss@gmail.com</a> · <a href="app/">Aplikace</a></span>
+    <span><a href="web/podminky.html">Obchodní podmínky</a> · <a href="web/soukromi.html">Ochrana osobních údajů</a> · <a href="mailto:glowguss@gmail.com">glowguss@gmail.com</a> · <a href="app/">Aplikace</a></span>
   </div>
 </footer>
 
