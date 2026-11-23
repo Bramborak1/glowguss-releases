@@ -4729,7 +4729,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   }
 
   // ---------- the owner's admin page: overview, users, orders, centres, watching ----------
-  var SPRAVA_TABS = [["prehled", "Přehled"], ["uzivatele", "Uživatelé"], ["objednavky", "Objednávky"], ["centra", "Centra"], ["hlidani", "Hlídání"]];
+  var SPRAVA_TABS = [["prehled", "Přehled"], ["uzivatele", "Uživatelé"], ["objednavky", "Objednávky"], ["faktury", "Faktury"], ["centra", "Centra"], ["hlidani", "Hlídání"]];
   function spravaPage(tab) {
     if (!G.spravce) { view.innerHTML = '<div class="card empty">Správa je jen pro provozovatele.</div>'; return; }
     tab = SPRAVA_TABS.some(function (t) { return t[0] === tab; }) ? tab : "prehled";
@@ -4738,8 +4738,10 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     else if (tab === "uzivatele") spravaLicenci();
     else if (tab === "objednavky") spravaObjednavky();
     else if (tab === "centra") spravaCenter();
+    else if (tab === "faktury") spravaFaktury();
     else hlidaniKarta();
-    K.zavolej({ akce: "spravce-prehled" }).then(function (r) { var b = view.querySelector('.sp-pocet[data-t="objednavky"]'); if (b && r.cekajici) b.innerHTML = ' <span class="badge" style="background:#FF8A3D;color:#1a1220">' + r.cekajici + '</span>'; }).catch(function () {});
+    K.zavolej({ akce: "spravce-prehled" }).then(function (r) { var b = view.querySelector('.sp-pocet[data-t="objednavky"]'); if (b && r.cekajici) b.innerHTML = ' <span class="badge" style="background:#FF8A3D;color:#1a1220">' + r.cekajici + '</span>';
+      var f = view.querySelector('.sp-pocet[data-t="faktury"]'); if (f && r.faktury_po_splatnosti) f.innerHTML = ' <span class="badge" style="background:#E0338A;color:#fff" title="po splatnosti">' + r.faktury_po_splatnosti + '</span>'; }).catch(function () {});
   }
   var kc = function (n) { return String(Math.round(+n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, " ") + " Kč"; };
   async function spravaPrehled() {
@@ -4773,6 +4775,105 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       box.innerHTML = h;
     } catch (e) { box.innerHTML = '<p class="badbox" style="margin-top:16px">Přehled se nepodařilo načíst: ' + esc(e.message || e) + '</p>'; }
   }
+  // ---------- invoices for centres: billing details from ARES, PDF by e-mail, number = variable symbol (Fio pairs the payment) ----------
+  function stahniB64(b64, nazev, typ) {
+    var bin = atob(b64), u = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([u], { type: typ })); a.download = nazev; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  async function spravaFaktury() {
+    var box = document.createElement("section"); box.className = "card"; box.style.marginTop = "16px"; view.appendChild(box);
+    var nova = document.createElement("section"); nova.className = "card"; nova.style.marginTop = "16px"; view.appendChild(nova);
+    var FK = [], CE = [], filtr = "ceka", UCET = true;
+    var dnes = new Date().toISOString().slice(0, 10);
+    var STAV = { ceka: ["čeká na platbu", "#FF8A3D"], zaplaceno: ["zaplaceno", "#9BE38A"], zruseno: ["stornováno", "#9AA0AE"] };
+    function kresli() {
+      var V = FK.filter(function (f) { return filtr === "vse" || f.stav === filtr; });
+      box.innerHTML = '<div class="row between" style="flex-wrap:wrap;gap:10px"><h2>Faktury</h2><div class="seg" id="fk-f" style="display:flex;flex-wrap:wrap">' + [["ceka", "Čekají"], ["zaplaceno", "Zaplacené"], ["zruseno", "Stornované"], ["vse", "Vše"]].map(function (f) {
+          return '<button type="button" data-f="' + f[0] + '" aria-pressed="' + (filtr === f[0]) + '" style="width:auto;padding:0 12px">' + f[1] + ' (' + (f[0] === "vse" ? FK.length : FK.filter(function (x) { return x.stav === f[0]; }).length) + ')</button>'; }).join("") + '</div></div>' +
+        '<p class="note" style="margin-top:6px">Faktury pro centra a firmy. Číslo faktury je zároveň variabilní symbol, takže platbu spáruje Fio samo a centru se prodlouží licence. Bez Fio klikni na <b>Zaplaceno</b>.</p>' +
+        '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">' + (V.length ? V.map(function (f) {
+          var st = STAV[f.stav] || [f.stav, "#9AA0AE"], po = f.stav === "ceka" && f.splatnost < dnes, o = f.odberatel || {};
+          return '<div style="border:1px solid var(--line);border-left:4px solid ' + (po ? "#E0338A" : st[1]) + ';border-radius:12px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center">' +
+            '<div style="flex:1 1 280px;min-width:0"><b>č. ' + esc(f.cislo) + ' · ' + esc(o.nazev || "") + ' · ' + kc(f.kc) + '</b><div class="sub" style="overflow-wrap:anywhere">vystaveno ' + new Date(f.vystaveno).toLocaleDateString("cs-CZ") + ' · splatnost ' + new Date(f.splatnost).toLocaleDateString("cs-CZ") +
+            ' · <span style="color:' + (po ? "#E0338A" : st[1]) + '">' + (po ? "po splatnosti" : st[0]) + (f.zaplaceno ? " " + new Date(f.zaplaceno).toLocaleDateString("cs-CZ") : "") + '</span>' + (f.mesicu ? ' · prodlouží centrum o ' + f.mesicu + ' měs.' : '') +
+            (f.odeslano ? ' · odesláno na ' + esc(o.email || "") : ' · <span style="color:#FF8A3D">neodesláno</span>') + (f.poznamka ? ' · ' + esc(f.poznamka) : '') + '</div></div>' +
+            '<div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn small fk-pdf" data-id="' + f.id + '" type="button">PDF</button>' + (f.stav !== "zruseno" ? '<button class="btn small fk-mail" data-id="' + f.id + '" type="button">' + (f.odeslano ? 'Poslat znovu' : 'Poslat e-mailem') + '</button>' : '') +
+            (f.stav === "ceka" ? '<button class="btn small primary fk-z" data-id="' + f.id + '" type="button">Zaplaceno</button><button class="btn small fk-x" data-id="' + f.id + '" type="button" style="color:var(--bad)">Stornovat</button>' : '') + '</div></div>';
+        }).join("") : '<p class="sub">Žádné faktury.</p>') + '</div>';
+      on($("fk-f"), "button", "click", function (e, b) { filtr = b.dataset.f; kresli(); });
+      var najdi = function (id) { return FK.filter(function (x) { return String(x.id) === String(id); })[0]; };
+      on(box, ".fk-pdf", "click", async function (e, b) { try { var r = await K.zavolej({ akce: "spravce-faktura-pdf", id: +b.dataset.id }); stahniB64(r.pdf, r.nazev, "application/pdf"); } catch (er) { setStatus("PDF se nepodařilo vytvořit: " + (er.message || er)); } });
+      on(box, ".fk-mail", "click", async function (e, b) {
+        var f = najdi(b.dataset.id), m = prompt("Poslat fakturu č. " + f.cislo + " na e-mail:", (f.odberatel || {}).email || ""); if (!m) return;
+        try { var r = await K.zavolej({ akce: "spravce-faktura-poslat", id: f.id, email: m }); setStatus("Faktura odešla na " + r.odeslano, true); nacist(); } catch (er) { setStatus("Neodešlo: " + (er.message || er)); }
+      });
+      var zmen = async function (id, stav, ot) {
+        if (ot && !(await potvrd(ot[0], ot[1]))) return;
+        try { var r = await K.zavolej({ akce: "spravce-faktura", id: id, stav: stav }); setStatus(stav === "zaplaceno" ? (r.uz ? "Už bylo vyřízené dřív" : "Zaplaceno" + (r.centrum_do ? ", licence centra do " + new Date(r.centrum_do).toLocaleDateString("cs-CZ") : "")) : "Uloženo", true); nacist(); }
+        catch (er) { setStatus("Nepovedlo se: " + (er.message || er)); }
+      };
+      on(box, ".fk-z", "click", function (e, b) { var f = najdi(b.dataset.id); zmen(f.id, "zaplaceno", ["Opravdu dorazila platba " + kc(f.kc) + " za fakturu č. " + f.cislo + "?" + (f.mesicu ? " Centru se prodlouží licence o " + f.mesicu + " měs." : ""), "Zaplaceno"]); });
+      on(box, ".fk-x", "click", function (e, b) { var f = najdi(b.dataset.id); zmen(f.id, "zruseno", ["Stornovat fakturu č. " + f.cislo + "? Číslo zůstane v řadě jako stornované (kvůli účetnictví se faktury nemažou).", "Stornovat"]); });
+    }
+    function formular() {
+      var opt = '<option value="">Jiný odběratel (ne centrum v Glowgussu)</option>' + CE.map(function (c) { return '<option value="' + c.id + '">' + esc(c.nazev) + '</option>'; }).join("");
+      nova.innerHTML = '<h2>Nová faktura</h2>' + (UCET ? '' : '<p class="badbox" style="margin-top:8px">Chybí číslo účtu: nastav v Supabase secret GLOWGUSS_UCET.</p>') +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:12px">' +
+        '<label><span class="sub">Pro koho</span><select id="fk-c" style="width:100%;margin-top:4px">' + opt + '</select></label>' +
+        '<label><span class="sub">IČO</span><div class="row" style="gap:6px;margin-top:4px;flex-wrap:nowrap"><input id="fk-ico" type="text" inputmode="numeric" placeholder="12345678" style="flex:1;min-width:0"><button class="btn small" id="fk-ares" type="button">Načíst z ARES</button></div></label>' +
+        '<label><span class="sub">Název firmy</span><input id="fk-n" type="text" style="width:100%;margin-top:4px"></label>' +
+        '<label><span class="sub">Adresa sídla</span><input id="fk-a" type="text" placeholder="Ulice 1, 110 00 Praha" style="width:100%;margin-top:4px"></label>' +
+        '<label><span class="sub">DIČ (když mají)</span><input id="fk-d" type="text" style="width:100%;margin-top:4px"></label>' +
+        '<label><span class="sub">E-mail pro faktury</span><input id="fk-e" type="email" style="width:100%;margin-top:4px"></label></div>' +
+        '<div id="fk-pol" style="display:flex;flex-direction:column;gap:6px;margin-top:14px"></div>' +
+        '<button class="btn small" id="fk-plus" type="button" style="margin-top:6px">+ Další položka</button>' +
+        '<div class="row" style="gap:10px;margin-top:14px;flex-wrap:wrap;align-items:flex-end">' +
+        '<label id="fk-m-l"><span class="sub">Po zaplacení prodloužit licenci centra o</span><select id="fk-m" style="width:100%;margin-top:4px"><option value="0">neprodlužovat</option><option value="1">1 měsíc</option><option value="3">3 měsíce</option><option value="6">6 měsíců</option><option value="12" selected>12 měsíců</option></select></label>' +
+        '<label><span class="sub">Splatnost (dní)</span><input id="fk-s" type="number" value="14" min="1" max="60" style="width:110px;margin-top:4px"></label>' +
+        '<label class="row" style="gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="fk-o" checked style="width:18px;height:18px"><span>Hned poslat e-mailem jako PDF</span></label>' +
+        '<span style="flex:1"></span><b id="fk-sum" style="font-family:var(--f-num);font-size:18px"></b><button class="btn primary" id="fk-go" type="button">Vystavit fakturu</button></div>' +
+        '<p class="note" style="margin-top:10px">Faktura je bez DPH (nejsi plátce). Vystavenou fakturu nejde smazat, jen stornovat. Centru se licence prodlouží až po zaplacení.</p>';
+      var polozka = function (t, k) { var d = document.createElement("div"); d.className = "row fk-r"; d.style.cssText = "gap:6px;flex-wrap:nowrap";
+        d.innerHTML = '<input class="fk-t" type="text" placeholder="Co fakturuješ, např. Licence Glowguss pro centrum: 15 saunérů, 12 měsíců" style="flex:1;min-width:0" value="' + esc(t || "") + '"><input class="fk-k" type="number" min="1" placeholder="Kč" style="width:120px" value="' + (k || "") + '"><button class="btn small fk-del" type="button" aria-label="Odebrat položku">✕</button>';
+        $("fk-pol").appendChild(d); }
+      var soucet = function () { var n = 0; nova.querySelectorAll(".fk-k").forEach(function (x) { n += Math.round(+x.value) || 0; }); $("fk-sum").textContent = n ? "Celkem " + kc(n) : ""; };
+      var predvypln = function () {
+        var c = CE.filter(function (x) { return x.id === $("fk-c").value; })[0], f = (c && c.fakturace) || {};
+        $("fk-m-l").style.display = c ? "" : "none";
+        ["ico", "n", "a", "d", "e"].forEach(function (k, i) { $("fk-" + k).value = f[["ico", "nazev", "adresa", "dic", "email"][i]] || ""; });
+        if (c && !f.nazev) $("fk-n").value = c.nazev;
+      };
+      polozka(); predvypln(); soucet();
+      $("fk-c").addEventListener("change", predvypln);
+      $("fk-plus").addEventListener("click", function () { polozka(); });
+      on(nova, ".fk-del", "click", function (e, b) { if (nova.querySelectorAll(".fk-r").length > 1) b.closest(".fk-r").remove(); soucet(); });
+      nova.addEventListener("input", function (e) { if (e.target.classList.contains("fk-k")) soucet(); });
+      $("fk-ares").addEventListener("click", async function () {
+        var b = this; b.disabled = true;
+        try { var r = await K.zavolej({ akce: "spravce-ares", ico: $("fk-ico").value }); $("fk-ico").value = r.ico; $("fk-n").value = r.nazev; $("fk-a").value = r.adresa; $("fk-d").value = r.dic || ""; setStatus("Načteno z ARES", true); }
+        catch (er) { setStatus(er.message || String(er)); } b.disabled = false;
+      });
+      $("fk-go").addEventListener("click", async function () {
+        var pol = []; nova.querySelectorAll(".fk-r").forEach(function (r) { var t = r.querySelector(".fk-t").value.trim(), k = Math.round(+r.querySelector(".fk-k").value); if (t || k) pol.push({ text: t, kc: k }); });
+        var odb = { nazev: $("fk-n").value, adresa: $("fk-a").value, ico: $("fk-ico").value, dic: $("fk-d").value, email: $("fk-e").value }, poslat = $("fk-o").checked && !!odb.email.trim();
+        var celkem = pol.reduce(function (a, p) { return a + (p.kc || 0); }, 0);
+        if (!(await potvrd("Vystavit fakturu pro " + (odb.nazev || "?") + " na " + kc(celkem) + (poslat ? " a poslat ji na " + odb.email : "") + "? Číslo faktury se tím použije.", "Vystavit"))) return;
+        var b = this; b.disabled = true;
+        try {
+          var r = await K.zavolej({ akce: "spravce-faktura-nova", centrum_id: $("fk-c").value || null, odberatel: odb, polozky: pol, mesicu: +$("fk-m").value, splatnost_dni: +$("fk-s").value, odeslat: poslat });
+          setStatus("Faktura č. " + r.faktura.cislo + " vystavená" + (r.odeslano ? " a odeslaná na " + r.odeslano : r.chyba ? ", ale neodešla: " + r.chyba : ""), !r.chyba);
+          filtr = "ceka"; await nacist(); formular();
+        } catch (er) { setStatus("Fakturu se nepodařilo vystavit: " + (er.message || er)); }
+        b.disabled = false;
+      });
+    }
+    async function nacist() {
+      try { var r = await K.zavolej({ akce: "spravce-faktury" }); FK = r.faktury || []; CE = r.centra || []; UCET = r.ucet !== false; kresli(); }
+      catch (e) { box.innerHTML = '<h2>Faktury</h2><p class="badbox" style="margin-top:10px">' + esc(e.message || e) + '</p>'; }
+    }
+    box.innerHTML = '<h2>Faktury</h2><p class="sub" style="margin-top:8px">Načítám…</p>';
+    await nacist(); formular();
+  }
   async function stahniPrijmy(rok) {   // CSV for Excel (semicolons, UTF-8 BOM): one row per paid order, by payment date
     try {
       var r = await K.zavolej({ akce: "spravce-prijmy", rok: rok }), PR = r.produkty || {}, P = r.prijmy || [];
@@ -4782,7 +4883,9 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       var sum = 0;
       P.forEach(function (o) { var y = new Date(o.zaplaceno).getFullYear(); sum += +o.kc || 0;
         radky.push([den(o.zaplaceno), "D" + y + "-" + String(o.id).padStart(4, "0"), o.id, o.email, zemeJm(o.zeme || o.zeme_ip), (PR[o.produkt] || { jm: o.produkt }).jm, o.kc, o.autor ? "zapsáno ručně (viz poznámka)" : "bankovní převod, VS " + o.id, o.poznamka || ""]); });
-      radky.push([]); radky.push(["Celkem " + rok, "", "", "", "", "plateb: " + P.length, sum, "", "Prodávající není plátce DPH"]);
+      (r.faktury || []).forEach(function (f) { var o = f.odberatel || {}; sum += +f.kc || 0;
+        radky.push([den(f.zaplaceno), "faktura " + f.cislo, "", (o.nazev || "") + (o.ico ? ", IČO " + o.ico : ""), o.ico ? "Česko" : "", (f.polozky || []).map(function (p) { return p.text; }).join(" + "), f.kc, "bankovní převod, VS " + f.cislo, f.poznamka || ""]); });
+      radky.push([]); radky.push(["Celkem " + rok, "", "", "", "", "plateb: " + (P.length + (r.faktury || []).length), sum, "", "Prodávající není plátce DPH"]);
       var csv = "\uFEFF" + radky.map(function (x) { return x.map(q).join(";"); }).join("\r\n");
       var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = "glowguss-prijmy-" + rok + ".csv";
       document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
