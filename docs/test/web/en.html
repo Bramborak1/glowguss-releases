@@ -165,6 +165,8 @@ figure{margin:0}
 .cena li{display:flex;gap:10px}
 .cena li::before{content:"";flex:none;width:18px;height:18px;margin-top:3px;border-radius:50%;background:rgba(126,226,176,.15) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 12.5l4 4 8-9' fill='none' stroke='%237EE2B0' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/12px no-repeat}
 .cena .btn{margin-top:auto;justify-content:center}
+.centrum-pas{margin-top:26px;display:flex;flex-wrap:wrap;gap:14px 24px;align-items:center;justify-content:space-between;padding:20px 24px;border-radius:18px;border:1px dashed #3A3F4B}
+.centrum-pas b{display:block;font-size:17px}.centrum-pas span{color:var(--fg2);font-size:15px}
 .coins{margin-top:28px;display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:center;padding:24px 26px;border-radius:18px;background:rgba(255,193,77,.06);border:1px solid rgba(255,193,77,.22)}
 .coins .tab{display:grid;grid-template-columns:repeat(4,auto);justify-content:start;gap:6px 18px;font-size:15px;color:var(--fg2)}
 .coins .tab b{color:var(--fg)}
@@ -405,8 +407,15 @@ footer .wrap{display:flex;gap:18px;flex-wrap:wrap;align-items:center;justify-con
         <h3>Monthly</h3>
         <p class="kdo">For sauna masters who want to start now, no commitment.</p>
         <div class="cislo">€16 <small>/ month</small></div>
-        <p class="kdo" style="margin-top:6px">or <b style="color:var(--fg)">€42 for 3 months</b> (€14 a month)</p>
         <ul><li>Unlimited shows and saunas</li><li>30 Glowcoins every month for Glowy AI</li><li>Up to 2 devices, e.g. computer and phone</li><li>All new features included</li><li>Cancel anytime</li></ul>
+        <a class="btn btn-ghost" href="../">Try for free</a>
+      </div>
+      <div class="cena">
+        <span class="stit" style="background:#2E323C">Save €6</span>
+        <h3>3 months</h3>
+        <p class="kdo">For one season or preparing for a competition.</p>
+        <div class="cislo">€42 <small>/ 3 months</small></div>
+        <ul><li>Everything in Monthly</li><li>Works out at €14 a month</li></ul>
         <a class="btn btn-ghost" href="../">Try for free</a>
       </div>
       <div class="cena hl">
@@ -416,13 +425,6 @@ footer .wrap{display:flex;gap:18px;flex-wrap:wrap;align-items:center;justify-con
         <div class="cislo">€155 <small>/ year</small></div>
         <ul><li>Everything in Monthly</li><li><b style="color:var(--fg)">+100 bonus Glowcoins right at the start</b></li></ul>
         <a class="btn btn-main" href="../">Try for free</a>
-      </div>
-      <div class="cena">
-        <h3>Spa</h3>
-        <p class="kdo">For wellness centres with several saunas and sauna masters.</p>
-        <div class="cislo">Custom</div>
-        <ul><li>Licences for all your sauna masters</li><li>Shared saunas and team management</li><li>Glowcoins in bulk</li></ul>
-        <a class="btn btn-ghost" href="mailto:glowguss@gmail.com?subject=Glowguss%20for%20our%20spa">Contact us</a>
       </div>
     </div>
 
@@ -439,6 +441,10 @@ footer .wrap{display:flex;gap:18px;flex-wrap:wrap;align-items:center;justify-con
       </div>
     </div>
     <p class="info">Order your licence right in the app and pay by bank transfer.</p>
+    <div class="centrum-pas">
+      <div><b>Running a spa or wellness centre?</b><span>Licences for your whole sauna team, shared saunas and Glowcoins in bulk. We'll prepare a custom price.</span></div>
+      <a class="btn btn-ghost" href="#centra">Licences for spas</a>
+    </div>
   </div>
 </section>
 
