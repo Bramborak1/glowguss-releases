@@ -32,7 +32,7 @@ footer a{color:var(--fg2)}
 <main><div class="wrap">
 <h1>Zásady ochrany osobních údajů</h1>
 <p class="ver">Verze 2026-11-23 · platné od 23. 11. 2026</p>
-<p class="lead">Krátce: hudbu nikam neposíláme, rozbor probíhá jen ve tvém prohlížeči. Na serveru máme jen to, co je potřeba k účtu, licenci a uložení tvých show. Nepoužíváme reklamní ani analytické cookies a nikomu tvoje data neprodáváme.</p>
+<p class="lead">Krátce: rozbor hudby probíhá jen ve tvém prohlížeči. Hudbu tvých show ukládáme do tvého soukromého úložiště, aby ti šla i na dalších zařízeních; přístup k ní má jen tvůj účet. Na serveru máme jen to, co je potřeba k účtu, licenci a uložení tvých show. Nepoužíváme reklamní ani analytické cookies a nikomu tvoje data neprodáváme.</p>
 
 <h2>1. Kdo tvoje údaje zpracovává</h2>
 <p>Správcem osobních údajů je Milan Dvořák, IČO 08596123, se sídlem U Zlatého potoka 270, 251 63 Kunice, fyzická osoba podnikající podle živnostenského zákona (dále „Glowguss“ nebo „my“). Napsat nám můžeš na <a href="mailto:glowguss@gmail.com">glowguss@gmail.com</a>. Pověřence pro ochranu osobních údajů nemáme, protože to zákon u takto malé služby nevyžaduje.</p>
@@ -42,7 +42,7 @@ footer a{color:var(--fg2)}
 <tr><th>Údaje</th><th>K čemu</th><th>Právní důvod (GDPR čl. 6)</th></tr>
 <tr><td><b>Účet:</b> e-mail, heslo (uložené jen jako šifrovaný otisk), u přihlášení přes Google také jméno a profilová fotka z Google účtu</td><td>přihlášení, obnova hesla, komunikace o službě</td><td>plnění smlouvy, odst. 1 písm. b)</td></tr>
 <tr><td><b>Licence a Glowcoiny:</b> typ licence, platnost, zkušební verze, pohyby Glowcoinů, objednávky (včetně země, kterou při objednávce uvedeš, a země podle připojení kvůli DPH), údaje o platbách a dokladech</td><td>poskytnutí placené služby, účetnictví</td><td>plnění smlouvy, písm. b); u účetních dokladů právní povinnost, písm. c)</td></tr>
-<tr><td><b>Tvoje práce:</b> show, nastavení saun, složky, rozbor hudby jako čísla (tempo, beaty, hlasitost částí), názvy skladeb, texty a scénáře, které do aplikace sám vložíš</td><td>uložení a záloha, abys měl show na všech svých zařízeních</td><td>plnění smlouvy, písm. b)</td></tr>
+<tr><td><b>Tvoje práce:</b> show, nastavení saun, složky, rozbor hudby jako čísla (tempo, beaty, hlasitost částí), názvy skladeb, texty a scénáře, které do aplikace sám vložíš; <b>hudba show</b> (soubor MP3, nebo FLAC, když si zapneš bezztrátové ukládání)</td><td>uložení a záloha, abys měl show na všech svých zařízeních</td><td>plnění smlouvy, písm. b)</td></tr>
 <tr><td><b>Zařízení:</b> náhodné ID prohlížeče a popis typu „Windows, Chrome (aplikace)“, čas posledního použití</td><td>limit zařízení na jednu licenci (2 zařízení)</td><td>plnění smlouvy, písm. b)</td></tr>
 <tr><td><b>Hlídání sdílení licence:</b> u každého požadavku na server účet, ID zařízení, <b>zkrácená</b> IP adresa (bez posledního čísla, např. 89.24.113.x), země a případně město odvozené z IP, hodina a počet požadavků; „otisk“ analyzované hudby (počet a poloha beatů, ne hudba)</td><td>odhalení sdílení jedné licence více lidmi, ochrana proti zneužití zkušební verze, bezpečnost</td><td>oprávněný zájem, písm. f): ochrana před zneužitím placené služby</td></tr>
 <tr><td><b>Učení programu</b> (jen když ho zapneš): čísla o hudbě a co jsi v návrhu zvolil nebo změnil</td><td>zlepšování návrhů světel pro všechny</td><td>souhlas, písm. a); jde kdykoli vypnout v aplikaci</td></tr>
@@ -50,7 +50,7 @@ footer a{color:var(--fg2)}
 <tr><td><b>E-mailová komunikace:</b> co nám napíšeš</td><td>odpověď, podpora</td><td>oprávněný zájem, písm. f), u objednávky plnění smlouvy</td></tr>
 <tr><td><b>Technické záznamy hostingu:</b> IP adresa, čas, prohlížeč (záznamy vedené poskytovateli hostingu)</td><td>provoz a bezpečnost webu</td><td>oprávněný zájem, písm. f)</td></tr>
 </table>
-<p><b>Hudbu samotnou neukládáme ani nikam neposíláme.</b> Soubory zůstávají ve tvém zařízení, server dostává jen čísla z rozboru.</p>
+<p><b>Hudba show:</b> rozbor běží ve tvém zařízení. Hotovou stopu show pak aplikace uloží do soukromého úložiště (Supabase Storage, EU) do složky, ke které má přístup jen tvůj účet, abys show měl i s hudbou na všech svých zařízeních. Hudbu nikomu nedáváme, neposloucháme ji a nepoužíváme ji k učení programu ani pro Glowy AI. Smaže se se smazáním show nebo účtu. Místo na hudbu je omezené na 2 GB na účet.</p>
 <p>Do textů a scénářů pro Glowyho prosím nepiš citlivé údaje o sobě ani o jiných lidech, nejsou k ničemu potřeba.</p>
 
 <h2>3. Automatické rozhodování</h2>
@@ -72,7 +72,7 @@ footer a{color:var(--fg2)}
 
 <h2>5. Jak dlouho údaje držíme</h2>
 <ul>
-<li>účet, show a nastavení: po dobu trvání účtu; po jeho zrušení je smažeme do 30 dnů (ze záloh hostingu zmizí nejpozději po 30 dnech)</li>
+<li>účet, show s hudbou a nastavení: po dobu trvání účtu (hudbu show smažeš i se smazáním show); po jeho zrušení je smažeme do 30 dnů (ze záloh hostingu zmizí nejpozději po 30 dnech)</li>
 <li>záznamy hlídání sdílení: 90 dnů, pak se automaticky mažou</li>
 <li>údaje o zařízeních: dokud zařízení neodebereš nebo nezrušíš účet</li>
 <li>faktury a účetní doklady: po dobu, kterou ukládají zákony o účetnictví a daních (obvykle 5 až 10 let)</li>
@@ -88,8 +88,8 @@ footer a{color:var(--fg2)}
 <tr><td>svetla-session, glowguss-pkce, glowguss-nove-heslo</td><td>přihlášení (tvůj přihlašovací token), dokončení přihlášení přes Google, obnova hesla</td></tr>
 <tr><td>glowguss-zarizeni</td><td>náhodné ID tohoto prohlížeče pro limit zařízení</td></tr>
 <tr><td>glowguss-vlastnik</td><td>aby po přihlášení jiného účtu na stejném zařízení nezůstala vidět data předchozího</td></tr>
-<tr><td>databáze „glowguss“ (IndexedDB)</td><td>tvoje show, sauny a rozbory, aby aplikace fungovala rychle a i bez připojení</td></tr>
-<tr><td>glowguss-motiv, glowguss-hlasitost, glowguss-glowy, glowguss-slozky-zavrene, glowguss-uceni, glowguss-kredity, glowguss-souhlas</td><td>tvoje volby: světlý/tmavý vzhled, hlasitost, zapnutý Glowy, zavřené složky, zapnuté učení, zobrazený zůstatek, potvrzení podmínek</td></tr>
+<tr><td>databáze „glowguss“ (IndexedDB)</td><td>tvoje show, sauny, rozbory a hudba show, aby aplikace fungovala rychle a i bez připojení</td></tr>
+<tr><td>glowguss-motiv, glowguss-hlasitost, glowguss-glowy, glowguss-slozky-zavrene, glowguss-uceni, glowguss-kredity, glowguss-souhlas, glowguss-bezztratove</td><td>tvoje volby: světlý/tmavý vzhled, hlasitost, zapnutý Glowy, zavřené složky, zapnuté učení, zobrazený zůstatek, potvrzení podmínek, bezztrátové ukládání hudby</td></tr>
 </table>
 <p>Všechno můžeš smazat v nastavení prohlížeče (vymazání dat webu). Odhlášením se data účtu z prohlížeče smažou.</p>
 
