@@ -4763,10 +4763,31 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         dl(P.chyba ? "–" : P.cekajici, "Čekající objednávky", "klikni a označ zaplacené", "#E0338A", "#/sprava/objednavky") +
         dl(P.chyba ? "–" : P.cerpano_mesic, "Glowcoiny utracené", (P.akci_mesic || 0) + " AI akcí tento měsíc, AI stálo asi " + kc((P.cerpano_mesic || 0) * 0.45), "#7B2FF7") +
         dl(U.length, "Účty celkem", novi.length + " nových za 7 dní · " + vypr.length + " vypršelých", "#9AA0AE", "#/sprava/uzivatele") + '</div>';
+      var E = P.eu_rok, lim = 250000;
+      h += '<section class="card" style="margin-top:16px"><div class="row between" style="gap:10px;flex-wrap:wrap"><h2>Prodej do jiných zemí EU letos</h2><b style="font-family:var(--f-num)">' + (E ? kc(E.kc) + ' z ~' + kc(lim) : '–') + '</b></div>' +
+        (E ? '<div style="height:10px;border-radius:6px;background:var(--line);margin-top:10px;overflow:hidden"><div style="height:100%;width:' + Math.min(100, E.kc / lim * 100).toFixed(1) + '%;background:' + (E.kc > lim * 0.7 ? '#E0338A' : E.kc > lim * 0.4 ? '#FF8A3D' : '#9BE38A') + '"></div></div>' +
+          '<p class="note" style="margin-top:8px">Limit je 10 000 € za kalendářní rok (asi 250 000 Kč). Nad ním se účtuje DPH země zákazníka. ' + (E.kc > lim * 0.7 ? '<b>Blížíš se k limitu: je čas přepnout zahraniční platby na Lemon Squeezy.</b> ' : '') + E.pocet + ' objednávek' + (E.mimo_eu ? ' · mimo EU ' + kc(E.mimo_eu) + ' (do limitu se nepočítá)' : '') + (E.bez_zeme ? ' · ' + E.bez_zeme + ' starších bez země' : '') + '</p>'
+          : '<p class="note" style="margin-top:8px">Země u objednávek se začne ukládat, až v Supabase spustíš <b>objednavky_zeme.sql</b>.</p>') + '</section>';
       if (konci.length) h += '<section class="card" style="margin-top:16px"><h2>Končí do 30 dní</h2><div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">' + konci.map(function (u) {
         return '<div class="row between" style="gap:10px;flex-wrap:wrap;border:1px solid var(--line);border-radius:10px;padding:8px 12px"><b style="overflow-wrap:anywhere">' + esc(u.email) + '</b><span class="sub">' + (u.zkusebni ? "zkušební do " : "licence do ") + new Date(u.plati_do).toLocaleDateString("cs-CZ") + '</span></div>'; }).join("") + '</div></section>';
       box.innerHTML = h;
     } catch (e) { box.innerHTML = '<p class="badbox" style="margin-top:16px">Přehled se nepodařilo načíst: ' + esc(e.message || e) + '</p>'; }
+  }
+  async function stahniPrijmy(rok) {   // CSV for Excel (semicolons, UTF-8 BOM): one row per paid order, by payment date
+    try {
+      var r = await K.zavolej({ akce: "spravce-prijmy", rok: rok }), PR = r.produkty || {}, P = r.prijmy || [];
+      var q = function (v) { v = String(v == null ? "" : v); return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+      var den = function (t) { return t ? new Date(t).toLocaleDateString("cs-CZ", { timeZone: "Europe/Prague" }) : ""; };
+      var radky = [["Datum zaplacení", "Doklad", "Objednávka", "Zákazník", "Země", "Předmět", "Částka Kč", "Úhrada", "Poznámka"]];
+      var sum = 0;
+      P.forEach(function (o) { var y = new Date(o.zaplaceno).getFullYear(); sum += +o.kc || 0;
+        radky.push([den(o.zaplaceno), "D" + y + "-" + String(o.id).padStart(4, "0"), o.id, o.email, zemeJm(o.zeme || o.zeme_ip), (PR[o.produkt] || { jm: o.produkt }).jm, o.kc, o.autor ? "zapsáno ručně (viz poznámka)" : "bankovní převod, VS " + o.id, o.poznamka || ""]); });
+      radky.push([]); radky.push(["Celkem " + rok, "", "", "", "", "plateb: " + P.length, sum, "", "Prodávající není plátce DPH"]);
+      var csv = "\uFEFF" + radky.map(function (x) { return x.map(q).join(";"); }).join("\r\n");
+      var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = "glowguss-prijmy-" + rok + ".csv";
+      document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      setStatus("Staženo: " + P.length + " plateb za " + rok + ", celkem " + kc(sum), true);
+    } catch (e) { setStatus("Příjmy se nepodařilo stáhnout: " + (e.message || e)); }
   }
   function fioRadek(F) {   // automatic payment matching through Fio: on, off, or what went wrong
     if (!F || !F.zapnuto) return '<p class="note" style="margin-top:8px">Automatické párování plateb je vypnuté. Zapne se, až do Supabase Secrets přidáš <b>FIO_TOKEN</b> (token jen pro čtení z Fio banky).</p>';
@@ -4788,13 +4809,15 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">' + (V.length ? V.map(function (o) {
           var p = PR[o.produkt] || { jm: o.produkt }, st = STAV[o.stav] || [o.stav, "#9AA0AE"];
           return '<div style="border:1px solid var(--line);border-left:4px solid ' + st[1] + ';border-radius:12px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center">' +
-            '<div style="flex:1 1 260px;min-width:0"><b>č. ' + o.id + ' · ' + esc(p.jm) + ' · ' + kc(o.kc) + '</b><div class="sub" style="overflow-wrap:anywhere">' + esc(o.email) + ' · ' + new Date(o.kdy).toLocaleString("cs-CZ", { day: "numeric", month: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) +
+            '<div style="flex:1 1 260px;min-width:0"><b>č. ' + o.id + ' · ' + esc(p.jm) + ' · ' + kc(o.kc) + '</b>' + (o.zeme || o.zeme_ip ? ' <span class="sub" title="' + esc(zemeJm(o.zeme || o.zeme_ip)) + (o.zeme_ip && o.zeme && o.zeme_ip !== o.zeme ? ', připojení z ' + esc(zemeJm(o.zeme_ip)) : '') + '">· ' + esc(o.zeme || o.zeme_ip) + (o.zeme_ip && o.zeme && o.zeme_ip !== o.zeme ? '?' : '') + '</span>' : '') + '<div class="sub" style="overflow-wrap:anywhere">' + esc(o.email) + ' · ' + new Date(o.kdy).toLocaleString("cs-CZ", { day: "numeric", month: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) +
             ' · <span style="color:' + st[1] + '">' + st[0] + (o.zaplaceno ? " " + new Date(o.zaplaceno).toLocaleDateString("cs-CZ") : "") + '</span>' + (o.autor ? ' · zapsal ' + esc(o.autor) : '') + (o.poznamka ? ' · ' + esc(o.poznamka) : '') + '</div></div>' +
             (o.stav === "ceka" ? '<div class="row" style="gap:6px"><button class="btn small primary ob-z" data-id="' + o.id + '" type="button">Zaplaceno</button><button class="btn small ob-x" data-id="' + o.id + '" type="button" style="color:var(--bad)">Zrušit</button></div>' : o.stav === "zruseno" ? '<button class="btn small ob-c" data-id="' + o.id + '" type="button">Vrátit mezi čekající</button>' : '') + '</div>';
         }).join("") : '<p class="sub">Žádné objednávky.</p>') + '</div>' +
+        '<div class="row" style="gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center"><span class="sub">Příjmy pro účetní:</span><select id="ob-rok" style="width:auto">' + [0, 1, 2].map(function (i) { var y = new Date().getFullYear() - i; return '<option>' + y + '</option>'; }).join("") + '</select><button class="btn small" id="ob-csv" type="button">Stáhnout příjmy za rok</button></div>' +
         '<details class="more" style="margin-top:14px"><summary>Zapsat objednávku ručně (platba jinak než přes aplikaci)</summary><div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px">' +
         '<input type="email" id="ob-mail" placeholder="e-mail účtu" style="flex:1 1 200px"><select id="ob-pr" style="flex:1 1 200px">' + opt + '</select><input type="number" id="ob-kc" placeholder="Kč (jinak ceník)" style="width:150px"><input type="text" id="ob-pz" placeholder="poznámka (faktura, hotově…)" style="flex:1 1 200px"><button class="btn primary" id="ob-nova" type="button">Zapsat</button></div></details>';
       on($("ob-f"), "button", "click", function (e, b) { filtr = b.dataset.f; kresli(); });
+      $("ob-csv").addEventListener("click", function () { stahniPrijmy(+$("ob-rok").value); });
       if ($("ob-fio")) $("ob-fio").addEventListener("click", function () { this.disabled = true; this.textContent = "Kontroluju…"; nacist(true); });
       var zmen = async function (id, stav, ot) {
         if (ot && !(await potvrd(ot[0], ot[1]))) return;
@@ -4871,11 +4894,21 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
           '<div class="row" style="gap:8px;align-items:center">' + glowcoin(22) + '<b style="font-size:22px;font-family:var(--f-num)">' + b.n + '</b>' + (b.tip ? '<span class="badge" style="margin-left:auto">' + b.tip + '</span>' : '') + '</div>' +
           '<span class="sub">' + gcShow(b.n) + '</span><button type="button" class="btn ' + (b.tip === "nejoblíbenější" ? 'primary' : '') + ' small gc-koupit" data-i="' + i + '">Koupit za ' + b.kc + ' Kč</button></div>';
       }).join("") + '</div>' +
-      (GC_PLATBA ? '' : '<p class="note" style="margin-top:8px">Zatím platíš převodem: po objednávce ti pošleme platební údaje e-mailem. Platba kartou bude brzy.</p>');
+      (GC_PLATBA ? '' : '<p class="note" style="margin-top:8px">Zatím platíš převodem: po objednávce hned uvidíš QR kód pro platbu. Platba kartou bude brzy.</p>');
   }
   // before any purchase: the buyer asks for immediate performance and confirms what that means for the 14-day withdrawal right
   // (Glowcoins = digital content: right lost once credited, Directive 2011/83/EU art. 16(m), § 1837 l) OZ; licence = service: proportional payment, § 1834 OZ)
-  function souhlasNakupu(druh, popis) {   // -> Promise of null (cancelled) or {kdy, text}
+  // countries for the order (EU sales abroad are tracked against the 10 000 EUR limit)
+  var ZEME = [["CZ", "Česko"], ["SK", "Slovensko"], ["DE", "Německo"], ["AT", "Rakousko"], ["PL", "Polsko"], ["HU", "Maďarsko"], ["BE", "Belgie"], ["BG", "Bulharsko"], ["HR", "Chorvatsko"], ["CY", "Kypr"], ["DK", "Dánsko"], ["EE", "Estonsko"], ["FI", "Finsko"], ["FR", "Francie"], ["GR", "Řecko"], ["IE", "Irsko"], ["IT", "Itálie"], ["LT", "Litva"], ["LU", "Lucembursko"], ["LV", "Lotyšsko"], ["MT", "Malta"], ["NL", "Nizozemsko"], ["PT", "Portugalsko"], ["RO", "Rumunsko"], ["SE", "Švédsko"], ["SI", "Slovinsko"], ["ES", "Španělsko"], ["GB", "Velká Británie"], ["CH", "Švýcarsko"], ["NO", "Norsko"], ["XX", "Jiná země mimo EU"]];
+  function zemeJm(k) { var z = ZEME.filter(function (x) { return x[0] === k; })[0]; return z ? z[1] : k || ""; }
+  function mojeZeme() {
+    var z = ""; try { z = localStorage.getItem("glowguss-zeme") || ""; } catch (e) {}
+    if (z) return z;
+    var l = String(navigator.language || "cs").toLowerCase(), m = { cs: "CZ", sk: "SK", de: "DE", pl: "PL", hu: "HU", fr: "FR", it: "IT", nl: "NL", es: "ES", pt: "PT", sv: "SE", da: "DK", fi: "FI", et: "EE", lt: "LT", lv: "LV", sl: "SI", hr: "HR", ro: "RO", bg: "BG", el: "GR", nb: "NO", no: "NO" };
+    var reg = (l.split("-")[1] || "").toUpperCase();
+    return ZEME.some(function (x) { return x[0] === reg; }) ? reg : m[l.split("-")[0]] || "CZ";
+  }
+  function souhlasNakupu(druh, popis) {   // -> Promise of null (cancelled) or {kdy, text, zeme}
     var text = druh === "glowcoiny"
       ? "Chci Glowcoiny hned. Beru na vědomí, že jejich prvním použitím ztrácím právo odstoupit. Celý nepoužitý balíček můžu vrátit do 14 dnů."
       : "Chci, aby licence běžela hned. Beru na vědomí, že když do 14 dnů odstoupím, zaplatím poměrnou část za dobu, kdy běžela, a Glowcoiny z licence propadnou.";
@@ -4884,12 +4917,13 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       d.setAttribute("role", "dialog"); d.setAttribute("aria-modal", "true");
       d.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);display:grid;place-items:center;z-index:999;padding:16px";
       d.innerHTML = '<section class="card" style="max-width:480px;width:100%"><h2 style="margin:0">Před nákupem</h2><p class="sub" style="margin:6px 0 0"><b>' + esc(popis) + '</b></p>' +
+        '<label style="display:block;margin-top:14px"><span class="sub">Země, kde žiješ (podnikáš)</span><select id="sn-zeme" style="width:100%;margin-top:4px">' + ZEME.map(function (z) { return '<option value="' + z[0] + '"' + (z[0] === mojeZeme() ? ' selected' : '') + '>' + z[1] + '</option>'; }).join("") + '</select></label>' +
         '<label class="row" style="flex-wrap:nowrap;gap:10px;align-items:flex-start;margin-top:14px;cursor:pointer"><input type="checkbox" class="sn-ok" style="width:20px;height:20px;flex:none;margin-top:2px"><span>' + esc(text) + '</span></label>' +
         '<label class="row" style="flex-wrap:nowrap;gap:10px;align-items:flex-start;margin-top:10px;cursor:pointer"><input type="checkbox" class="sn-ok" style="width:20px;height:20px;flex:none;margin-top:2px"><span>' + souhlasText() + '</span></label>' +
         '<div class="row" style="gap:8px;justify-content:flex-end;margin-top:16px"><button type="button" class="btn" data-v="0">Zrušit</button><button type="button" class="btn primary" data-v="1" disabled>Pokračovat k objednávce</button></div></section>';
       var ok = d.querySelector('[data-v="1"]'), boxy = d.querySelectorAll(".sn-ok");
       Array.prototype.forEach.call(boxy, function (b) { b.addEventListener("change", function () { ok.disabled = !Array.prototype.every.call(boxy, function (x) { return x.checked; }); }); });
-      var hotovo = function (v) { document.removeEventListener("keydown", key); d.remove(); res(v ? { kdy: new Date().toISOString(), text: text } : null); };
+      var hotovo = function (v) { var z = d.querySelector("#sn-zeme").value; if (v) try { localStorage.setItem("glowguss-zeme", z); } catch (e) {} document.removeEventListener("keydown", key); d.remove(); res(v ? { kdy: new Date().toISOString(), text: text, zeme: z } : null); };
       var key = function (e) { if (e.key === "Escape") hotovo(false); };
       d.addEventListener("click", function (e) { var b = e.target.closest("button[data-v]"); if (b && !b.disabled) hotovo(b.dataset.v === "1"); else if (e.target === d) hotovo(false); });
       document.addEventListener("keydown", key); document.body.appendChild(d); boxy[0].focus();
@@ -4906,7 +4940,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     }).join("");
     return '<h2>' + nadpis + '</h2><p class="sub" style="margin:6px 0 0">Všechny obsahují 30 Glowcoinů každý měsíc.</p>' +
       '<div class="row" style="gap:10px;margin-top:70px;flex-wrap:nowrap;align-items:stretch">' + dl + '</div>' +
-      '<p class="note" style="margin-top:8px">Zatím platíš převodem: po objednávce ti pošleme platební údaje e-mailem. Platba kartou bude brzy.</p>';
+      '<p class="note" style="margin-top:8px">Zatím platíš převodem: po objednávce hned uvidíš QR kód pro platbu. Platba kartou bude brzy.</p>';
   }
   function licenceZapoj(el) {
     on(el, ".lic-koupit", "click", async function (e, b) {
@@ -4949,7 +4983,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
   }
   async function objednavkaMailem(predmet, co, sn, produkt) {   // the order is saved on the server; no mail program needed (many people have none set up)
     var ja = String((K.session() || {}).email || ""), cislo = "", chyba = "", pl = null, auto = false;
-    if (produkt && REMOTE) { try { var o = await K.zavolej({ akce: "objednavka", produkt: produkt, souhlas: sn.text + " (" + sn.kdy + ")" }); if (o && o.objednavka) { cislo = String(o.objednavka.id); pl = o.platba || null; auto = !!o.automaticky; cekaPridej(cislo); } } catch (e) { chyba = e.message || String(e); } }
+    if (produkt && REMOTE) { try { var o = await K.zavolej({ akce: "objednavka", produkt: produkt, zeme: sn.zeme, souhlas: sn.text + " (" + sn.kdy + ")" }); if (o && o.objednavka) { cislo = String(o.objednavka.id); pl = o.platba || null; auto = !!o.automaticky; cekaPridej(cislo); } } catch (e) { chyba = e.message || String(e); } }
     if (cislo) predmet += " (č. " + cislo + ")";
     var d = document.createElement("div"); d.setAttribute("role", "dialog"); d.setAttribute("aria-modal", "true");
     d.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);display:grid;place-items:center;z-index:999;padding:16px";

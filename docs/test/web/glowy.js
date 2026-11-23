@@ -110,8 +110,8 @@
   // The hand rises past the far side, goes over the head with the towel spread flat above (like a pizzaiolo's dough),
   // comes down on its own side and sweeps low across the front, the towel always flying outwards from the circle.
   // Driven from JS (SMIL does not start in SVG added after load); in the corner two turns every ~11 s, stale = non-stop
-  var G8 = { S: [65, 76], C: [62, 46], R: 31, klid: [80, 92], bezi: false };
-  function g8Ruka(a) { return [G8.C[0] + G8.R * Math.cos(a), G8.C[1] - G8.R * 1.05 * Math.sin(a)]; }
+  var G8 = { S: [65, 76], C: [64, 15], RX: 28, RY: 20, klid: [80, 92], bezi: false };   // the circle sits high: the hand goes over the head, never across the neck
+  function g8Ruka(a) { return [G8.C[0] + G8.RX * Math.cos(a), G8.C[1] - G8.RY * Math.sin(a)]; }
   function g8Rucnik(fl) {   // towel in its own plane: grip at (0,0); x = out from the circle (-8..40), y = trailing side (0..30); two layers
     var a = -10, b = 48, w = 36, e = fl, q = function (v) { return v.toFixed(1); };
     var tel = "M" + a + " 0Q" + q((a + b) / 2) + " " + q(-2 + e * 0.3) + " " + b + " " + q(e * 0.4) + "Q" + q(b + 2 + e) + " " + q(w / 2) + " " + q(b + e * 0.6) + " " + q(w + e * 0.5) +
@@ -128,7 +128,7 @@
     // at rest: hanging straight down from the hand, the held edge on the left
     var X = [rx * sr * po + 0 * (1 - po), ry * sr * po + 1 * (1 - po)], Y = [tx * po + 1 * (1 - po), ty * po + 0 * (1 - po)];
     var mx = (G8.S[0] + x) / 2 + 6, my = (G8.S[1] + y) / 2 + 6, q = function (v) { return v.toFixed(3); };
-    return { ruka: "M" + G8.S[0] + " " + G8.S[1] + "Q" + mx.toFixed(1) + " " + my.toFixed(1) + " " + x.toFixed(1) + " " + y.toFixed(1), predni: y > 70 && po > 0.5,
+    return { ruka: "M" + G8.S[0] + " " + G8.S[1] + "Q" + mx.toFixed(1) + " " + my.toFixed(1) + " " + x.toFixed(1) + " " + y.toFixed(1), predni: false,
       tr: "matrix(" + q(X[0]) + " " + q(X[1]) + " " + q(Y[0] * 0.8) + " " + q(Y[1] * 0.8) + " " + x.toFixed(1) + " " + y.toFixed(1) + ")", R: g8Rucnik((1.2 + 3 * po) * Math.sin(tt * 9)) };
   }
   function g8Tik(now) {
@@ -142,7 +142,7 @@
       ch[0].setAttribute("d", f.ruka); ch[1].setAttribute("transform", f.tr);
       var tw = ch[1].children; tw[0].setAttribute("d", f.R[0]); tw[1].setAttribute("d", f.R[1]); tw[2].setAttribute("d", f.R[2]);
       var hl = el.parentNode.querySelector(".g8h");   // low in front the towel covers his body, otherwise it flies behind his head
-      if (hl) { var vpredu = el.compareDocumentPosition(hl) & 2; if (f.predni && !vpredu) el.parentNode.appendChild(el); else if (!f.predni && vpredu) el.parentNode.insertBefore(el, hl); }
+      if (hl) { var vpredu = el.compareDocumentPosition(hl) & 2; if (f.predni && !vpredu) el.parentNode.appendChild(el); else if (!f.predni && el.parentNode.firstChild !== el) el.parentNode.insertBefore(el, el.parentNode.firstChild); }   // behind his back: behind the body and the head
     }
     requestAnimationFrame(g8Tik);
   }
