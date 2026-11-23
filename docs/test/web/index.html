@@ -6,6 +6,9 @@
 <title>Glowguss – světelná show pro saunový ceremoniál</title>
 <meta name="description" content="Glowguss z tvé hudby a příběhu vyrobí světelnou show pro QuickDMX. Přesně na beat, s pravidly saunérů. Vytvořeno saunérem pro saunéry.">
 <meta name="theme-color" content="#0E0F13">
+<link rel="alternate" hreflang="cs" href="https://glowguss.com/">
+<link rel="alternate" hreflang="en" href="https://glowguss.com/en.html">
+
 <script>
 /* Who should go straight to the app instead of this page: the installed app (it starts here), logged-in users,
    returns from Google sign-in (?code=) and password-reset e-mails (#access_token), old app links (#/...). ?web shows the page anyway. */
@@ -17,6 +20,17 @@
     if ((window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone ||
         /[?&](code|error)=/.test(q) || /access_token|type=recovery|error_description|^#\//.test(h) ||
         localStorage.getItem("svetla-session")) location.replace(APP + q + h);
+  } catch (e) {}
+})();
+</script>
+<script>
+/* First visit from a browser that isn't Czech or Slovak: show the English page (a choice made with the CZ/EN button wins). */
+(function () {
+  try {
+    var j = localStorage.getItem("glowguss-jazyk");
+    if (j === "cs") return;
+    var l = (navigator.languages || [navigator.language || ""]).join(",").toLowerCase();
+    if (j === "en" || (l && !/(^|,)(cs|sk)/.test(l))) location.replace("en.html" + location.search + location.hash);
   } catch (e) {}
 })();
 </script>
@@ -38,6 +52,11 @@ img{max-width:100%;height:auto;display:block}
 .grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 
 /* top bar */
+.jazyk{margin-left:auto;padding:7px 11px;border:1px solid #3A3F4B;border-radius:10px;font-weight:700;font-size:14px;text-decoration:none;color:var(--fg2)}.jazyk:hover{color:var(--fg);border-color:#5A6070}
+header nav{margin-left:0!important}
+@media (max-width:980px){header .btn{margin-left:10px!important}}
+@media (min-width:981px){header nav{margin-left:auto!important}.jazyk{margin-left:0}}
+
 header{position:sticky;top:0;z-index:20;background:rgba(14,15,19,.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
 header .wrap{display:flex;align-items:center;gap:24px;height:68px}
 .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;text-decoration:none}
@@ -222,6 +241,7 @@ footer .wrap{display:flex;gap:18px;flex-wrap:wrap;align-items:center;justify-con
       <a href="#cenik">Ceník</a>
       <a href="#otazky">Otázky</a>
     </nav>
+    <a class="jazyk" href="en.html" hreflang="en" onclick="try{localStorage.setItem('glowguss-jazyk','en')}catch(e){}">EN</a>
     <a class="btn btn-main" href="../">Otevřít aplikaci</a>
   </div>
 </header>
