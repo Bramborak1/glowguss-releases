@@ -3503,6 +3503,38 @@ var qrcode = function() {
     while (lines.length && lines[lines.length - 1] === "") lines.pop();
     return (/^\uFEFF/.test(String(liveText)) ? "\uFEFF" : "") + lines.concat(add).join(nl) + nl;
   }
+  /* one shared Live page "Ceremoniály": one button per show that starts its whole timeline.
+     A new export of the same show (same title, or one of its earlier timelines) only points the old button at the new timeline. */
+  var CEREMONIALY = "Ceremoniály";
+  function pridejCeremonial(liveText, titul, tml, dosavadni) {
+    var t = tx(liveText || ""), nl = /\r\n/.test(t) ? "\r\n" : "\n", lines = t ? t.split(/\r?\n/) : [], trim = function () { while (lines.length && /^\s*$/.test(lines[lines.length - 1])) lines.pop(); }, bom = /^﻿/.test(String(liveText || "")) ? "﻿" : "";
+    var kl = function (s) { return ascii(String(s || "")).toLowerCase().trim(); }, stare = (dosavadni || []).map(kl);
+    var btn = function (k, i) { return ["[" + k + "]", "line = " + (Math.floor(i / 5) + 1), "column = " + (i % 5 + 1), "name = " + tml, "title = " + titul, "color = 14693258", "speed = auto_bpm", "beats = 0.000000", "masterspeedfader = 0"]; };
+    var sekce = function (i) { var m = lines[i] && lines[i].match(/^\s*\[(.+)\]\s*$/); return m ? m[1] : null; };
+    var konec = function (i) { for (var j = i + 1; j < lines.length; j++) if (sekce(j) != null) return j; return lines.length; };
+    var hodn = function (i, k) { for (var j = i + 1, e = konec(i); j < e; j++) { var m = lines[j].match(/^\s*([^=]+?)\s*=\s*(.*?)\s*$/); if (m && m[1] === k) return { j: j, v: m[2] }; } return null; };
+    trim(); var pc = null;
+    for (var i = 0; i < lines.length; i++) { var s = sekce(i), m = s && s.match(/^page(\d+)$/); if (m && kl((hodn(i, "name") || {}).v) === kl(CEREMONIALY)) { pc = m[1]; break; } }
+    if (pc == null) {
+      var out = pridejTlacitka(liveText || "[page]" + nl + "number = 0" + nl, [{ f: [["name", CEREMONIALY], ["swap", "yes"], ["live_mobile", "yes"], ["nb_buttons", "1"]], tlacitka: [{ k: "button1", f: btn("x", 0).slice(1).map(function (l) { var p = l.split(" = "); return [p[0], p.slice(1).join(" = ")]; }) }] }]);
+      return { text: out, novy: true, stranka: true };
+    }
+    var tl = [], posledni = -1, re = new RegExp("^page" + pc + "_button(\\d+)$");
+    for (i = 0; i < lines.length; i++) { var b = (sekce(i) || "").match(re); if (b) { tl.push({ i: i, k: +b[1], name: (hodn(i, "name") || {}).v, title: (hodn(i, "title") || {}).v, slot: ((+(hodn(i, "line") || {}).v || 1) - 1) * 5 + (+(hodn(i, "column") || {}).v || 1) - 1 }); posledni = Math.max(posledni, konec(i)); } }
+    var uz = tl.filter(function (x) { return kl(x.title) === kl(titul) || kl(x.name) === kl(tml) || stare.indexOf(kl(x.name)) >= 0; })[0];
+    if (uz) {
+      var hn = hodn(uz.i, "name"); lines[hn.j] = "name = " + tml;
+      var ht = hodn(uz.i, "title"); if (ht) lines[ht.j] = "title = " + titul;
+    } else {
+      var ip = lines.findIndex(function (l, j) { return sekce(j) === "page" + pc; }), kk = tl.reduce(function (a, x) { return Math.max(a, x.k); }, 0) + 1;
+      var kam = posledni >= 0 ? posledni : konec(ip);
+      var volne = 0; while (tl.some(function (x) { return x.slot === volne; })) volne++;   // first free place on the page (buttons may have been moved by hand)
+      lines.splice.apply(lines, [kam, 0].concat(btn("page" + pc + "_button" + kk, volne)));
+      var nb = hodn(ip, "nb_buttons"); if (nb) lines[nb.j] = "nb_buttons = " + (tl.length + 1); else lines.splice(ip + 1, 0, "nb_buttons = " + (tl.length + 1));
+    }
+    while (lines.length && lines[lines.length - 1] === "") lines.pop();
+    return { text: bom + lines.join(nl) + nl, novy: !uz, stranka: false };
+  }
   // light state at time t: every lane plays its last scene (looping), lanes merge highest-takes-precedence like QuickDMX
   function stav(plan, t, oi) {
     var out = {}, O = plan.osy[oi || 0]; if (!O) return out;
@@ -3532,7 +3564,7 @@ var qrcode = function() {
     return out;
   }
 
-  var api = { rucni: rucni, dekoduj: dekoduj, klic: klic, najdiCil: najdiCil, slouc: slouc, ODSTINY: ODSTINY, barvyShow: barvyShow, odstin: odstin, osy: osy, osyOf: osyOf, pridejTlacitka: pridejTlacitka, ctiOsu: ctiOsu, ctiScenu: ctiScenu, prevezmi: prevezmi, vychoziMapa: vychoziMapa, preved: preved, stav: stav, ascii: ascii, ROLE: ROLE };
+  var api = { rucni: rucni, dekoduj: dekoduj, klic: klic, najdiCil: najdiCil, slouc: slouc, ODSTINY: ODSTINY, barvyShow: barvyShow, odstin: odstin, osy: osy, osyOf: osyOf, pridejTlacitka: pridejTlacitka, pridejCeremonial: pridejCeremonial, CEREMONIALY: CEREMONIALY, ctiOsu: ctiOsu, ctiScenu: ctiScenu, prevezmi: prevezmi, vychoziMapa: vychoziMapa, preved: preved, stav: stav, ascii: ascii, ROLE: ROLE };
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.SvetlaPrevod = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
@@ -8004,7 +8036,8 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         if (chk.nalezu === 0) odesliUceni(show);
         if (chk.nalezu === 0) h[simple ? "unshift" : "push"]('<div class="row" style="gap:16px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-radius:16px;background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.3)">' + glowyPoza("predava", 130) +   // Glowy hands the packed zip over
           '<div style="flex:1 1 220px"><b style="display:block;font-size:17px">Tady máš, zabaleno!</b><span class="sub">' + (simple ? 'Zkontroloval jsem to: nic nesvítí bíle a kamna jen dýchají.' : 'Kontrola prošla: 0 nálezů (bílá, kamna, kolize řad).') + '</span>' +
-          '<div class="row" style="flex-wrap:wrap;margin-top:10px">' + (slozkaJde() ? '<button class="btn primary" id="p-qd">Uložit rovnou do QuickDMX</button><button class="btn" id="p-dl">Stáhnout zip</button>' : '<button class="btn primary" id="p-dl">Stáhnout ' + esc(v) + '_svetla.zip</button>') + '<span class="sub" id="p-dls"></span></div></div></div>');
+          '<div class="row" style="flex-wrap:wrap;margin-top:10px">' + (slozkaJde() ? '<button class="btn primary" id="p-qd">Uložit rovnou do QuickDMX</button><button class="btn" id="p-dl">Stáhnout zip</button>' : '<button class="btn primary" id="p-dl">Stáhnout ' + esc(v) + '_svetla.zip</button>') + '<span class="sub" id="p-dls"></span></div>' +
+          (slozkaJde() ? '<label class="row" style="flex-wrap:nowrap;gap:10px;align-items:flex-start;margin-top:10px;cursor:pointer;font-size:14px"><input type="checkbox" id="p-live" style="width:18px;height:18px;flex:none;margin-top:2px"' + (liveVolba() ? ' checked' : '') + '><span>Přidat tlačítko na Live, stránka „' + PR.CEREMONIALY + '“ <span class="note">(jedno tlačítko spustí celou show; při další verzi se jen přepne na novou osu)</span></span></label>' : '') + '</div></div>');
         else {
           var names = { BILA: "bílá nebo skoro bílá", PRECHOD: "přechod přes bílou", STRED: "kamna/střed blikají", "UV-TMA": "jen UV ve tmě", KOLIZE: "dvě řady na stejných světlech", CHYBI: "chybí scéna" };
           h.push('<div class="badbox"><b>Kontrola našla ' + chk.nalezu + ' problémů, zip se nevyrobí.</b><ul style="margin:8px 0 0;padding-left:18px">' + Object.keys(chk.vysledky).filter(function (k) { return k !== "UV-TMA" && chk.vysledky[k].length; }).map(function (k) { return '<li>' + esc(names[k] || k) + ': ' + chk.vysledky[k].length + ' × (např. ' + esc(chk.vysledky[k][0]) + ')</li>'; }).join("") + '</ul><p style="margin:8px 0 0">Napiš mi do projektu, podívám se, co to způsobilo.</p></div>');
@@ -8015,9 +8048,11 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         out.innerHTML = h.join("");
         if ($("p-dl")) $("p-dl").addEventListener("click", download);
         if ($("p-qd")) $("p-qd").addEventListener("click", function () { doSlozky(false); });
+        if ($("p-live")) $("p-live").addEventListener("change", function () { try { localStorage.setItem("glowguss-live-tlacitko", this.checked ? "1" : "0"); } catch (e) {} });
         }
       }, 30);
     });
+    function liveVolba() { try { return localStorage.getItem("glowguss-live-tlacitko") === "1"; } catch (e) { return false; } }
     // web in Chrome/Edge: write the light files straight into the sauna's QuickDMX project folder (chosen once, remembered per sauna)
     async function doSlozky(znovu) {
       if (!last || !last.ok || !last.r.files) return; var s = $("p-dls");
@@ -8032,6 +8067,14 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         }
         var files = Object.assign({}, last.r.files), n = 0, mf = G.soubor[show.id];
         if (mf && window.SvetlaAnalyza) { s.textContent = "Převádím hudbu na WAV pro QuickDMX…"; try { files[hudbaCesta(show)] = mf._hotovo ? mf : await window.SvetlaAnalyza.wav((await window.SvetlaAnalyza.nactiSoubor(mf)).puvodni); } catch (e) { mf = null; } }
+        var liveTl = null;
+        if ($("p-live") && $("p-live").checked && last.r.tmlPath) {   // one button for the whole show on the shared Live page (live.ini backed up first)
+          var cti = async function (cesta) { try { var dd = dir, c = cesta.split("/"); for (var j = 0; j < c.length - 1; j++) dd = await dd.getDirectoryHandle(c[j]); return await (await (await dd.getFileHandle(c[c.length - 1])).getFile()).text(); } catch (e) { return null; } };
+          var live = await cti("Live/live.ini"), tml = last.r.tmlPath.split("/").pop(), zal = "Live/live.ini.pred-glowguss-" + new Date().toISOString().slice(0, 10);
+          if (live != null && (await cti(zal)) == null) files[zal] = live;
+          liveTl = PR.pridejCeremonial(live, String(show.nazev || last.v).replace(/[~\r\n]+/g, " ").trim() || last.v, tml, [show.liveTlacitko, show.posledniBalicek && show.posledniBalicek.verze + ".tml"].filter(Boolean));
+          files["Live/live.ini"] = liveTl.text; liveTl.tml = tml;
+        }
         var cesty = Object.keys(files).sort();
         for (var i = 0; i < cesty.length; i++) {
           var cast = cesty[i].split("/"), d = dir;
@@ -8039,9 +8082,9 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
           var w = await (await d.getFileHandle(cast[cast.length - 1], { create: true })).createWritable(); await w.write(files[cesty[i]]); await w.close(); n++;
           if (i % 10 === 0) s.textContent = "Ukládám " + (i + 1) + " / " + cesty.length + "…";
         }
-        s.innerHTML = 'Uloženo do „' + esc(dir.name) + '“ (' + n + ' souborů' + (mf ? ', i s hudbou' : '') + '). V QuickDMX otevři časovou osu ' + esc(last.v) + '. <button type="button" class="btn small" id="p-qd2">Jiná složka</button>';
+        s.innerHTML = 'Uloženo do „' + esc(dir.name) + '“ (' + n + ' souborů' + (mf ? ', i s hudbou' : '') + '). ' + (liveTl ? (liveTl.novy ? 'Tlačítko je v Live na stránce „' + PR.CEREMONIALY + '“' + (liveTl.stranka ? ' (nová stránka)' : '') : 'Tlačítko v Live (stránka „' + PR.CEREMONIALY + '“) teď spouští ' + esc(last.v)) + ', QuickDMX restartuj. ' : 'V QuickDMX otevři časovou osu ' + esc(last.v) + '. ') + '<button type="button" class="btn small" id="p-qd2">Jiná složka</button>';
         $("p-qd2").addEventListener("click", function () { doSlozky(true); });
-        saveShow(show, { verze: nextVersion(last.v), posledniBalicek: { verze: last.v, kdy: new Date().toISOString() } });
+        saveShow(show, Object.assign({ verze: nextVersion(last.v), posledniBalicek: { verze: last.v, kdy: new Date().toISOString() } }, liveTl ? { liveTlacitko: liveTl.tml } : {}));
       } catch (e) { s.textContent = e && e.name === "AbortError" ? "" : "Uložení do složky se nepovedlo: " + errText(e) + ". Použij Stáhnout zip."; }
     }
     async function download() {
