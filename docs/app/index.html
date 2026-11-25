@@ -6437,7 +6437,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       on(body, ".mx-fin", "change", function (e, el) { list[+el.dataset.i].fadeIn = +el.value; });
       on(body, ".mx-p", "click", function (e, b) {
         var i = +b.dataset.i, it = list[i], r = rozsah(it); stop(); if (b.dataset.m === "stop" || !it.dur) return;
-        if (nahled.src.indexOf(it.url || "-") < 0) { if (!it.url) it.url = URL.createObjectURL(it.file); nahled.src = it.url; }
+        if (!it.url) it.url = URL.createObjectURL(it.file); if (nahled.src !== it.url) nahled.src = it.url;
         var od = b.dataset.m === "zac" ? r[0] : Math.max(r[0], r[1] - 8); nahledKonec = b.dataset.m === "zac" ? Math.min(r[1], r[0] + 10) : r[1]; nahledI = i;
         var pust = function () { nahled.currentTime = od; nahled.play().catch(function () {}); var tik = function () { if (nahled.currentTime >= nahledKonec) { stop(); kresli(i); return; } kresli(i); kresliT = requestAnimationFrame(tik); }; kresliT = requestAnimationFrame(tik); };
         if (nahled.readyState >= 1) pust(); else nahled.addEventListener("loadedmetadata", pust, { once: true });
