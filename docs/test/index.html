@@ -6678,6 +6678,16 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
     if (!h) return null;
     try { var q = await h.queryPermission({ mode: "readwrite" }); if (q !== "granted") q = await h.requestPermission({ mode: "readwrite" }); return q === "granted" ? h : null; } catch (e) { return null; }
   }
+  async function doplnAdresy(show) {   // generator files need the lights' DMX addresses: read them once from the sauna's QuickDMX folder
+    var SA = G.sauny[show.sauna];
+    if (!SA || (SA.adresy && Object.keys(SA.adresy).length) || !(show.casti || []).some(function (c) { return c.gen; }) || !slozkaJde()) return;
+    try {
+      var dir = await slozkaSauny(show.sauna); if (!dir) return;
+      var fi = await (await (await dir.getFileHandle("fixtures.ini")).getFile()).text(), a = {};
+      window.SvetlaImport.ini(fi).forEach(function (q) { if (q.id && +q.address > 0) a[q.id] = +q.address; });
+      if (Object.keys(a).length) { SA.adresy = a; planCache.key = ""; await G.db.doc("sauny/" + show.sauna).set(SA); }
+    } catch (e) {}
+  }
   async function ulozSlozku(id, h) { try { await idb(function (st) { return st.put(h, "sauna-" + id); }); } catch (e) {} }
   function saveShow(show, fields) { Object.assign(G.shows[show.id], clone(fields)); planCache.key = ""; return save("show/" + show.id, fields); }
 
@@ -6939,7 +6949,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       h.push('</div></div>');
       if (!simple) h.push('</div><div class="pcol">');
       // fine-tuning: colour family, movement, drums, colour per group
-      var R = G.recept, upr = !!(p.barva || p.pohyb || p.bici || p.stridani || (p.skupiny && Object.keys(p.skupiny).length) || (p.upravy && Object.keys(p.upravy).length) || (p.svetla && Object.keys(p.svetla).length));
+      var R = G.recept, upr = !!(p.barva || p.pohyb || p.bici || p.stridani || p.gen || (p.skupiny && Object.keys(p.skupiny).length) || (p.upravy && Object.keys(p.upravy).length) || (p.svetla && Object.keys(p.svetla).length));
       if (R.rodiny && R.pohyby) {
         h.push('<details class="more"' + (upr || st.doladit ? ' open' : '') + ' id="dolad"><summary>Doladit barvy a pohyb' + (upr ? ' · upraveno' : '') + '</summary><div style="display:flex;flex-direction:column;gap:14px;margin-top:12px">');
         h.push('<div class="field"><span class="lbl">Barevný tón části</span><div class="chips"><button type="button" class="chip dl-b" data-b="" aria-pressed="' + !p.barva + '">Automaticky</button>');
@@ -6948,7 +6958,9 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         h.push('<div class="row" style="gap:12px;flex-wrap:wrap"><div class="field" style="flex:1 1 140px"><label class="lbl" for="dl-p">Pohyb barvy</label><select id="dl-p"><option value="">Automaticky</option>');
         Object.keys(R.pohyby).forEach(function (k) { h.push('<option value="' + k + '"' + (p.pohyb === k ? ' selected' : '') + '>' + esc(R.pohyby[k]) + '</option>'); });
         h.push('</select></div><div class="field" style="flex:1 1 140px"><label class="lbl" for="dl-h">Reakce na bicí</label><select id="dl-h">' + [["", "Automaticky"], ["bez", "Bez reakce"], ["jemne", "Jemně"], ["naplno", "Naplno"]].map(function (o) { return '<option value="' + o[0] + '"' + ((p.bici || "") === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select></div></div>');
-        if (p.pohyb === "vlneni" || p.pohyb === "dva_svety") h.push('<div class="field"><label class="lbl" for="dl-b2">Druhá barva stěn (' + (p.pohyb === "vlneni" ? 'vlna se do ní přelévá' : 'druhá půlka sauny') + ')</label><select id="dl-b2"><option value="">Žádná</option>' +
+        h.push('<div class="field"><label class="lbl" for="dl-gen">Plynulé stěny (generátor QuickDMX)</label><select id="dl-gen">' + [["", "Ne, stěny jdou po krocích do rytmu"], ["ohen", "Oheň"], ["vlna", "Vlna dokola"], ["dech", "Dýchání"]].map(function (o) { return '<option value="' + o[0] + '"' + ((p.gen || "") === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") +
+          '</select><p class="note">Barvy na stěnách plynule přelévá sám QuickDMX a kamna pomalu dýchají. Lavice a voda jdou dál do rytmu, dropy a momenty příběhu se do stěn vloží. Oheň bez vybraných barev je červená a oranžová.' + (p.gen && G.sauny[show.sauna] && !(G.sauny[show.sauna].adresy && Object.keys(G.sauny[show.sauna].adresy).length) ? ' <b>Glowguss zatím nezná DMX adresy světel této sauny.</b> Načte si je sám, až show jednou uložíš „rovnou do QuickDMX“, do té doby jdou stěny po krocích.' : '') + '</p></div>');
+        if (p.pohyb === "vlneni" || p.pohyb === "dva_svety" || p.gen) h.push('<div class="field"><label class="lbl" for="dl-b2">Druhá barva stěn (' + (p.gen ? 'stěny do ní plynule přecházejí' : p.pohyb === "vlneni" ? 'vlna se do ní přelévá' : 'druhá půlka sauny') + ')</label><select id="dl-b2"><option value="">Žádná</option>' +
           Object.keys(R.barvyJmena || {}).filter(function (c) { return c !== "OFF"; }).map(function (c) { return '<option value="' + c + '"' + (p.barva2 === c ? ' selected' : '') + '>' + esc(R.barvyJmena[c]) + '</option>'; }).join("") + '</select><p class="note">Doplňkové barvy (modrá a zlatá, zelená a růžová) se v sauně slijí do bílé, takže je program nepustí vedle sebe a nechá jen první.</p></div>');
         var SB = p.stridaniBarvy || [];
         h.push('<div class="field"><label class="lbl" for="dl-st">Střídání barev (celá sauna skočí na další barvu, vždy na takt)</label><select id="dl-st">' + [["", "Vypnuto"], [2, "každé 2 s"], [4, "každé 4 s"], [8, "každých 8 s"], [16, "každých 16 s"]].map(function (o) { return '<option value="' + o[0] + '"' + (String(p.stridani || "") === String(o[0]) ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select>' +
@@ -7015,11 +7027,12 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         on($("partCard"), ".dl-b", "click", function (e, b) { if (b.dataset.b) p.barva = b.dataset.b; else delete p.barva; upd(); });
         $("dl-p").addEventListener("change", function () { if (this.value) p.pohyb = this.value; else delete p.pohyb; upd(); });
         $("dl-h").addEventListener("change", function () { if (this.value) p.bici = this.value; else delete p.bici; upd(); });
+        if ($("dl-gen")) $("dl-gen").addEventListener("change", function () { if (this.value) p.gen = this.value; else delete p.gen; upd(); });
         $("dl-st").addEventListener("change", function () { if (this.value) p.stridani = +this.value; else { delete p.stridani; delete p.stridaniBarvy; } upd(); });
         if ($("dl-sb")) on($("dl-sb"), ".dl-sw", "click", function (e, b) { var a0 = p.stridaniBarvy || [], c = b.dataset.c, ix = a0.indexOf(c); if (ix >= 0) a0.splice(ix, 1); else a0.push(c); if (a0.length) p.stridaniBarvy = a0; else delete p.stridaniBarvy; upd(); });
         if ($("dl-b2")) $("dl-b2").addEventListener("change", function () { if (this.value) p.barva2 = this.value; else delete p.barva2; upd(); });
         on($("partCard"), ".dl-g", "change", function (e, el) { p.skupiny = p.skupiny || {}; if (el.value) p.skupiny[el.dataset.g] = el.value; else delete p.skupiny[el.dataset.g]; upd(); });
-        if ($("dl-reset")) $("dl-reset").addEventListener("click", function () { delete p.barva; delete p.pohyb; delete p.bici; delete p.skupiny; delete p.upravy; delete p.svetla; delete p.stridani; delete p.stridaniBarvy; delete p.barva2; upd(); });
+        if ($("dl-reset")) $("dl-reset").addEventListener("click", function () { delete p.barva; delete p.pohyb; delete p.bici; delete p.skupiny; delete p.upravy; delete p.svetla; delete p.stridani; delete p.stridaniBarvy; delete p.barva2; delete p.gen; upd(); });
       }
       $("split").addEventListener("click", function () {
         var t = now(), c = show.casti; if (t <= x.a + 2 || t >= x.b - 2) { setStatus("Přetoč dovnitř části, aspoň 2 s od kraje"); return; }
@@ -8129,11 +8142,12 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
       $("p-verze").value = v; var out = $("p-out");
       var baleni = function (t) { return '<div class="row" style="gap:16px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-radius:16px;background:rgba(123,47,247,.08);border:1px solid rgba(224,51,138,.25)">' + glowyPoza("bali", 120) + '<div style="flex:1 1 180px"><b style="display:block;font-size:16px">' + t + '</b><span class="sub">Vyrábím scény, kontroluju pravidla a dávám to do zipu.</span></div></div>'; };
       out.innerHTML = baleni("Glowy balí tvoje světla…");
-      setTimeout(function () {
+      doplnAdresy(show).then(function () { setTimeout(function () {
         var t0 = performance.now();
         if (REMOTE) out.innerHTML = baleni("Glowy balí tvoje světla…");
         vyrobBalicek(show, v).then(function (x) { hotovo(x.r, x.chk); }, function (e) { out.innerHTML = '<div class="badbox">' + (REMOTE ? "" : "Generátor skončil chybou: ") + esc(serverChyba(e)) + '</div>'; });
         function hotovo(r, chk) {
+        if (r.rep && r.rep.genBezAdres) setTimeout(function () { if ($("p-out")) $("p-out").insertAdjacentHTML("afterbegin", '<div class="warnbox">Plynulé stěny (generátor) jsou tentokrát po krocích: Glowguss nezná DMX adresy světel této sauny. Ulož show jednou „rovnou do QuickDMX“ do složky sauny a pak ji vyrob znovu, adresy si načtu sám.</div>'); }, 0);
         var ms = Math.round(performance.now() - t0), nsc = r.files ? Object.keys(r.files).length - 1 : "–", drops = {}; r.rep.dropy.forEach(function (x) { drops[x] = 1; });
         var hits = {}; r.rep.hity.forEach(function (x) { hits[x] = 1; });
         last = { v: v, r: r, ok: chk.nalezu === 0 };
@@ -8155,7 +8169,7 @@ onnxruntime-web/dist/ort.wasm.bundle.min.mjs:
         if ($("p-qd")) $("p-qd").addEventListener("click", function () { doSlozky(false); });
         if ($("p-live")) $("p-live").addEventListener("change", function () { try { localStorage.setItem("glowguss-live-tlacitko", this.checked ? "1" : "0"); } catch (e) {} });
         }
-      }, 30);
+      }, 30); });
     });
     function liveVolba() { try { return localStorage.getItem("glowguss-live-tlacitko") === "1"; } catch (e) { return false; } }
     // web in Chrome/Edge: write the light files straight into the sauna's QuickDMX project folder (chosen once, remembered per sauna)
